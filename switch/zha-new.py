@@ -11,7 +11,8 @@ from homeassistant.components import zha
 
 _LOGGER = logging.getLogger(__name__)
 
-DEPENDENCIES = ['zha']
+""" change to zha-new for use in home dir """
+DEPENDENCIES = ['zha-new']
 
 
 def setup_platform(hass, config, add_devices, discovery_info=None):
