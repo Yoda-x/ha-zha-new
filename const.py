@@ -3,7 +3,9 @@
 DEVICE_CLASS = {}
 SINGLE_CLUSTER_DEVICE_CLASS = {}
 COMPONENT_CLUSTERS = {}
-
+CONF_IN_CLUSTER = 'in_cluster'
+CONF_OUT_CLUSTER = 'out_cluster'
+CONF_CONFIG_REPORT= 'config_report'
 def populate_data():
     """Populate data using constants from bellows.
     These cannot be module level, as importing bellows must be done in a
