@@ -15,7 +15,7 @@ from homeassistant.util import slugify
 
 REQUIREMENTS = ['bellows==0.4.0']
 
-DOMAIN = 'zha'
+DOMAIN = 'zha-new'
 
 CONF_BAUDRATE = 'baudrate'
 CONF_DATABASE = 'database_path'
