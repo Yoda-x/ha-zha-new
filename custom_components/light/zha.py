@@ -12,7 +12,7 @@ from homeassistant.const import STATE_UNKNOWN
 
 _LOGGER = logging.getLogger(__name__)
 """ change to ZHA-new for use in home-dir """
-DEPENDENCIES = ['zha-new']
+DEPENDENCIES = ['zha_new']
 
 DEFAULT_DURATION = 0.5
 
