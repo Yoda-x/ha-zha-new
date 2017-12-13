@@ -12,7 +12,7 @@ from homeassistant.components import zha
 _LOGGER = logging.getLogger(__name__)
 
 """ change to zha-new for use in home dir """
-DEPENDENCIES = ['zha-new']
+DEPENDENCIES = ['zha_new']
 
 
 def setup_platform(hass, config, add_devices, discovery_info=None):
