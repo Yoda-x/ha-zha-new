@@ -1,0 +1,119 @@
+homeassistant:
+  # Name of the location where Home Assistant is running
+  name: Home
+  # Location required to calculate the time the sun rises and sets
+  latitude: 50.7333
+  longitude: 7.1
+  # Impacts weather/sunrise data (altitude above sea level in meters)
+  elevation: 60
+  # metric for Metric, imperial for Imperial
+  unit_system: metric
+  # Pick yours from here: http://en.wikipedia.org/wiki/List_of_tz_database_time_zones
+  time_zone: Europe/Berlin
+  # Customization file
+  customize: !include customize.yaml
+
+# Show links to resources in log and frontend
+#introduction:
+
+# Enables the frontend
+frontend:
+
+# Enables configuration UI
+config:
+
+http:
+  # Secrets are defined in the file secrets.yaml
+    api_password: !secret http_password
+  # Uncomment this if you are using SSL/TLS, running in Docker container, etc.
+  # base_url: example.duckdns.org:8123
+
+# Checks for available updates
+# Note: This component will send some information about your system to
+# the developers to assist with development of Home Assistant.
+# For more information, please see:
+# https://home-assistant.io/blog/2016/10/25/explaining-the-updater/
+#updater:
+  # Optional, allows Home Assistant developers to focus on popular components.
+  # include_used_components: true
+
+# Discover some devices automatically
+discovery:
+
+# Allows you to issue voice commands from the frontend in enabled browsers
+#conversation:
+
+# Enables support for tracking state changes over time
+#history:
+
+# View all events in a logbook
+logbook:
+
+# Track the sun
+#sun:
+
+zha_new:
+    usb_path: /dev/ttyUSB0
+    database_path: /home/homeassistant/.homeassistant/zigbee.db
+    device_config: 
+      "00:15:8d:00:01:d8:24:e0-1":
+#        type: switch
+        type: binary_sensor
+        in_cluster: [ 0, 25, 3, 6]
+        out_cluster: [ 0, 3, 4, 5, 8, 6, 25]
+      "00:15:8d:00:01:a4:e1:62-1":
+        type: binary_sensor 
+        in_cluster: [ 0, 25, 3, 6]
+        out_cluster: [ 0, 3, 4, 5, 8, 6, 25]
+        config_report: [ 1, 20, 10, 120, 1]
+      "00:15:8d:00:01:6f:dc:a8-1":
+        type: binary_sensor
+
+# Weather prediction
+#sensor:
+#  - platform: yr
+#  - platform: mqtt_room
+#    device_id: cb:3a:b2:70:e0:8b 
+#    name: 'MiBand2Arno'
+#    state_topic: 'room_presence'
+#    timeout: 5
+#    away_timeout: 60
+# Text to speech
+#tts:
+#  - platform: google
+
+group: !include groups.yaml
+automation: !include automations.yaml
+script: !include scripts.yaml
+
+#mqtt:
+
+#device_tracker:
+#  - platform: tomato
+#    host: 192.168.0.5
+#    username: root
+#    password:  .meins.
+#    http_id: TIDf7db4f2010ccf84b
+#    track_new_devices: yes
+#  - platform: ddwrt
+#    host: 192.168.0.6
+#    username: 1OG
+#    password: .meins.
+#  - platform: bluetooth_le_tracker
+#tradfri:
+#  host: 192.168.0.26
+#  api_key: tBUYahpGNuRBTpLo
+
+#media_player:
+#  - platform: yamaha
+#    host: 192.168.0.27
+#    source_ignore:
+#      - "AUX"
+#      - "HDMI5"
+#    source_names:
+#      HDMI1: "XBOX"
+#      HDMI2: "ZBOX"
+#      HDMI4: "T-Entertain"
+#
+logger:
+  default: debug
