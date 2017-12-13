@@ -13,7 +13,7 @@ from homeassistant.util.temperature import convert as convert_temperature
 
 _LOGGER = logging.getLogger(__name__)
 
-DEPENDENCIES = ['zha']
+DEPENDENCIES = ['zha_new']
 
 
 @asyncio.coroutine
