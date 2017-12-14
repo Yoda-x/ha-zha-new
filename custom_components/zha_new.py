@@ -202,6 +202,7 @@ class ApplicationListener:
 #        import custom_components.zha_new.const as zha_const
         populate_data()
 
+      
         for endpoint_id, endpoint in device.endpoints.items():
             if endpoint_id == 0:  # ZDO
                 continue
@@ -243,8 +244,11 @@ class ApplicationListener:
                     cluster = endpoint.add_input_cluster(report_cls)
                 else:
                     cluster = endpoint.in_clusters[report_cls]
-                yield from endpoint.in_clusters[report_cls].configure_reporting(report_attr, int(report_min), int(report_max), report_change)
-
+                try:    
+                    yield from endpoint.in_clusters[report_cls].configure_reporting(report_attr, int(report_min), int(report_max), report_change)
+                except:
+                    pass
+                    
             if component:
                 """only discovered clusters that are in the profile or configuration listed"""
                 in_clusters = [endpoint.in_clusters[c]
@@ -301,7 +305,7 @@ class ApplicationListener:
                     {'discovery_key': cluster_key},
                     self._config,
                 )
-     device._application.listener_event('device_updaded', device)
+        device._application.listener_event('device_updated', device)
 
     
 class Entity(entity.Entity):
