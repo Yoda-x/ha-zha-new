@@ -301,6 +301,7 @@ class ApplicationListener:
                     {'discovery_key': cluster_key},
                     self._config,
                 )
+     device._application.listener_event('device_updaded', device)
 
     
 class Entity(entity.Entity):
