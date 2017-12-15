@@ -195,6 +195,10 @@ class ApplicationListener:
         """Handle device being removed from the network."""
         pass
 
+    def device_updated(self, device ):
+        """ do nothing  """
+        pass
+
     @asyncio.coroutine
     def async_device_initialized(self, device, join):
         """Handle device joined and basic information discovered (async)."""
@@ -275,6 +279,7 @@ class ApplicationListener:
                     {'discovery_key': device_key},
                     self._config,
                 )
+                _LOGGER.debug("Return from component 1st call")
            
             """if a disocered cluster is not in the allowed clusters and part of SINGLE_CLUSTERS_DEVCICE_CLASS, the clusters that were not in discovery above """
             """ then create just this cluster in discovery endpoints"""
@@ -305,6 +310,8 @@ class ApplicationListener:
                     {'discovery_key': cluster_key},
                     self._config,
                 )
+                _LOGGER.debug("Return from single-cluster call")
+        _LOGGER.debug("Return from zha: %s", endpoint.in_clusters)
         device._application.listener_event('device_updated', device)
 
     

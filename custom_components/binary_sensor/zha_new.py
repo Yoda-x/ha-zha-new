@@ -39,13 +39,15 @@ def async_setup_platform(hass, config, async_add_devices, discovery_info=None):
     import bellows.zigbee.endpoint
 
     in_clusters = discovery_info['in_clusters']
+    endpoint=discovery_info['endpoint']
     
     device_class = None
     """ create ias cluster if it not already exists"""
-    endpoint=discovery_info['endpoint']
+    
     if IasZone.cluster_id not in in_clusters:
         cluster = endpoint.add_input_cluster(IasZone.cluster_id)
         in_clusters[IasZone.cluster_id] = cluster
+        endpoint.in_clusters[IasZone.cluster_id] = cluster
     else:
         cluster = in_clusters[IasZone.cluster_id]
         
@@ -53,17 +55,20 @@ def async_setup_platform(hass, config, async_add_devices, discovery_info=None):
         yield from cluster.bind()
         ieee = cluster.endpoint.device.application.ieee
         yield from cluster.write_attributes({'cie_addr': ieee})
+        _LOGGER.debug("write cie done")
 
     try:
+        _LOGGER.debug("try zone read")
         zone_type = yield from cluster['zone_type']
+        _LOGGER.debug("done zone read")
         device_class = CLASS_MAPPING.get(zone_type, None)
     except Exception:  # pylint: disable=broad-except
-        # If we fail to read from the device, use a non-specific class
-        pass
+        device_class="unknown"
 
     sensor = BinarySensor(device_class, **discovery_info)
     async_add_devices([sensor])
-
+    endpoint._device._application.listener_event('device_updated', endpoint._device)
+    _LOGGER.debug("Return from binary_sensor- ias cluster %s", endpoint.in_clusters)
 
 class BinarySensor(zha_new.Entity, BinarySensorDevice):
     """THe ZHA Binary Sensor."""
