@@ -103,3 +103,12 @@ class BinarySensor(zha_new.Entity, BinarySensorDevice):
         elif command_id == 1:
             _LOGGER.debug("Enroll requested")
             self.hass.add_job(self._ias_zone_cluster.enroll_response(0, 0))
+
+    def attribute_updated(self, attribute, value):
+        if attribute == 0:
+            self._state = value
+        else:
+            self._device_state_attributes[attribute] = value
+        
+        self.schedule_update_ha_state()
+        _LOGGER.debug("zha.binary_sensor update: %s = %s ", attribute, value)

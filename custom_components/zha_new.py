@@ -66,6 +66,7 @@ def populate_data():
     SINGLE_CLUSTER_DEVICE_CLASS.update({
         zcl.clusters.general.OnOff: 'switch',
         zcl.clusters.measurement.TemperatureMeasurement: 'sensor',
+        zcl.clusters.measurement.RelativeHumidity: 'sensor',
         zcl.clusters.security.IasZone: 'binary_sensor',
     })
 
@@ -189,7 +190,7 @@ class ApplicationListener:
 
     def device_left(self, device):
         """Handle device leaving the network."""
-        pass
+        _LOGGER.debug("Device left: Need to remove the device, otherwise it will skipped with new join")
 
     def device_removed(self, device):
         """Handle device being removed from the network."""
@@ -208,6 +209,7 @@ class ApplicationListener:
 
       
         for endpoint_id, endpoint in device.endpoints.items():
+            _LOGGER.debug("ZHA_NEW: Endpoint loop : %s", endpoint_id)
             if endpoint_id == 0:  # ZDO
                 continue
 
@@ -242,17 +244,20 @@ class ApplicationListener:
                 _LOGGER.debug("out_clusters:  %s -%s",node_config.get(CONF_OUT_CLUSTER),profile_clusters[1])
             """ if reporting is configured in yaml, then create cluster if needed and setup reporting """
             if CONF_CONFIG_REPORT in node_config:
-                report_cls, report_attr, report_min, report_max, report_change = node_config.get(CONF_CONFIG_REPORT)
-                _LOGGER.debug("config:report:  %s ----------%s",node_config.get(CONF_CONFIG_REPORT), type(report_min))
-                if report_cls not in endpoint.in_clusters:
-                    cluster = endpoint.add_input_cluster(report_cls)
-                else:
-                    cluster = endpoint.in_clusters[report_cls]
-                try:    
-                    yield from endpoint.in_clusters[report_cls].configure_reporting(report_attr, int(report_min), int(report_max), report_change)
-                except:
-                    pass
-                    
+                for report in node_config.get(CONF_CONFIG_REPORT):
+                    report_cls, report_attr, report_min, report_max, report_change = report
+                    _LOGGER.debug("config:report:  %s", report)
+                    if report_cls not in endpoint.in_clusters:
+                        cluster = endpoint.add_input_cluster(report_cls)
+                    else:
+                        cluster = endpoint.in_clusters[report_cls]
+                    try:
+                        yield from endpoint.in_clusters[report_cls].bind()
+                        yield from endpoint.in_clusters[report_cls].configure_reporting(report_attr, int(report_min), int(report_max), report_change)
+                    except:
+                        _LOGGER.info("Error: set config report failed: %s", report)
+                        
+                        
             if component:
                 """only discovered clusters that are in the profile or configuration listed"""
                 in_clusters = [endpoint.in_clusters[c]
@@ -279,7 +284,7 @@ class ApplicationListener:
                     {'discovery_key': device_key},
                     self._config,
                 )
-                _LOGGER.debug("Return from component 1st call")
+                _LOGGER.debug("Return from component 1st call:%s", discovery_info)
            
             """if a disocered cluster is not in the allowed clusters and part of SINGLE_CLUSTERS_DEVCICE_CLASS, the clusters that were not in discovery above """
             """ then create just this cluster in discovery endpoints"""
@@ -310,7 +315,7 @@ class ApplicationListener:
                     {'discovery_key': cluster_key},
                     self._config,
                 )
-                _LOGGER.debug("Return from single-cluster call")
+                _LOGGER.debug("Return from single-cluster call:%s", discovery_info)
         _LOGGER.debug("Return from zha: %s", endpoint.in_clusters)
         device._application.listener_event('device_updated', device)
 
@@ -327,6 +332,8 @@ class Entity(entity.Entity):
         ieeetail = ''.join([
             '%02x' % (o, ) for o in endpoint.device.ieee[-4:]
         ])
+        
+            
         if manufacturer and model is not None:
             self.entity_id = '%s.%s_%s_%s_%s' % (
                 self._domain,
@@ -345,6 +352,12 @@ class Entity(entity.Entity):
                 ieeetail,
                 endpoint.endpoint_id,
             )
+        if 'cluster_key' in kwargs:
+            self.entity_id += '_'
+            self.entity_id += kwargs['cluster_key']
+            self._device_state_attributes['friendly_name'] += '_'
+            self._device_state_attributes['friendly_name'] += kwargs['cluster_key']
+            
         for cluster in in_clusters.values():
             cluster.add_listener(self)
         for cluster in out_clusters.values():
@@ -356,6 +369,7 @@ class Entity(entity.Entity):
 
     def attribute_updated(self, attribute, value):
         self._state=value
+        self.schedule_update_ha_state()
         _LOGGER.debug("zha update: %s = %s\nType %s ", attribute, value, type(self))
 
     def zdo_command(self, aps_frame, tsn, command_id, args):
