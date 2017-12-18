@@ -5,7 +5,7 @@ based on the work from rcloran and others
 
 Converted to a custom_component for an easier way to test and distribute to others without changing the homeassistant code. Should be forked back to the HA  codeafter testing. 
 
-**Current State: for the dev branch** 
+**Current State:needs my bellows changes** 
 - working Xiaomi Door/windows sensor as binary_sensor with state updates inside HA
 - working Xiaomi HT sensors inside HA
 - use in_cluster and out_cluster to override predefined cluster_profile from bellows, that not match non_standard devices
