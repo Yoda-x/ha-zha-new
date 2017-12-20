@@ -67,6 +67,7 @@ def populate_data():
         zcl.clusters.general.OnOff: 'switch',
         zcl.clusters.measurement.TemperatureMeasurement: 'sensor',
         zcl.clusters.measurement.RelativeHumidity: 'sensor',
+        zcl.clusters.measurement.OccupancySensing: 'sensor',
         zcl.clusters.security.IasZone: 'binary_sensor',
     })
 
@@ -214,7 +215,7 @@ class ApplicationListener:
                 continue
 
             discovered_info = yield from _discover_endpoint_info(endpoint)
-
+            battery_voltage = yield from get_battery(endpoint)
             component = None
             profile_clusters = [set(), set()]
             """device_key=ieee-EP ->endpoint"""
@@ -316,6 +317,8 @@ class ApplicationListener:
                     self._config,
                 )
                 _LOGGER.debug("Return from single-cluster call:%s", discovery_info)
+
+        
         _LOGGER.debug("Return from zha: %s", endpoint.in_clusters)
         device._application.listener_event('device_updated', device)
 
@@ -433,3 +436,21 @@ def get_discovery_info(hass, discovery_info):
     all_discovery_info = hass.data.get(DISCOVERY_KEY, {})
     discovery_info = all_discovery_info.get(discovery_key, None)
     return discovery_info
+
+def get_battery(endpoint):
+    _LOGGER.debug("enter Battery :  ")
+    battery_voltage= None
+    if 1 not in endpoint.in_clusters:
+        return 0xff
+
+    @asyncio.coroutine
+    def read(attributes):
+        """Read attributes and update extra_info convenience function."""
+        battery_voltage = yield from endpoint.in_clusters[1].read_attributes(
+            attributes,
+            allow_cache=True,
+        )
+        extr.update(result)
+    yield from read(['battery_voltage'])
+    _LOGGER.debug("exit Battery : %s ", battery_voltage )
+    return battery_voltage
