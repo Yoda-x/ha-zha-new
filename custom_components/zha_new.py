@@ -349,6 +349,9 @@ class Entity(entity.Entity):
                 manufacturer,
                 model,
             )
+            self._device_state_attributes['model'] = model
+            self._device_state_attributes['manufacturer'] = manufacturer
+            
         else:
             self.entity_id = "%s.zha_%s_%s" % (
                 self._domain,
@@ -437,20 +440,21 @@ def get_discovery_info(hass, discovery_info):
     discovery_info = all_discovery_info.get(discovery_key, None)
     return discovery_info
 
+@asyncio.coroutine
+def attribute_read(endpoint, cluster, attributes):
+    """Read attributes and update extra_info convenience function."""
+    result = yield from endpoint.in_clusters[cluster].read_attributes(
+        attributes,
+        allow_cache=True,
+    )
+    return result
+
+@asyncio.coroutine
 def get_battery(endpoint):
-    _LOGGER.debug("enter Battery :  ")
+    _LOGGER.debug("enter get_battery")
     battery_voltage= None
     if 1 not in endpoint.in_clusters:
         return 0xff
-
-    @asyncio.coroutine
-    def read(attributes):
-        """Read attributes and update extra_info convenience function."""
-        battery_voltage = yield from endpoint.in_clusters[1].read_attributes(
-            attributes,
-            allow_cache=True,
-        )
-        extr.update(result)
-    yield from read(['battery_voltage'])
-    _LOGGER.debug("exit Battery : %s ", battery_voltage )
-    return battery_voltage
+    battery= yield from attribute_read(endpoint, 0x0001,['battery_voltage'])
+    _LOGGER.debug("exit Battery : %s ", battery[0} )
+    return battery[0]
