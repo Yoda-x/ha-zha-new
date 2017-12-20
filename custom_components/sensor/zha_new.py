@@ -5,6 +5,7 @@ at https://home-assistant.io/components/sensor.zha/
 """
 import asyncio
 import logging
+import time
 
 from homeassistant.components.sensor import DOMAIN
 from homeassistant.const import TEMP_CELSIUS
@@ -39,12 +40,15 @@ def make_sensor(discovery_info):
     """Create ZHA sensors factory."""
     from bellows.zigbee.zcl.clusters.measurement import TemperatureMeasurement
     from bellows.zigbee.zcl.clusters.measurement import RelativeHumidity
+    from bellows.zigbee.zcl.clusters.measurement import OccupancySensing
 
     in_clusters = discovery_info['in_clusters']
     if TemperatureMeasurement.cluster_id in in_clusters:
-        sensor = TemperatureSensor(**discovery_info,cluster_key = TemperatureMeasurement.ep_attribute )
+        sensor = TemperatureSensor(**discovery_info,cluster_key = TemperatureMeasurement.ep_attribute)
     elif RelativeHumidity.cluster_id in in_clusters:
         sensor = HumiditySensor(**discovery_info, cluster_key = RelativeHumidity.ep_attribute )
+    elif OccupancySensing.cluster_id in in_clusters:
+        sensor = OccupancySensor(**discovery_info, cluster_key = OccupancySensing.ep_attribute )
     else:
         sensor = Sensor(**discovery_info)
 
@@ -78,13 +82,14 @@ class Sensor(zha_new.Entity):
         """Handle attribute update from device."""
         _LOGGER.debug("Attribute updated: %s %s %s", self, attribute, value)
         if attribute == self.value_attribute:
-            self._state = value
-            self.schedule_update_ha_state()
+            self._state = value        
+        self.schedule_update_ha_state()
 
 
 class TemperatureSensor(Sensor):
     """ZHA temperature sensor."""
-
+    from bellows.zigbee.zcl.clusters.measurement import TemperatureMeasurement
+    
     min_reportable_change = 50  # 0.5'C
 
     @property
@@ -106,7 +111,9 @@ class TemperatureSensor(Sensor):
         _LOGGER.debug("Attribute updated: %s %s %s", self, attribute, value)
         if attribute == self.value_attribute:
             self._state = value
-            self.schedule_update_ha_state()
+        else:
+            self._device_state_attributes[TemperatureMeasurement.attributes[attribute][0]] = value
+        self.schedule_update_ha_state()
 
 class HumiditySensor(Sensor):
     """ZHA  humidity sensor."""
@@ -125,4 +132,30 @@ class HumiditySensor(Sensor):
             return 'unknown'
         percent = round(float(self._state) / 100, 1)
         return percent
+
+class OccupancySensor(Sensor):
+    """ ZHA Occupancy Sensor """
+    in_reportable_change = '01'  # on off
+
+    @property
+    def unit_of_measurement(self):
+        """Return the unit of measuremnt of this entity."""
+        return " "
+
+    @property
+    def state(self):
+        """Return the state of the entity."""
+        if self._state == 'unknown':
+            return 'unknown'
+        _state_ = self._state
+        self._state = 0; 
+        return bool(_state_)
+
+    def attribute_updated(self, attribute, value):
+        """Handle attribute update from device."""
+        _LOGGER.debug("Attribute updated: %s %s %s", dir(self), attribute, value)
+        if attribute == self.value_attribute:
+            self._state = value
+        self.schedule_update_ha_state()
+
 
