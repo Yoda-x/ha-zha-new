@@ -43,12 +43,23 @@ def make_sensor(discovery_info):
     from bellows.zigbee.zcl.clusters.measurement import OccupancySensing
 
     in_clusters = discovery_info['in_clusters']
+    endpoint = discovery_info['endpoint']
+    
     if TemperatureMeasurement.cluster_id in in_clusters:
         sensor = TemperatureSensor(**discovery_info,cluster_key = TemperatureMeasurement.ep_attribute)
     elif RelativeHumidity.cluster_id in in_clusters:
         sensor = HumiditySensor(**discovery_info, cluster_key = RelativeHumidity.ep_attribute )
     elif OccupancySensing.cluster_id in in_clusters:
         sensor = OccupancySensor(**discovery_info, cluster_key = OccupancySensing.ep_attribute )
+        try: 
+            result = yield from zha_new.get_attributes(endpoint, OccupancySensing.cluster_id, ['occupancy',
+                                                                                               'occupancy_sensor_type                                                                                        
+                                                                                               '])
+            sensor._device_state_attributes['occupancy_sensor_type'] = result[1]
+            sensor._state= result[0]
+       
+        except:
+            pass
     else:
         sensor = Sensor(**discovery_info)
 
@@ -60,7 +71,9 @@ def make_sensor(discovery_info):
 #            attr, 300, 600, sensor.min_reportable_change,
 #        )
     _LOGGER.debug("Return make_sensor")
-
+    
+    
+    
     return sensor
 
 
