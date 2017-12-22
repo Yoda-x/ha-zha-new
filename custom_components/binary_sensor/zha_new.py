@@ -10,6 +10,7 @@ import homeassistant.util.dt as dt_util
 from homeassistant.components.binary_sensor import DOMAIN, BinarySensorDevice
 from custom_components import zha_new
 from homeassistant.helpers.event import track_point_in_time
+from homeassistant.helpers.event import async_track_point_in_time
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -147,7 +148,8 @@ class OccupancySensor(BinarySensor):
     """ ZHA Occupancy Sensor """
     value_attribute = 0
     re_arm_sec = 20
-    """ re-arm code  copied from z-wave sensors"""
+    """ re-arm code inspired by z-wave sensors"""
+    
     @property
     def is_on(self) -> bool:
         _LOGGER.debug("OccupancySensor.is_on")
@@ -161,17 +163,24 @@ class OccupancySensor(BinarySensor):
     
     def attribute_updated(self, attribute, value):
         """Handle attribute update from device."""
+        """ handle trigger events from motion sensor, clear state after re_arm_sec seconds """
         _LOGGER.debug("Attribute updated: %s %s", attribute, value)
         if attribute == self.value_attribute:
             self._state = value
-        
-
+            
+            """ clear state to False""
+            @aasyncio.coroutine
+            def _async_clear_state(self):
+                self._state = 0
+                self.invalidate_after=None
+                self.schedule_update_ha_state()
+                
         self.invalidate_after = dt_util.utcnow() + datetime.timedelta(
             seconds=self.re_arm_sec)
         self._device_state_attributes['last detection:'] = self.invalidate_after
-       # track_point_in_time(
-        #    self.hass, self.async_update_ha_state,
-         #   self.invalidate_after)
+        asycnc_track_point_in_time(
+            self.hass, _async_clear_state,
+            self.invalidate_after)
         self.schedule_update_ha_state()
         
 class OnOffSensor(BinarySensor):
