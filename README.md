@@ -10,7 +10,7 @@ Converted to a custom_component for an easier way to test and distribute to othe
 - working Xiaomi HT sensors inside HA
 - use in_cluster and out_cluster to override predefined cluster_profile from bellows, that not match non_standard devices
 - configure reporting inside configuration.yaml
-- (dev) working original motion sensor, clear detection after 20 sec, as sensor only send detection reports, but no "clear" reports
+- (dev) working original xiaomi motion sensor, clear detection after 20 sec, as sensor only send detection reports, but no "clear" reports
 - (dev) if a device leaves, the device gets removed from the database. Thus, you can unpair and pair a device now, without need to clear the database
 - see the zha.yaml file for configuration
 - it will create a base entity and a entity for each sensor(motion, temp, humidity, on/off)
