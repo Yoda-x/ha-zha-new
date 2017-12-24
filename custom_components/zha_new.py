@@ -192,7 +192,8 @@ class ApplicationListener:
     def device_left(self, device):
         """Handle device leaving the network."""
         _LOGGER.debug("Device left: Need to remove the device, otherwise it will skipped with new join")
-
+        self._hass.async_add_job(APPLICATION_CONTROLLER.remove(device._ieee))
+        
     def device_removed(self, device):
         """Handle device being removed from the network."""
         pass
@@ -215,7 +216,7 @@ class ApplicationListener:
                 continue
 
             discovered_info = yield from _discover_endpoint_info(endpoint)
-            battery_voltage = yield from get_battery(endpoint)
+            
             component = None
             profile_clusters = [set(), set()]
             """device_key=ieee-EP ->endpoint"""
@@ -244,7 +245,7 @@ class ApplicationListener:
                 profile_clusters[1].update(node_config.get(CONF_OUT_CLUSTER))
                 _LOGGER.debug("out_clusters:  %s -%s",node_config.get(CONF_OUT_CLUSTER),profile_clusters[1])
             """ if reporting is configured in yaml, then create cluster if needed and setup reporting """
-            if CONF_CONFIG_REPORT in node_config:
+            if CONF_CONFIG_REPORT in node_config and join:
                 for report in node_config.get(CONF_CONFIG_REPORT):
                     report_cls, report_attr, report_min, report_max, report_change = report
                     _LOGGER.debug("config:report:  %s", report)
@@ -257,7 +258,10 @@ class ApplicationListener:
                         yield from endpoint.in_clusters[report_cls].configure_reporting(report_attr, int(report_min), int(report_max), report_change)
                     except:
                         _LOGGER.info("Error: set config report failed: %s", report)
-                        
+            try:
+                battery_voltage = yield from get_battery(endpoint)
+            except:
+                pass
                         
             if component:
                 """only discovered clusters that are in the profile or configuration listed"""
@@ -296,8 +300,11 @@ class ApplicationListener:
                     continue
                 if cluster_type not in SINGLE_CLUSTER_DEVICE_CLASS:
                     continue
-
-                component = SINGLE_CLUSTER_DEVICE_CLASS[cluster_type]
+                if ha_const.CONF_TYPE in node_config:
+                    component = node_config[ha_const.CONF_TYPE]
+                else:
+                    component = SINGLE_CLUSTER_DEVICE_CLASS[cluster_type]
+                
                 discovery_info = {
                     'endpoint': endpoint,
                     'in_clusters': {cluster.cluster_id: cluster},
@@ -456,5 +463,5 @@ def get_battery(endpoint):
     if 1 not in endpoint.in_clusters:
         return 0xff
     battery= yield from attribute_read(endpoint, 0x0001,['battery_voltage'])
-    _LOGGER.debug("exit Battery : %s ", battery[0} )
+    _LOGGER.debug("exit Battery : %s ", battery[0] )
     return battery[0]

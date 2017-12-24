@@ -86,7 +86,7 @@ def make_sensor(device_class, discovery_info):
     endpoint = discovery_info['endpoint']
     
     if OnOff.cluster_id in in_clusters:
-        sensor = OnOffSensor(None, **discovery_info,cluster_key = OnOff.ep_attribute)
+        sensor = OnOffSensor('opening', **discovery_info,cluster_key = OnOff.ep_attribute)
     elif OccupancySensing.cluster_id in in_clusters:
         sensor = OccupancySensor('motion',**discovery_info,  cluster_key = OccupancySensing.ep_attribute )
         try: 
@@ -117,7 +117,6 @@ class BinarySensor(zha_new.Entity, BinarySensorDevice):
     @property
     def is_on(self) -> bool:
         """Return True if entity is on."""
-        _LOGGER.debug("BinarySensor.is_on: %s, entity:%s", type(self), self.entity_id)
         return bool(self._state)
 
     @property
@@ -148,18 +147,20 @@ class OccupancySensor(BinarySensor):
     """ ZHA Occupancy Sensor """
     value_attribute = 0
     re_arm_sec = 20
+    invalidate_after = None
+    _state = 0
     """ re-arm code inspired by z-wave sensors"""
     
-    @property
-    def is_on(self) -> bool:
-        _LOGGER.debug("OccupancySensor.is_on")
-        """Return true if movement has happened within the rearm time."""
-        if not(self.invalidate_after is None or self.invalidate_after > dt_util.utcnow()):
-            
-            _LOGGER.debug("Occupancy=false")
-        
-            self._state= 0
-        return self._state
+#    @property
+#    def is_on(self) -> bool:
+#        _LOGGER.debug("OccupancySensor.is_on")
+#        """Return true if movement has happened within the rearm time."""
+#        if not(self.invalidate_after is None or self.invalidate_after > dt_util.utcnow()):
+#            
+#            _LOGGER.debug("Occupancy=false")
+#        
+#            self._state= 0
+#        return self._state
     
     def attribute_updated(self, attribute, value):
         """Handle attribute update from device."""
@@ -168,18 +169,20 @@ class OccupancySensor(BinarySensor):
         if attribute == self.value_attribute:
             self._state = value
             
-            """ clear state to False""
-            @aasyncio.coroutine
-            def _async_clear_state(self):
-                self._state = 0
-                self.invalidate_after=None
-                self.schedule_update_ha_state()
+            """ clear state to False"""
+            @asyncio.coroutine
+            def _async_clear_state(entity):
+                _LOGGER.debug("async_clear_state")
+                if (entity.invalidate_after == None) or ( entity.invalidate_after < dt_util.utcnow()):
+                    entity._state = bool(0)
+        #            entity.invalidate_after=None
+                    entity.schedule_update_ha_state()
                 
         self.invalidate_after = dt_util.utcnow() + datetime.timedelta(
             seconds=self.re_arm_sec)
         self._device_state_attributes['last detection:'] = self.invalidate_after
-        asycnc_track_point_in_time(
-            self.hass, _async_clear_state,
+        async_track_point_in_time(
+            self.hass, _async_clear_state(self),
             self.invalidate_after)
         self.schedule_update_ha_state()
         
