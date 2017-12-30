@@ -358,6 +358,7 @@ class Entity(entity.Entity):
             )
             self._device_state_attributes['model'] = model
             self._device_state_attributes['manufacturer'] = manufacturer
+            self._model= model
             
         else:
             self.entity_id = "%s.zha_%s_%s" % (

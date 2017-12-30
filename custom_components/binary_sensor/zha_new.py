@@ -6,6 +6,7 @@ at https://home-assistant.io/components/binary_sensor.zha/
 import asyncio
 import logging
 import datetime
+from importlib import import_module
 import homeassistant.util.dt as dt_util
 from homeassistant.components.binary_sensor import DOMAIN, BinarySensorDevice
 from custom_components import zha_new
@@ -70,13 +71,13 @@ def async_setup_platform(hass, config, async_add_devices, discovery_info=None):
         except Exception:  # pylint: disable=broad-except
             device_class='none'
 
-    sensor = yield from make_sensor(device_class, discovery_info)
+    sensor = yield from _make_sensor(device_class, discovery_info)
     
     async_add_devices([sensor])
     endpoint._device._application.listener_event('device_updated', endpoint._device)
     _LOGGER.debug("Return from binary_sensor init-cluster %s", endpoint.in_clusters)
 
-def make_sensor(device_class, discovery_info):
+def _make_sensor(device_class, discovery_info):
     """Create ZHA sensors factory."""
     from bellows.zigbee.zcl.clusters.general import OnOff
     from bellows.zigbee.zcl.clusters.measurement import OccupancySensing
@@ -100,6 +101,8 @@ def make_sensor(device_class, discovery_info):
 
     _LOGGER.debug("Return make_sensor")
     return sensor
+def _parse_attribute(attrib, value):
+    return(attrib, value)
 
 class BinarySensor(zha_new.Entity, BinarySensorDevice):
     """THe ZHA Binary Sensor."""
@@ -135,11 +138,17 @@ class BinarySensor(zha_new.Entity, BinarySensorDevice):
             self.hass.add_job(self._ias_zone_cluster.enroll_response(0, 0))
 
     def attribute_updated(self, attribute, value):
+        try:
+            dev_func= self._model.replace(".","_")
+            _parse_attribute = getattr(import_module("custom_components.device." + dev_func), "_parse_attribute")
+        except ImportError:
+            _LOGGER.debug("load module %s failed ", dev_func)
+
+        (attribute, value) = _parse_attribute(self,attribute, value)
+        
         if attribute == 0:
             self._state = value
-        else:
-            self._device_state_attributes[attribute] = value
-        
+                
         self.schedule_update_ha_state()
         _LOGGER.debug("zha.binary_sensor update: %s = %s ", attribute, value)
     
@@ -149,21 +158,18 @@ class OccupancySensor(BinarySensor):
     re_arm_sec = 20
     invalidate_after = None
     _state = 0
-    """ re-arm code inspired by z-wave sensors"""
-    
-#    @property
-#    def is_on(self) -> bool:
-#        _LOGGER.debug("OccupancySensor.is_on")
-#        """Return true if movement has happened within the rearm time."""
-#        if not(self.invalidate_after is None or self.invalidate_after > dt_util.utcnow()):
-#            
-#            _LOGGER.debug("Occupancy=false")
-#        
-#            self._state= 0
-#        return self._state
     
     def attribute_updated(self, attribute, value):
+        
+        try:
+            dev_func= self._model.replace(".","_")
+            _parse_attribute = getattr(import_module("custom_components.device." + dev_func), "_parse_attribute")
+        except ImportError:
+            _LOGGER.debug("load module %s failed ", dev_func)
+            
         """Handle attribute update from device."""
+        (attribute, value) = _parse_attribute(self, attribute, value)
+        
         """ handle trigger events from motion sensor, clear state after re_arm_sec seconds """
         _LOGGER.debug("Attribute updated: %s %s", attribute, value)
         if attribute == self.value_attribute:
@@ -190,11 +196,20 @@ class OnOffSensor(BinarySensor):
     """ ZHA On Off Sensor """
     value_attribute = 0
 
-    def attribute_updated(self, attribute, value):
-        """Handle attribute update from device."""
-        _LOGGER.debug("Attribute updated: %s %s", attribute, value)
-        if attribute == self.value_attribute:
-            self._state = value
-        self.schedule_update_ha_state()
+#    def attribute_updated(self, attribute, value):
+#        
+#        try:
+#            dev_func= self._model.replace(".","_")
+#            _parse_attribute = getattr(import_module("custom_components.device." + dev_func), "_parse_attribute")
+#        except ImportError:
+#            _LOGGER.debug("load module %s failed ", dev_func)
+#
+#        (attribute, value) = _parse_attribute(self, attribute, value)
+#        
+#        """Handle attribute update from device."""
+#        _LOGGER.debug("Attribute updated: %s %s", attribute, value)
+#        if attribute == self.value_attribute:
+#            self._state = value
+#        self.schedule_update_ha_state()
 
 
