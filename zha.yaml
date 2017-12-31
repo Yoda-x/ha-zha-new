@@ -1,0 +1,37 @@
+  usb_path: /dev/ttyUSB0
+  database_path: /home/homeassistant/.homeassistant/zigbee.db
+  device_config: 
+#    door/window sensor
+    "00:15:8d:00:01:d8:24:e0-1":
+      type: binary_sensor
+      in_cluster: [ 0, 25, 3, 0xff01]
+      config_report:
+        - [ 1, 20, 3600, 86400, 1]
+        - [ 6, 0, 0, 3600, 1 ]
+    "00:15:8d:00:01:a4:e1:62-1":
+      type: binary_sensor 
+      in_cluster: [ 0, 25, 3, 0xff01]
+      out_cluster: [ 0, 3, 4, 5, 8, 6, 25]
+      config_report: [ 1, 20, 10, 120, 1]
+    "00:15:8d:00:01:6f:dc:a8-1":
+      type: binary_sensor
+      in_cluster: [ 0, 25, 3, 0xff01]
+      config_report:
+        - [ 1, 20, 3600, 86400, 1]
+        - [ 6, 0, 0, 1200, 1 ]
+# motion sensor    
+    "00:15:8d:00:01:65:5c:a3-1":
+      type: binary_sensor
+      in_cluster: [ 0, 1, 25, 3,  0xffff ]
+      out_cluster: [ 0,1, 3, 4, 5, 8, 6, 25]
+      config_report:
+        - [ 1, 20, 1, 1200, 10]
+        - [ 0x406, 0, 1, 1200, '01']
+# temp/humidity sensor        
+    "00:15:8d:00:01:6f:fa:50-1":
+      type: sensor
+      in_cluster: [0x0000, 0x0001, 0x0003, 0x0009, 0xff01 , 0xffff]
+      config_report:
+        - [ 0x0405, 0, 60, 3600, 5]
+        - [ 0x0402, 0, 60, 3600, 5]
+

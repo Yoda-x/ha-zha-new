@@ -12,7 +12,7 @@ from homeassistant.const import TEMP_CELSIUS
 from homeassistant.util.temperature import convert as convert_temperature
 from homeassistant.helpers import discovery, entity
 from custom_components import zha_new
-
+from importlib import import_module
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -41,18 +41,29 @@ def make_sensor(discovery_info):
     from bellows.zigbee.zcl.clusters.measurement import TemperatureMeasurement
     from bellows.zigbee.zcl.clusters.measurement import RelativeHumidity
     from bellows.zigbee.zcl.clusters.measurement import OccupancySensing
+    
 
     in_clusters = discovery_info['in_clusters']
+    endpoint = discovery_info['endpoint']
+    
     if TemperatureMeasurement.cluster_id in in_clusters:
         sensor = TemperatureSensor(**discovery_info,cluster_key = TemperatureMeasurement.ep_attribute)
     elif RelativeHumidity.cluster_id in in_clusters:
         sensor = HumiditySensor(**discovery_info, cluster_key = RelativeHumidity.ep_attribute )
     elif OccupancySensing.cluster_id in in_clusters:
         sensor = OccupancySensor(**discovery_info, cluster_key = OccupancySensing.ep_attribute )
+        try: 
+            result = yield from zha_new.get_attributes(endpoint, OccupancySensing.cluster_id, ['occupancy',
+                                                                                               'occupancy_sensor_type'])
+            sensor._device_state_attributes['occupancy_sensor_type'] = result[1]
+            sensor._state= result[0]
+       
+        except:
+            _LOGGER.debug("get attributes: failed")
     else:
         sensor = Sensor(**discovery_info)
 
-    attr = sensor.value_attribute
+#    attr = sensor.value_attribute
 #    if discovery_info['new_join']:
 #        cluster = list(in_clusters.values())[0]
 #        yield from cluster.bind()
@@ -60,9 +71,14 @@ def make_sensor(discovery_info):
 #            attr, 300, 600, sensor.min_reportable_change,
 #        )
     _LOGGER.debug("Return make_sensor")
-
+    
+    
+    
     return sensor
 
+"""dummy function; override from device handler"""
+def _parse_attribute(entity, attrib, value):
+    return(attrib, value)
 
 class Sensor(zha_new.Entity):
     """Base ZHA sensor."""
@@ -79,8 +95,15 @@ class Sensor(zha_new.Entity):
         return self._state
 
     def attribute_updated(self, attribute, value):
+        try:
+            dev_func= self._model.replace(".","_")
+            _parse_attribute = getattr(import_module("custom_components.device." + dev_func), "_parse_attribute")
+        except ImportError:
+            _LOGGER.debug("load module %s failed ", dev_func)
+
+        (attribute, value) = _parse_attribute(self, attribute, value)
         """Handle attribute update from device."""
-        _LOGGER.debug("Attribute updated: %s %s %s", self, attribute, value)
+        _LOGGER.debug("Attribute updated: %s=%s",attribute, value)
         if attribute == self.value_attribute:
             self._state = value        
         self.schedule_update_ha_state()
@@ -101,19 +124,10 @@ class TemperatureSensor(Sensor):
     def state(self):
         """Return the state of the entity."""
         if self._state == 'unknown':
-            return 'unknown'
+            return '-'
         celsius = round(float(self._state) / 100, 1)
         return convert_temperature(
             celsius, TEMP_CELSIUS, self.unit_of_measurement)
-    
-    def attribute_updated(self, attribute, value):
-        """Handle attribute update from device."""
-        _LOGGER.debug("Attribute updated: %s %s %s", self, attribute, value)
-        if attribute == self.value_attribute:
-            self._state = value
-        else:
-            self._device_state_attributes[TemperatureMeasurement.attributes[attribute][0]] = value
-        self.schedule_update_ha_state()
 
 class HumiditySensor(Sensor):
     """ZHA  humidity sensor."""
@@ -129,33 +143,8 @@ class HumiditySensor(Sensor):
     def state(self):
         """Return the state of the entity."""
         if self._state == 'unknown':
-            return 'unknown'
+            return '-'
         percent = round(float(self._state) / 100, 1)
         return percent
-
-class OccupancySensor(Sensor):
-    """ ZHA Occupancy Sensor """
-    in_reportable_change = '01'  # on off
-
-    @property
-    def unit_of_measurement(self):
-        """Return the unit of measuremnt of this entity."""
-        return " "
-
-    @property
-    def state(self):
-        """Return the state of the entity."""
-        if self._state == 'unknown':
-            return 'unknown'
-        _state_ = self._state
-        self._state = 0; 
-        return bool(_state_)
-
-    def attribute_updated(self, attribute, value):
-        """Handle attribute update from device."""
-        _LOGGER.debug("Attribute updated: %s %s %s", dir(self), attribute, value)
-        if attribute == self.value_attribute:
-            self._state = value
-        self.schedule_update_ha_state()
 
 
