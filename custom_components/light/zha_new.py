@@ -6,9 +6,11 @@ at https://home-assistant.io/components/light.zha/
 import asyncio
 import logging
 
-from homeassistant.components import light, zha
+from homeassistant.components import light
 from homeassistant.util.color import color_RGB_to_xy
 from homeassistant.const import STATE_UNKNOWN
+from custom_components import zha_new
+from importlib import import_module
 
 _LOGGER = logging.getLogger(__name__)
 """ change to ZHA-new for use in home-dir """
@@ -20,7 +22,7 @@ DEFAULT_DURATION = 0.5
 @asyncio.coroutine
 def async_setup_platform(hass, config, async_add_devices, discovery_info=None):
     """Set up the Zigbee Home Automation lights."""
-    discovery_info = zha.get_discovery_info(hass, discovery_info)
+    discovery_info = zha_new.get_discovery_info(hass, discovery_info)
     if discovery_info is None:
         return
 
@@ -34,7 +36,7 @@ def async_setup_platform(hass, config, async_add_devices, discovery_info=None):
     async_add_devices([Light(**discovery_info)], update_before_add=True)
 
 
-class Light(zha.Entity, light.Light):
+class Light(zha_new.Entity, light.Light):
     """Representation of a ZHA or ZLL light."""
 
     _domain = light.DOMAIN
@@ -160,6 +162,8 @@ class Light(zha.Entity, light.Light):
 
         result = yield from safe_read(self._endpoint.on_off, ['on_off'])
         self._state = result.get('on_off', self._state)
+        if not self._state:
+            return
 
         if self._supported_features & light.SUPPORT_BRIGHTNESS:
             result = yield from safe_read(self._endpoint.level,
@@ -184,3 +188,11 @@ class Light(zha.Entity, light.Light):
         False if entity pushes its state to HA.
         """
         return False
+    
+    def cluster_command(self, aps_frame, tsn, command_id, args):
+        try:
+            dev_func= self._model.replace(".","_")
+            _custom_cluster_command = getattr(import_module("custom_components.device." + dev_func), "_custom_cluster_command")
+        except ImportError:
+            _LOGGER.debug("load module %s failed ", dev_func)
+        _custom_cluster_command(self, aps_frame, tsn, command_id, args)

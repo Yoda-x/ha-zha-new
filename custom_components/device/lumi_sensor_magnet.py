@@ -3,6 +3,41 @@ import logging
 import homeassistant.util.dt as dt_util
 _LOGGER = logging.getLogger(__name__)
 
+def _custom_endpoint_init(self, node_config,*argv):
+    """set node_config based obn Lumi device_type"""
+    config={}
+    selector=node_config.get('template',None)
+    if not selector:
+        selector = argv[0]
+    if selector in ['lumi_sensor_magnet', 'lumi_sensor_magnet_aq2']:
+        config={
+        "config_report": [
+            [ 6, 0, 0, 3600, 1 ],            
+            ],
+        "in_cluster": [0x0000, 0x0003, 0xff01 ],
+        "type": "binary_sensor", 
+        }
+    elif selector in ['lumi_sensor_ht', 'lumi_weather']:
+        config={
+        "config_report": [
+            [ 0x0402, 0, 10, 3600, 5],
+            [ 0x0403, 0, 10, 3600, 5],
+            [ 0x0405, 0, 10, 3600, 5],
+            ],
+        "in_cluster": [0x0000, 0x0001, 0x0003, 0xff01],
+        "type": "sensor",
+        }
+    elif selector in ['lumi_sensor_motion', 'lumi_sensor_motion_aq2']:
+        config={
+        "config_report": [
+            [ 0x0406, 0, 10, 3600, 5],
+            ],
+        "in_cluster": [0x0000, 0x0001, 0x0003, 0xff01],
+        "type": "binary_sensor",
+        }
+    
+    node_config.update(config)
+    
 def _battery_percent(voltage):
     min_voltage=2750
     max_voltage=3100
@@ -18,6 +53,7 @@ def _parse_attribute(entity, attrib, value):
         value = result
 
     """ parse custom attributes """
+    attributes={}
     if attrib == 0xff02:
         attribute_name=("state", "battery_voltage_mV","val3","val4","val5","val6")
         result=[]
@@ -32,40 +68,33 @@ def _parse_attribute(entity, attrib, value):
             value=attributes["state"].value
         if "battery_voltage_mV" in attributes:
             attributes["battery_level"] = int(_battery_percent(attributes["battery_voltage_mV"]) )
-        attributes["Last seen"] = dt_util.now()
-        entity._device_state_attributes.update(attributes)
 
     elif attrib == 0xff01:
         _LOGGER.debug("Parse dict 0xff01: set friendly attribute names" )
         attribute_name={
             4 : "X-attrib-4",
             1 : "battery_voltage_mV", 
-            100 : "Temperature" , 
-            101 : "Humidity",
+            100 : "temperature" , 
+            101 : "humidity",
             5 : "X-attrib-5",
             6 : "X-attrib-6", 
             10 : "X-attrib-10"
         }
-        result={} 
-        attributes={}
+        result={}
         _LOGGER.debug("Parse dict 0xff01: parsing" )
         while value:
             skey = int(value[0])
             svalue, value = f.TypeValue.deserialize(value[1:])
-            _LOGGER.debug("Parse dict: %s - %s", skey, svalue.value)
             result[skey]  = svalue.value
-  
         for item, value in result.items():
             key = attribute_name[item] if item in attribute_name else "0xff02-" 
             attributes[key] = value
         if "battery_voltage_mV" in attributes:
             attributes["battery_level"] = int(_battery_percent(attributes["battery_voltage_mV"]))
-        attributes["Last seen"] = dt_util.now()
-
-        entity._device_state_attributes.update(attributes)
     elif attrib == 43041:
-        attribute_name=("X-attrib-val1", "X-attrib-val2", "X-attrib-val3")
-        
+        attribute_name=("X-attrib-val1",
+                        "X-attrib-val2",
+                        "X-attrib-val3")
         result=[]
         svalue, value = t.uint40_t.deserialize(value)
         result.append(svalue)
@@ -74,9 +103,10 @@ def _parse_attribute(entity, attrib, value):
         svalue, value = f.TypeValue.deserialize(value) 
         result.append(svalue.value)
         attributes = zip(attribute_name,result)
-        entity._device_state_attributes.update(attributes)
     else:
         result=value    
-    _LOGGER.debug("Parse Result: %s", result) 
-      
+    _LOGGER.debug("Parse Result: %s", result)
+    
+    attributes["Last seen"] = dt_util.now()
+    entity._device_state_attributes.update(attributes)
     return(attrib, result)

@@ -91,7 +91,7 @@ def _make_sensor(device_class, discovery_info):
     elif OccupancySensing.cluster_id in in_clusters:
         sensor = OccupancySensor('motion',**discovery_info,  cluster_key = OccupancySensing.ep_attribute )
         try: 
-            result = yield from zha_new.get_attributes(endpoint, OccupancySensing.cluster_id, ['occupancy',                                                                            'occupancy_sensor_type'])
+            result = yield from zha_new.get_attributes(endpoint, OccupancySensing.cluster_id, ['occupancy', 'occupancy_sensor_type'])
             sensor._device_state_attributes['occupancy_sensor_type'] = result[1]
             sensor._state= result[0]
         except:
