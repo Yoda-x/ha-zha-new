@@ -102,7 +102,7 @@ def _parse_attribute(entity, attrib, value):
         result.append(svalue.value)
         svalue, value = f.TypeValue.deserialize(value) 
         result.append(svalue.value)
-        attributes = zip(attribute_name,result)
+        attributes = dict(zip(attribute_name,result))
     else:
         result=value    
     _LOGGER.debug("Parse Result: %s", result)
