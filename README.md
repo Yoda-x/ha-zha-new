@@ -5,11 +5,19 @@ based on the work from rcloran and others
 
 Converted to a custom_component for an easier way to test and distribute to others without changing the homeassistant code. Should be forked back to the HA  codeafter testing. 
 
+I have the original Xiaomi sensors not the Aqara, but should work for these also
+
 **Current State:needs my bellows changes** 
+- device specific modules, get loaded based on model
+- xiaomi battery and other attributes
 - working Xiaomi Door/windows sensor as binary_sensor with state updates inside HA
 - working Xiaomi HT sensors inside HA
 - use in_cluster and out_cluster to override predefined cluster_profile from bellows, that not match non_standard devices
 - configure reporting inside configuration.yaml
+- working original xiaomi motion sensor, clear detection after 20 sec, as sensor only send detection reports, but no "clear" reports
+- if a device leaves, the device gets removed from the database. Thus, you can unpair and pair a device now, without need to clear the database
+- see the zha.yaml file for configuration
+- it will create a base entity and a entity for each sensor(motion, temp, humidity, on/off)
 
 
 
