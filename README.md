@@ -1,4 +1,5 @@
 # ha-zha-new
+# see the dev-loader branch for new stuff
 **update of the zha component**
 
 based on the work from rcloran and others
