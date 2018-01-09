@@ -1,14 +1,25 @@
 # ha-zha-new
+=======
 # see the dev-loader branch for new stuff
-**update of the zha component**
-
+#### update of the zha component
 based on the work from rcloran and others
-
 Converted to a custom_component for an easier way to test and distribute to others without changing the homeassistant code. Should be forked back to the HA  codeafter testing. 
 
-I have the original Xiaomi sensors not the Aqara, but should work for these also
+**I have the original Xiaomi sensors not the Aqara, but should work for these also**
 
-**Current State:needs my bellows changes** 
+## 1/8 dev-loader branch ->added support for:
+- tradfri dimmable bulbs, not tested for the temperature bulbs, but maybe working
+- loadable device handler modules in custom_components/device/
+  - to parse attribute reports
+  - to initalize endpoint based on model name
+- template support, templates in device directoy
+- auto detect xiaomi sensors, tested with the xiaomi original sensors, aqara should work,
+  but attributes may not correct
+- added pressure sensor, to  be tested
+
+**Current State:needs my bellows changes(timeout values and device_updated event)** 
+
+### Master branch
 - device specific modules, get loaded based on model
 - xiaomi battery and other attributes
 - working Xiaomi Door/windows sensor as binary_sensor with state updates inside HA
@@ -24,26 +35,23 @@ I have the original Xiaomi sensors not the Aqara, but should work for these also
 
 check out inside your $home/.homeassistant/ diretory, 
 
-USAGE:
+USAGE: 
 
 ```
+#my current zha config with xiaomi sensors and tradfri bulbs
 zha_new:
     usb_path: /dev/ttyUSB0
     database_path: /home/homeassistant/.homeassistant/zigbee.db
     device_config: 
-# Door sensor
-      "00:15:8d:00:01:d8:24:e0-1":
-        type: binary_sensor
-        in_cluster: [ 0, 25, 3,  0xffff ]
-        out_cluster: [ 0, 3, 4, 5, 8, 6, 25]
-        config_report:
-          - [ 1, 20, 1, 1200, 10]
-          - [ 6, 0, 1, 120, '01']
-# HT sensor    
-      "00:15:8d:00:01:6f:fa:50-1":
-        type: sensor
-        config_report:
-          - [ 0x0405, 0, 1, 120, 5]
-          - [ 0x0402, 0, 1, 120, 5]
-```
+  device_config: 
+# tradfri dimmer
+    "00:0b:57:ff:fe:24:18:9f-1":
+      template: tradfri_dimmer
+# tradfri dimmable bulbs
+    "00:0b:57:ff:fe:2d:ab:35-1":
+      template: TRADFRI_bulb
+    "00:0b:57:ff:fe:b2:d3:b7-1":
+      template: TRADFRI_bulb
+
+
      

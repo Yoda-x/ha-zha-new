@@ -35,7 +35,11 @@ class Switch(zha.Entity, SwitchDevice):
         if self._state == 'unknown':
             return False
         return bool(self._state)
-
+    
+    def cluster_command(self, aps_frame, tsn, command_id, args):
+        """Handle commands received to this cluster."""
+       pass
+            
     @asyncio.coroutine
     def async_turn_on(self, **kwargs):
         """Turn the entity on."""

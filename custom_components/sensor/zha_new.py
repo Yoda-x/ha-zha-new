@@ -40,7 +40,7 @@ def make_sensor(discovery_info):
     """Create ZHA sensors factory."""
     from bellows.zigbee.zcl.clusters.measurement import TemperatureMeasurement
     from bellows.zigbee.zcl.clusters.measurement import RelativeHumidity
-    from bellows.zigbee.zcl.clusters.measurement import OccupancySensing
+    from bellows.zigbee.zcl.clusters.measurement import PressureMeasurement
     
 
     in_clusters = discovery_info['in_clusters']
@@ -50,30 +50,12 @@ def make_sensor(discovery_info):
         sensor = TemperatureSensor(**discovery_info,cluster_key = TemperatureMeasurement.ep_attribute)
     elif RelativeHumidity.cluster_id in in_clusters:
         sensor = HumiditySensor(**discovery_info, cluster_key = RelativeHumidity.ep_attribute )
-    elif OccupancySensing.cluster_id in in_clusters:
-        sensor = OccupancySensor(**discovery_info, cluster_key = OccupancySensing.ep_attribute )
-        try: 
-            result = yield from zha_new.get_attributes(endpoint, OccupancySensing.cluster_id, ['occupancy',
-                                                                                               'occupancy_sensor_type'])
-            sensor._device_state_attributes['occupancy_sensor_type'] = result[1]
-            sensor._state= result[0]
-       
-        except:
-            _LOGGER.debug("get attributes: failed")
+    elif PressureMeasurement.cluster_id in in_clusters:
+        sensor = PressureSensor(**discovery_info, cluster_key = PressureMeasurement.ep_attribute )
     else:
         sensor = Sensor(**discovery_info)
 
-#    attr = sensor.value_attribute
-#    if discovery_info['new_join']:
-#        cluster = list(in_clusters.values())[0]
-#        yield from cluster.bind()
-#        yield from cluster.configure_reporting(
-#            attr, 300, 600, sensor.min_reportable_change,
-#        )
-    _LOGGER.debug("Return make_sensor")
-    
-    
-    
+    _LOGGER.debug("Return make_sensor - %s",endpoint)   
     return sensor
 
 """dummy function; override from device handler"""
@@ -113,7 +95,7 @@ class TemperatureSensor(Sensor):
     """ZHA temperature sensor."""
     from bellows.zigbee.zcl.clusters.measurement import TemperatureMeasurement
     
-    min_reportable_change = 50  # 0.5'C
+    min_reportable_change = 50
 
     @property
     def unit_of_measurement(self):
@@ -132,8 +114,7 @@ class TemperatureSensor(Sensor):
 class HumiditySensor(Sensor):
     """ZHA  humidity sensor."""
 
-    min_reportable_change = 50  # 0.5 %
-
+   
     @property
     def unit_of_measurement(self):
         """Return the unit of measuremnt of this entity."""
@@ -147,4 +128,21 @@ class HumiditySensor(Sensor):
         percent = round(float(self._state) / 100, 1)
         return percent
 
+class PressureSensor(Sensor):
+    """ZHA  pressure sensor."""
+
+    min_reportable_change = 50  
+
+    @property
+    def unit_of_measurement(self):
+        """Return the unit of measuremnt of this entity."""
+        return "mbar"
+
+    @property
+    def state(self):
+        """Return the state of the entity."""
+        if self._state == 'unknown':
+            return '-'
+       
+        return self._state
 

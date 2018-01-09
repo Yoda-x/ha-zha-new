@@ -13,6 +13,7 @@ from homeassistant import const as ha_const
 from homeassistant.helpers import discovery, entity
 from homeassistant.util import slugify
 #import custom_components.zha_new.const as zha_const
+from importlib import import_module
 
 REQUIREMENTS = ['bellows==0.4.0']
 
@@ -24,6 +25,7 @@ CONF_DEVICE_CONFIG = 'device_config'
 CONF_USB_PATH = 'usb_path'
 DATA_DEVICE_CONFIG = 'zha_device_config'
 
+
 """All constants related to the ZHA component."""
 
 DEVICE_CLASS = {}
@@ -32,6 +34,9 @@ COMPONENT_CLUSTERS = {}
 CONF_IN_CLUSTER = 'in_cluster'
 CONF_OUT_CLUSTER = 'out_cluster'
 CONF_CONFIG_REPORT= 'config_report'
+CONF_MANUFACTURER = 'manufacturer'
+CONF_MODEL = 'model'
+CONF_TEMPLATE = 'template'  
 
 def populate_data():
     """Populate data using constants from bellows.
@@ -67,7 +72,8 @@ def populate_data():
         zcl.clusters.general.OnOff: 'switch',
         zcl.clusters.measurement.TemperatureMeasurement: 'sensor',
         zcl.clusters.measurement.RelativeHumidity: 'sensor',
-        zcl.clusters.measurement.OccupancySensing: 'sensor',
+        zcl.clusters.measurement.PressureMeasurement: 'sensor',
+        zcl.clusters.measurement.OccupancySensing: 'binary_sensor',
         zcl.clusters.security.IasZone: 'binary_sensor',
     })
 
@@ -80,12 +86,17 @@ def populate_data():
             clusters = profile.CLUSTERS[device_type]
             COMPONENT_CLUSTERS[component][0].update(clusters[0])
             COMPONENT_CLUSTERS[component][1].update(clusters[1])
+            """end populate_data """
 
+""" Schema for configurable options in configuration.yaml """
 DEVICE_CONFIG_SCHEMA_ENTRY = vol.Schema({
     vol.Optional(ha_const.CONF_TYPE): cv.string,
     vol.Optional(CONF_IN_CLUSTER): cv.ensure_list,
     vol.Optional(CONF_OUT_CLUSTER): cv.ensure_list,
     vol.Optional(CONF_CONFIG_REPORT): cv.ensure_list,
+    vol.Optional(CONF_MODEL): cv.string,
+    vol.Optional(CONF_MANUFACTURER): cv.string,
+    vol.Optional(CONF_TEMPLATE): cv.string,
 })
 
 CONFIG_SCHEMA = vol.Schema({
@@ -115,7 +126,7 @@ SERVICE_DESCRIPTIONS = {
 SERVICE_SCHEMAS = {
     SERVICE_PERMIT: vol.Schema({
         vol.Optional(ATTR_DURATION, default=60):
-            vol.All(vol.Coerce(int), vol.Range(1, 254)),
+            vol.All(vol.Coerce(int), vol.Range(0, 255)),
     }),
 }
 
@@ -190,39 +201,66 @@ class ApplicationListener:
         self._hass.async_add_job(self.async_device_initialized(device, True))
 
     def device_left(self, device):
-        """Handle device leaving the network."""
-        _LOGGER.debug("Device left: Need to remove the device, otherwise it will skipped with new join")
+        """Handle device leaving the network. need to  remove entities"""
+        _LOGGER.debug("Device left: remove the device from bellows")
         self._hass.async_add_job(APPLICATION_CONTROLLER.remove(device._ieee))
+#        _LOGGER.debug("Device left, device: %s ", self._hass.states.entity_ids())
+        
         
     def device_removed(self, device):
         """Handle device being removed from the network."""
         pass
 
     def device_updated(self, device ):
-        """ do nothing  """
+        """ do realy nothing here """
         pass
 
     @asyncio.coroutine
     def async_device_initialized(self, device, join):
         """Handle device joined and basic information discovered (async)."""
         import bellows.zigbee.profiles
-#        import custom_components.zha_new.const as zha_const
         populate_data()
+        discovered_info = {}
 
-      
+        """ loop over endpoints"""
         for endpoint_id, endpoint in device.endpoints.items():
             _LOGGER.debug("ZHA_NEW: Endpoint loop : %s", endpoint_id)
             if endpoint_id == 0:  # ZDO
                 continue
-
-            discovered_info = yield from _discover_endpoint_info(endpoint)
             
             component = None
             profile_clusters = [set(), set()]
+            
             """device_key=ieee-EP ->endpoint"""
             device_key = '%s-%s' % (str(device.ieee), endpoint_id)
             node_config = self._config[DOMAIN][CONF_DEVICE_CONFIG].get(device_key, {})
-            _LOGGER.debug("node config: %s", node_config)
+            _LOGGER.debug("node config for %s: %s", device_key, node_config)
+            if CONF_TEMPLATE in node_config:
+                try:
+                    dev_func= node_config.get(CONF_TEMPLATE,"default").replace(".","_").replace(" ","_")
+                    _custom_endpoint_init = getattr(import_module("custom_components.device." + dev_func), "_custom_endpoint_init")
+                    _custom_endpoint_init(endpoint,node_config)
+                except ImportError:
+                    _LOGGER.debug("load module %s failed ", dev_func)
+            if CONF_MANUFACTURER in node_config:
+                discovered_info[CONF_MANUFACTURER] = node_config[CONF_MANUFACTURER]
+            if CONF_MODEL in node_config:
+                discovered_info[CONF_MODEL] = node_config[CONF_MODEL]
+            else:
+                discovered_info = yield from _discover_endpoint_info(endpoint)
+   
+            """ when a model name is available and not the template already applied, use it to do custom init"""    
+            if ( CONF_MODEL in discovered_info) and (CONF_TEMPLATE not in node_config):
+                try:
+                    dev_func= discovered_info.get(CONF_MODEL,"default").replace(".","_").replace(" ","_")
+                    _custom_endpoint_init = getattr(import_module("custom_components.device." + dev_func), "_custom_endpoint_init")
+                    _custom_endpoint_init(endpoint,node_config,dev_func)
+                    _LOGGER.debug("load module %s succes ", dev_func)
+                except ImportError:
+                    _LOGGER.debug("load module %s failed ", dev_func)
+
+
+            _LOGGER.debug("profile %s ", endpoint.profile_id)
             if endpoint.profile_id in bellows.zigbee.profiles.PROFILES:
                 profile = bellows.zigbee.profiles.PROFILES[endpoint.profile_id]
                 if DEVICE_CLASS.get(endpoint.profile_id,{}).get(endpoint.device_type, None):
@@ -230,25 +268,25 @@ class ApplicationListener:
                     profile_clusters[1].update( profile.CLUSTERS[endpoint.device_type][1])
                     profile_info = DEVICE_CLASS[endpoint.profile_id]
                     component = profile_info[endpoint.device_type]
+            
 
             """ Override type (switch,light,sensor, binary_sensor,...) from config """
             if ha_const.CONF_TYPE in node_config:
                 component = node_config[ha_const.CONF_TYPE]
             if component in COMPONENT_CLUSTERS:
-                profile_clusters = COMPONENT_CLUSTERS[component]
+                profile_clusters = COMPONENT_CLUSTERS[component]    
+
             """ Add additional allowed In_Clusters from config """
             if CONF_IN_CLUSTER in node_config:
                 profile_clusters[0].update(node_config.get(CONF_IN_CLUSTER))
-                _LOGGER.debug("in_clusters: %s - %s", node_config.get(CONF_IN_CLUSTER),profile_clusters[0])
             """ Add aditional allowed Out_Clusters from config """
             if CONF_OUT_CLUSTER in node_config:
                 profile_clusters[1].update(node_config.get(CONF_OUT_CLUSTER))
-                _LOGGER.debug("out_clusters:  %s -%s",node_config.get(CONF_OUT_CLUSTER),profile_clusters[1])
+                
             """ if reporting is configured in yaml, then create cluster if needed and setup reporting """
             if CONF_CONFIG_REPORT in node_config and join:
                 for report in node_config.get(CONF_CONFIG_REPORT):
                     report_cls, report_attr, report_min, report_max, report_change = report
-                    _LOGGER.debug("config:report:  %s", report)
                     if report_cls not in endpoint.in_clusters:
                         cluster = endpoint.add_input_cluster(report_cls)
                     else:
@@ -258,11 +296,12 @@ class ApplicationListener:
                         yield from endpoint.in_clusters[report_cls].configure_reporting(report_attr, int(report_min), int(report_max), report_change)
                     except:
                         _LOGGER.info("Error: set config report failed: %s", report)
-            try:
-                battery_voltage = yield from get_battery(endpoint)
-            except:
-                pass
-                        
+#            try:
+#                battery_voltage = yield from get_battery(endpoint)
+#            except:
+#                pass
+
+            _LOGGER.debug("2:profile %s, component: %s cluster:%s", endpoint.profile_id, component, profile_clusters)   
             if component:
                 """only discovered clusters that are in the profile or configuration listed"""
                 in_clusters = [endpoint.in_clusters[c]
@@ -279,6 +318,7 @@ class ApplicationListener:
                     'new_join': join,
                 }
                 """ add 'manufacturer', 'model'  to discovery_info"""
+                
                 discovery_info.update(discovered_info)
                 self._hass.data[DISCOVERY_KEY][device_key] = discovery_info
                 """ goto to the specific code for switch, light sensor or binary_sensor """
@@ -289,7 +329,7 @@ class ApplicationListener:
                     {'discovery_key': device_key},
                     self._config,
                 )
-                _LOGGER.debug("Return from component 1st call:%s", discovery_info)
+                _LOGGER.debug("Return from component general entity:%s", discovery_info)
            
             """if a disocered cluster is not in the allowed clusters and part of SINGLE_CLUSTERS_DEVCICE_CLASS, the clusters that were not in discovery above """
             """ then create just this cluster in discovery endpoints"""
@@ -323,10 +363,10 @@ class ApplicationListener:
                     {'discovery_key': cluster_key},
                     self._config,
                 )
-                _LOGGER.debug("Return from single-cluster call:%s", discovery_info)
+                _LOGGER.debug("Return from single-cluster entity:%s", discovery_info)
 
         
-        _LOGGER.debug("Return from zha: %s", endpoint.in_clusters)
+        _LOGGER.debug("Return from zha device init: %s", endpoint.in_clusters)
         device._application.listener_event('device_updated', device)
 
     
@@ -335,6 +375,7 @@ class Entity(entity.Entity):
 
     _domain = None  # Must be overridden by subclasses
 
+    
     def __init__(self, endpoint, in_clusters, out_clusters, manufacturer,
                  model, **kwargs):
         """Init ZHA entity."""
@@ -360,6 +401,7 @@ class Entity(entity.Entity):
             self._device_state_attributes['manufacturer'] = manufacturer
             self._model= model
             
+            
         else:
             self.entity_id = "%s.zha_%s_%s" % (
                 self._domain,
@@ -374,8 +416,10 @@ class Entity(entity.Entity):
             
         for cluster in in_clusters.values():
             cluster.add_listener(self)
+            cluster.bind()
         for cluster in out_clusters.values():
             cluster.add_listener(self)
+            cluster.bind()
         self._endpoint = endpoint
         self._in_clusters = in_clusters
         self._out_clusters = out_clusters
@@ -384,10 +428,18 @@ class Entity(entity.Entity):
     def attribute_updated(self, attribute, value):
         self._state=value
         self.schedule_update_ha_state()
-        _LOGGER.debug("zha update: %s = %s\nType %s ", attribute, value, type(self))
+    
 
     def zdo_command(self, aps_frame, tsn, command_id, args):
         """Handle a ZDO command received on this cluster."""
+        pass
+
+    def cluster_command(self, aps_frame, tsn, command_id, args):
+        """ handle incomming cluster commands """
+        pass
+
+    def _custom_cluster_command(self, aps_frame, tsn, command_id, args):
+        """ dummy function , to be overridden by device handler """
         pass
 
     @property
@@ -415,12 +467,14 @@ def _discover_endpoint_info(endpoint):
         )
         extra_info.update(result)
 
-    yield from read(['manufacturer', 'model'])
-    if extra_info['manufacturer'] is None or extra_info['model'] is None:
-        # Some devices fail at returning multiple results. Attempt separately.
-        yield from read(['manufacturer'])
+    try:
         yield from read(['model'])
-
+    except:
+        _LOGGER.debug("single read attribute failed: model")
+    try:
+        yield from read(['manufacturer'])
+    except:
+        _LOGGER.debug("single read attribute failed: manufacturer, ")
     for key, value in extra_info.items():
         if isinstance(value, bytes):
             try:
@@ -459,10 +513,8 @@ def attribute_read(endpoint, cluster, attributes):
 
 @asyncio.coroutine
 def get_battery(endpoint):
-    _LOGGER.debug("enter get_battery")
     battery_voltage= None
     if 1 not in endpoint.in_clusters:
         return 0xff
     battery= yield from attribute_read(endpoint, 0x0001,['battery_voltage'])
-    _LOGGER.debug("exit Battery : %s ", battery[0] )
     return battery[0]
