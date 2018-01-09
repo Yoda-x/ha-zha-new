@@ -1,4 +1,6 @@
 # ha-zha-new
+=======
+# see the dev-loader branch for new stuff
 #### update of the zha component
 based on the work from rcloran and others
 Converted to a custom_component for an easier way to test and distribute to others without changing the homeassistant code. Should be forked back to the HA  codeafter testing. 
