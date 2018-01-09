@@ -1,13 +1,15 @@
 # ha-zha-new
 =======
-# see the dev-loader branch for new stuff
+
 #### update of the zha component
 based on the work from rcloran and others
 Converted to a custom_component for an easier way to test and distribute to others without changing the homeassistant code. Should be forked back to the HA  codeafter testing. 
 
 **I have the original Xiaomi sensors not the Aqara, but should work for these also**
 
-## 1/8 dev-loader branch ->added support for:
+**Current State:needs my bellows changes(timeout values and device_updated event)** 
+
+## 1/8 dev-loader branch merged into master ->added support for:
 - tradfri dimmable bulbs, not tested for the temperature bulbs, but maybe working
 - loadable device handler modules in custom_components/device/
   - to parse attribute reports
@@ -16,8 +18,6 @@ Converted to a custom_component for an easier way to test and distribute to othe
 - auto detect xiaomi sensors, tested with the xiaomi original sensors, aqara should work,
   but attributes may not correct
 - added pressure sensor, to  be tested
-
-**Current State:needs my bellows changes(timeout values and device_updated event)** 
 
 ### Master branch
 - device specific modules, get loaded based on model
