@@ -1,13 +1,13 @@
 """
 Switches on Zigbee Home Automation networks.
-For more details on this platform, please refer to the documentation
-at https://home-assistant.io/components/switch.zha/
+
 """
 import asyncio
 import logging
 
 from homeassistant.components.switch import DOMAIN, SwitchDevice
-from homeassistant.components import zha
+from custom_components import zha_new
+from importlib import import_module
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -17,14 +17,14 @@ DEPENDENCIES = ['zha_new']
 
 def setup_platform(hass, config, add_devices, discovery_info=None):
     """Set up Zigbee Home Automation switches."""
-    discovery_info = zha.get_discovery_info(hass, discovery_info)
+    discovery_info = zha_new.get_discovery_info(hass, discovery_info)
     if discovery_info is None:
         return
 
     add_devices([Switch(**discovery_info)])
 
 
-class Switch(zha.Entity, SwitchDevice):
+class Switch(zha_new.Entity, SwitchDevice):
     """ZHA switch."""
 
     _domain = DOMAIN
@@ -32,14 +32,29 @@ class Switch(zha.Entity, SwitchDevice):
     @property
     def is_on(self) -> bool:
         """Return if the switch is on based on the statemachine."""
-        if self._state == 'unknown':
+        if self._state == None:
             return False
         return bool(self._state)
     
     def cluster_command(self, aps_frame, tsn, command_id, args):
         """Handle commands received to this cluster."""
-       pass
-            
+        pass
+    
+    def attribute_updated(self, attribute, value):
+        _LOGGER.debug("attribute update: %s = %s ", attribute, value)
+        try:
+            dev_func= self._model.replace(".","_").replace(" ","_")
+            _parse_attribute = getattr(import_module("custom_components.device." + dev_func), "_parse_attribute")
+        except ImportError:
+            _LOGGER.debug("load module %s failed ", dev_func)
+
+        #(attribute, value) = _parse_attribute(self,attribute, value, dev_func)
+        
+        if attribute == 0:
+            self._state = bool(value)   
+        _LOGGER.debug("attribute update: %s = %s ", attribute, value)       
+        self.schedule_update_ha_state()
+     
     @asyncio.coroutine
     def async_turn_on(self, **kwargs):
         """Turn the entity on."""
@@ -51,3 +66,13 @@ class Switch(zha.Entity, SwitchDevice):
         """Turn the entity off."""
         yield from self._endpoint.on_off.off()
         self._state = 0
+
+    @asyncio.coroutine
+    def async_update(self):
+        """Retrieve latest state."""
+        v = yield from self._endpoint.on_off.read_attributes(
+            ['on_off',],
+            allow_cache=False,
+            )
+        self._state = v[0]['on_off']
+        _LOGGER.debug("on_off %s",  self._state)
