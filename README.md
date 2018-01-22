@@ -5,9 +5,19 @@
 based on the work from rcloran and others
 Converted to a custom_component for an easier way to test and distribute to others without changing the homeassistant code. Should be forked back to the HA  codeafter testing. 
 
-**I have the original Xiaomi sensors not the Aqara, but should work for these also**
+**works for aqara and orignal xiaomi sensors
 
-**Current State:needs my bellows changes(timeout values and device_updated event)** 
+**Current State:needs my bellows changes(timeout values and device_updated event), also includes some bug fixes, updated to latest commits from rcloran, added pull requests to rcloran/bellows** 
+
+## in pipeline for next release
+- metering/on-off support for sitecom WLE-1000 plugs with reporting
+- Aquara Water sensors as binary-sensors
+- add RSSI/LQI information in entity attributes
+
+## Todo
+- detect returning endpoints and update state ( mainly for bulbs), needs endpoint 0 (zdo) enabled in zha Ha component
+- add zha entity to monitor zigbee network state
+
 
 ## 1/8 dev-loader branch merged into master ->added support for:
 - tradfri dimmable bulbs, not tested for the temperature bulbs, but maybe working
@@ -15,9 +25,8 @@ Converted to a custom_component for an easier way to test and distribute to othe
   - to parse attribute reports
   - to initalize endpoint based on model name
 - template support, templates in device directoy
-- auto detect xiaomi sensors, tested with the xiaomi original sensors, aqara should work,
-  but attributes may not correct
-- added pressure sensor, to  be tested
+- auto detect xiaomi sensors, tested with the xiaomi original sensors, aqara work,  but some attributes are not correct ->TODO
+- added pressure sensor, works for Aqara weather sensor -> TODO: need to separate original xiaomi and aquare templates
 
 ### Master branch
 - device specific modules, get loaded based on model
