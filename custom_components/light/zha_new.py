@@ -156,10 +156,29 @@ class Light(zha_new.Entity, light.Light):
                     attributes,
                     allow_cache=False,
                 )
+               # _LOGGER.debug("test discover-attributes")
+               # v = yield from cluster.discover_attributes(0, 32)
+               # _LOGGER.debug("dattributes for cluster:%s" , v[0])
+               # len_v = len(v)
+               # cnt=1
+               # t_attributes={}
+               # for item in v[0]:
+               #     
+               #     t_attributes[item.attrid]=item.datatype
+               #     ptr=item.attrid + 1 if item.attrid > ptr else ptr
+               #     _LOGGER.debug("%s:%s =%s",cnt, item.attrid, item.datatype)
+               #     cnt+=1
+                #attribs=t_attributes.keys()
+               # v = yield from cluster.read_attributes_raw(attribs)
+                
+               # _LOGGER.debug("attributes for cluster:%s" , v)
+                
                 return result
             except Exception:  # pylint: disable=broad-except
                 return {}
 
+       
+        #yield from self._endpoint.on_off.discover_attributes(0,4)
         result = yield from safe_read(self._endpoint.on_off, ['on_off'])
         self._state = result.get('on_off', self._state)
         if not self._state:

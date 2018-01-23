@@ -14,6 +14,7 @@ from homeassistant.helpers import discovery, entity
 from homeassistant.util import slugify
 #import custom_components.zha_new.const as zha_const
 from importlib import import_module
+from bellows.zigbee.device import Device
 
 REQUIREMENTS = ['bellows==0.4.0']
 
@@ -73,6 +74,7 @@ def populate_data():
         zcl.clusters.measurement.TemperatureMeasurement: 'sensor',
         zcl.clusters.measurement.RelativeHumidity: 'sensor',
         zcl.clusters.measurement.PressureMeasurement: 'sensor',
+        zcl.clusters.measurement.IlluminanceMeasurement: 'sensor',
         zcl.clusters.measurement.OccupancySensing: 'binary_sensor',
         zcl.clusters.security.IasZone: 'binary_sensor',
     })
@@ -164,7 +166,8 @@ def async_setup(hass, config):
 
     for device in APPLICATION_CONTROLLER.devices.values():
         hass.async_add_job(listener.async_device_initialized(device, False))
-
+        yield from asyncio.sleep(1)
+        
     @asyncio.coroutine
     def permit(service):
         """Allow devices to join this network."""
@@ -178,6 +181,7 @@ def async_setup(hass, config):
 
     return True
 
+        
 
 class ApplicationListener:
     """All handlers for events that happen on the ZigBee application."""
@@ -194,7 +198,7 @@ class ApplicationListener:
         address
         """
         # Wait for device_initialized, instead
-        pass
+        _LOGGER.debug("Device joined: %s:", device)
 
     def device_initialized(self, device):
         """Handle device joined and basic information discovered."""
@@ -241,26 +245,30 @@ class ApplicationListener:
                     _custom_endpoint_init = getattr(import_module("custom_components.device." + dev_func), "_custom_endpoint_init")
                     _custom_endpoint_init(endpoint,node_config)
                 except ImportError:
-                    _LOGGER.debug("load module %s failed ", dev_func)
+                    _LOGGER.debug("load template %s failed ", dev_func)
             if CONF_MANUFACTURER in node_config:
                 discovered_info[CONF_MANUFACTURER] = node_config[CONF_MANUFACTURER]
             if CONF_MODEL in node_config:
                 discovered_info[CONF_MODEL] = node_config[CONF_MODEL]
-            else:
+            elif 0 in endpoint.in_clusters :
+                """ just get device_info if cluster 0 exists"""
+                if join:                
+                    v = yield from discover_cluster_values(endpoint, endpoint.in_clusters[0])
                 discovered_info = yield from _discover_endpoint_info(endpoint)
+                
    
             """ when a model name is available and not the template already applied, use it to do custom init"""    
             if ( CONF_MODEL in discovered_info) and (CONF_TEMPLATE not in node_config):
                 try:
                     dev_func= discovered_info.get(CONF_MODEL,"default").replace(".","_").replace(" ","_")
                     _custom_endpoint_init = getattr(import_module("custom_components.device." + dev_func), "_custom_endpoint_init")
-                    _custom_endpoint_init(endpoint,node_config,dev_func)
-                    _LOGGER.debug("load module %s succes ", dev_func)
-                except ImportError:
-                    _LOGGER.debug("load module %s failed ", dev_func)
-
-
-            _LOGGER.debug("profile %s ", endpoint.profile_id)
+                    _LOGGER.debug("load DH %s success ", dev_func)
+                except:
+                    _LOGGER.debug("load DH %s failed ", dev_func)
+                _custom_endpoint_init(endpoint,node_config,dev_func)
+            _LOGGER.debug("node config for %s: %s", device_key, node_config)
+            
+            #_LOGGER.debug("profile %s ", endpoint.profile_id)
             if endpoint.profile_id in bellows.zigbee.profiles.PROFILES:
                 profile = bellows.zigbee.profiles.PROFILES[endpoint.profile_id]
                 if DEVICE_CLASS.get(endpoint.profile_id,{}).get(endpoint.device_type, None):
@@ -269,7 +277,6 @@ class ApplicationListener:
                     profile_info = DEVICE_CLASS[endpoint.profile_id]
                     component = profile_info[endpoint.device_type]
             
-
             """ Override type (switch,light,sensor, binary_sensor,...) from config """
             if ha_const.CONF_TYPE in node_config:
                 component = node_config[ha_const.CONF_TYPE]
@@ -316,6 +323,7 @@ class ApplicationListener:
                     'in_clusters': {c.cluster_id: c for c in in_clusters},
                     'out_clusters': {c.cluster_id: c for c in out_clusters},
                     'new_join': join,
+                    'device': device,
                 }
                 """ add 'manufacturer', 'model'  to discovery_info"""
                 
@@ -344,7 +352,13 @@ class ApplicationListener:
                     component = node_config[ha_const.CONF_TYPE]
                 else:
                     component = SINGLE_CLUSTER_DEVICE_CLASS[cluster_type]
-                
+                if join:
+                    v = yield from discover_cluster_values(endpoint, cluster)
+                    _LOGGER.debug("discovered atributes/values for %s-%s-%s: %s",
+                                  endpoint._device._ieee ,
+                                  endpoint._endpoint_id ,
+                                  cluster.cluster_id,
+                                  v )
                 discovery_info = {
                     'endpoint': endpoint,
                     'in_clusters': {cluster.cluster_id: cluster},
@@ -423,7 +437,11 @@ class Entity(entity.Entity):
         self._endpoint = endpoint
         self._in_clusters = in_clusters
         self._out_clusters = out_clusters
-        self._state = ha_const.STATE_UNKNOWN
+        self._state = None
+        self._device_state_attributes['lqi'] = endpoint.device.lqi
+        self._device_state_attributes['rssi'] = endpoint.device.rssi
+        """ save entity_id and entity in device as dict """
+        
 
     def attribute_updated(self, attribute, value):
         self._state=value
@@ -432,19 +450,27 @@ class Entity(entity.Entity):
 
     def zdo_command(self, aps_frame, tsn, command_id, args):
         """Handle a ZDO command received on this cluster."""
-        pass
+        _LOGGER.debug("ZDO received: \n entity - \n command_id: %s \n args: %s",
+                     self.entity_id, command_id, args)
 
     def cluster_command(self, aps_frame, tsn, command_id, args):
         """ handle incomming cluster commands """
         pass
-
+    
+    """dummy function; override from device handler"""
     def _custom_cluster_command(self, aps_frame, tsn, command_id, args):
-        """ dummy function , to be overridden by device handler """
         pass
+    
+    """dummy function; override from device handler"""
+    def _parse_attribute(entity, attrib, value, *argv):
+        return(attrib, value)
+
 
     @property
     def device_state_attributes(self):
         """Return device specific state attributes."""
+        self._device_state_attributes['lqi'] = self._endpoint.device.lqi
+        self._device_state_attributes['rssi'] = self._endpoint.device.rssi
         return self._device_state_attributes
 
 
@@ -504,7 +530,7 @@ def get_discovery_info(hass, discovery_info):
 
 @asyncio.coroutine
 def attribute_read(endpoint, cluster, attributes):
-    """Read attributes and update extra_info convenience function."""
+    """Read attributes and update extra_info convenience fcunction."""
     result = yield from endpoint.in_clusters[cluster].read_attributes(
         attributes,
         allow_cache=True,
@@ -518,3 +544,28 @@ def get_battery(endpoint):
         return 0xff
     battery= yield from attribute_read(endpoint, 0x0001,['battery_voltage'])
     return battery[0]
+
+@asyncio.coroutine
+def discover_cluster_values(endpoint, cluster):
+    attrids=[0,]
+    _LOGGER.debug("discover %s-%s for %s",
+                  endpoint._device.ieee,
+                  endpoint._endpoint_id,
+                  cluster.cluster_id)
+    try:
+        v = yield from cluster.discover_attributes(0, 32)
+    except:
+        pass
+    _LOGGER.debug("discover %s for %s: %s", endpoint._endpoint_id, cluster.cluster_id, v[0])
+    if isinstance(v[0], int):
+        attrids=[0,1,2,3,4,5,6,7,8,16,17,18]
+    else:
+        for item in v[0]:
+            attrids.append(item.attrid)
+    _LOGGER.debug("discover_cluster_attributes: query %s:", attrids)
+    try:
+        v = yield from cluster.read_attributes(attrids, allow_cache = True)
+        _LOGGER.debug("attributes/values for cluster:%s" , v[0])
+    except:
+        return({})
+    return(v[0])           
