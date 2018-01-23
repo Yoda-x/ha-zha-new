@@ -43,6 +43,7 @@ def _custom_endpoint_init(self, node_config,*argv):
         "type": "binary_sensor",
         "config_report": [
             [ 65281, 0, 10, 3600, 1],
+            ]
         }
     
     node_config.update(config)
