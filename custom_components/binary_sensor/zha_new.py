@@ -144,11 +144,12 @@ class BinarySensor(zha_new.Entity, BinarySensorDevice):
         try:
             dev_func= self._model.replace(".","_").replace(" ","_")
             _parse_attribute = getattr(import_module("custom_components.device." + dev_func), "_parse_attribute")
-        except ImportError:
-            _LOGGER.debug("load module %s failed ", dev_func)
-
-        (attribute, value) = _parse_attribute(self,attribute, value, dev_func)
-        
+            (attribute, value) = _parse_attribute(self,attribute, value, dev_func)
+        except ImportError as e:
+            _LOGGER.debug("Import DH %s failed: %s", dev_func, e.args)
+        except Exception as e:
+            _LOGGER.info("Excecution of DH %s failed: %s", dev_func, e.args)
+   
         if attribute == 0:
             self._state = value
                 
@@ -167,11 +168,14 @@ class OccupancySensor(BinarySensor):
         try:
             dev_func= self._model.replace(".","_")
             _parse_attribute = getattr(import_module("custom_components.device." + dev_func), "_parse_attribute")
-        except ImportError:
-            _LOGGER.debug("load module %s failed ", dev_func)
-            
+            (attribute, value) = _parse_attribute(self, attribute, value, dev_func)
+        except ImportError as e:
+            _LOGGER.debug("Import DH %s failed: %s", dev_func, e.args)
+        except Exception as e:
+            _LOGGER.info("Excecution of DH %s failed: %s", dev_func, e.args)
+                              
         """Handle attribute update from device."""
-        (attribute, value) = _parse_attribute(self, attribute, value, dev_func)
+        
         
         """ handle trigger events from motion sensor, clear state after re_arm_sec seconds """
         _LOGGER.debug("Attribute updated: %s %s", attribute, value)
@@ -198,22 +202,6 @@ class OccupancySensor(BinarySensor):
 class OnOffSensor(BinarySensor):
     """ ZHA On Off Sensor """
     value_attribute = 0
-
-#    def attribute_updated(self, attribute, value):
-#        
-#        try:
-#            dev_func= self._model.replace(".","_")
-#            _parse_attribute = getattr(import_module("custom_components.device." + dev_func), "_parse_attribute")
-#        except ImportError:
-#            _LOGGER.debug("load module %s failed ", dev_func)
-#
-#        (attribute, value) = _parse_attribute(self, attribute, value)
-#        
-#        """Handle attribute update from device."""
-#        _LOGGER.debug("Attribute updated: %s %s", attribute, value)
-#        if attribute == self.value_attribute:
-#            self._state = value
-#        self.schedule_update_ha_state()
 
 class MoistureSensor(BinarySensor):
     """ ZHA On Off Sensor """

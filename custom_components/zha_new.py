@@ -56,9 +56,9 @@ def populate_data():
         zha.DeviceType.COLOR_DIMMABLE_LIGHT: 'light',
         zha.DeviceType.ON_OFF_LIGHT_SWITCH: 'light',
         zha.DeviceType.DIMMER_SWITCH: 'light',
-        zha.DeviceType.COLOR_DIMMER_SWITCH: 'light',
-        
+        zha.DeviceType.COLOR_DIMMER_SWITCH: 'light',   
     }
+
     DEVICE_CLASS[zll.PROFILE_ID] = {
         zll.DeviceType.ON_OFF_LIGHT: 'light',
         zll.DeviceType.ON_OFF_PLUGIN_UNIT: 'switch',
@@ -142,6 +142,9 @@ DISCOVERY_KEY = 'zha_discovery_info'
 APPLICATION_CONTROLLER = None
 _LOGGER = logging.getLogger(__name__)
 
+# to be overwritten by DH
+def _custom_endpoint_init(self, node_config,*argv):
+    pass
 
 @asyncio.coroutine
 def async_setup(hass, config):
@@ -243,9 +246,13 @@ class ApplicationListener:
                 try:
                     dev_func= node_config.get(CONF_TEMPLATE,"default").replace(".","_").replace(" ","_")
                     _custom_endpoint_init = getattr(import_module("custom_components.device." + dev_func), "_custom_endpoint_init")
-                    _custom_endpoint_init(endpoint,node_config)
-                except ImportError:
-                    _LOGGER.debug("load template %s failed ", dev_func)
+                    _custom_endpoint_init(endpoint, node_config, dev_func)
+                    _LOGGER.debug("Load template %s success ", dev_func)
+                except ImportError as e:
+                    _LOGGER.debug("Import of template %s failed: %s", dev_func, e.args)
+                except Exception as e:
+                    _LOGGER.info("Excecution of template %s failed: %s", dev_func, e.args)
+                    
             if CONF_MANUFACTURER in node_config:
                 discovered_info[CONF_MANUFACTURER] = node_config[CONF_MANUFACTURER]
             if CONF_MODEL in node_config:
@@ -262,10 +269,16 @@ class ApplicationListener:
                 try:
                     dev_func= discovered_info.get(CONF_MODEL,"default").replace(".","_").replace(" ","_")
                     _custom_endpoint_init = getattr(import_module("custom_components.device." + dev_func), "_custom_endpoint_init")
-                    _LOGGER.debug("load DH %s success ", dev_func)
-                except:
-                    _LOGGER.debug("load DH %s failed ", dev_func)
-                _custom_endpoint_init(endpoint,node_config,dev_func)
+                    _custom_endpoint_init(endpoint, node_config, dev_func)
+                    _LOGGER.debug("Load DH %s success ", dev_func)
+                except ImportError as e:
+                    _LOGGER.debug("Import DH %s failed: %s", dev_func, e.args)
+                except Exception as e:
+                    _LOGGER.info("Excecution of DH %s failed: %s", dev_func, e.args)
+                    
+                
+                    
+                
             _LOGGER.debug("node config for %s: %s", device_key, node_config)
             
             #_LOGGER.debug("profile %s ", endpoint.profile_id)

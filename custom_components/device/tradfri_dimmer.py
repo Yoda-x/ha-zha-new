@@ -1,5 +1,5 @@
 """ tradfri TRADFRI bulb E27 opal 1000lm template """
-def _custom_endpoint_init(self, node_config):
+def _custom_endpoint_init(self, node_config, *argv):
   #  self.device_type= 0x0104
   #  self.profile_id=260
     config={

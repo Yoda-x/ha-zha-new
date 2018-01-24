@@ -30,9 +30,14 @@ def async_setup_platform(hass, config, async_add_devices, discovery_info=None):
     try:
         discovery_info['color_capabilities'] \
             = yield from endpoint.light_color['color_capabilities']
-    except (AttributeError, KeyError):
-        pass
-
+        _LOGGER.debug("Request for color_capabilities: %s",discovery_info['color_capabilities'])
+    except AttributeError as e:
+        _LOGGER.debug("No color cluster: %s", e.args)
+    except KeyError as e:
+        _LOGGER.debug("Request for color_capabilities failed: %s", e.args)  
+    except Exception as e:
+        _LOGGER.debug("Request for color_capabilities, other error: %s", e.args)
+   
     async_add_devices([Light(**discovery_info)], update_before_add=True)
 
 
@@ -156,27 +161,9 @@ class Light(zha_new.Entity, light.Light):
                     attributes,
                     allow_cache=False,
                 )
-               # _LOGGER.debug("test discover-attributes")
-               # v = yield from cluster.discover_attributes(0, 32)
-               # _LOGGER.debug("dattributes for cluster:%s" , v[0])
-               # len_v = len(v)
-               # cnt=1
-               # t_attributes={}
-               # for item in v[0]:
-               #     
-               #     t_attributes[item.attrid]=item.datatype
-               #     ptr=item.attrid + 1 if item.attrid > ptr else ptr
-               #     _LOGGER.debug("%s:%s =%s",cnt, item.attrid, item.datatype)
-               #     cnt+=1
-                #attribs=t_attributes.keys()
-               # v = yield from cluster.read_attributes_raw(attribs)
-                
-               # _LOGGER.debug("attributes for cluster:%s" , v)
-                
                 return result
             except Exception:  # pylint: disable=broad-except
                 return {}
-
        
         #yield from self._endpoint.on_off.discover_attributes(0,4)
         result = yield from safe_read(self._endpoint.on_off, ['on_off'])
@@ -210,8 +197,14 @@ class Light(zha_new.Entity, light.Light):
     
     def cluster_command(self, aps_frame, tsn, command_id, args):
         try:
-            dev_func= self._model.replace(".","_")
-            _custom_cluster_command = getattr(import_module("custom_components.device." + dev_func), "_custom_cluster_command")
-        except ImportError:
-            _LOGGER.debug("load module %s failed ", dev_func)
-        _custom_cluster_command(self, aps_frame, tsn, command_id, args)
+            dev_func= self._model.replace(".","_").replace(" ","_")
+            _custom_cluster_command = getattr(
+                import_module("custom_components.device." + dev_func),
+                "_custom_cluster_command"
+                )
+            _custom_cluster_command(self, aps_frame, tsn, command_id, args)
+        except ImportError as e:
+            _LOGGER.debug("Import DH %s failed: %s", dev_func, e.args)
+        except Exception as e:
+            _LOGGER.info("Excecution of DH %s failed: %s", dev_func, e.args)
+        
