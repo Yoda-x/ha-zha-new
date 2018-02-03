@@ -114,6 +114,17 @@ CONFIG_SCHEMA = vol.Schema({
 ATTR_DURATION = 'duration'
 
 SERVICE_PERMIT = 'permit'
+SERVICE_DESCRIPTIONS = {
+    SERVICE_PERMIT: {
+        "description": "Allow nodes to join the ZigBee network",
+        "fields": {
+            ATTR_DURATION: {
+                "description": "Time to permit joins, in seconds",
+                "example": "60",
+            },
+        },
+    },
+}
 SERVICE_SCHEMAS = {
     SERVICE_PERMIT: vol.Schema({
         vol.Optional(ATTR_DURATION, default=60):
@@ -168,7 +179,8 @@ def async_setup(hass, config):
         yield from APPLICATION_CONTROLLER.permit(duration)
 
     hass.services.async_register(DOMAIN, SERVICE_PERMIT, permit,
-                                 schema=SERVICE_SCHEMAS[SERVICE_PERMIT])
+                                 SERVICE_DESCRIPTIONS[SERVICE_PERMIT],
+                                 SERVICE_SCHEMAS[SERVICE_PERMIT])
 
     return True
 
