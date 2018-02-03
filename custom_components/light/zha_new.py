@@ -30,9 +30,14 @@ def async_setup_platform(hass, config, async_add_devices, discovery_info=None):
     try:
         discovery_info['color_capabilities'] \
             = yield from endpoint.light_color['color_capabilities']
-    except (AttributeError, KeyError):
-        pass
-
+        _LOGGER.debug("Request for color_capabilities: %s",discovery_info['color_capabilities'])
+    except AttributeError as e:
+        _LOGGER.debug("No color cluster: %s", e.args)
+    except KeyError as e:
+        _LOGGER.debug("Request for color_capabilities failed: %s", e.args)  
+    except Exception as e:
+        _LOGGER.debug("Request for color_capabilities, other error: %s", e.args)
+   
     async_add_devices([Light(**discovery_info)], update_before_add=True)
 
 
@@ -159,7 +164,8 @@ class Light(zha_new.Entity, light.Light):
                 return result
             except Exception:  # pylint: disable=broad-except
                 return {}
-
+       
+        #yield from self._endpoint.on_off.discover_attributes(0,4)
         result = yield from safe_read(self._endpoint.on_off, ['on_off'])
         self._state = result.get('on_off', self._state)
         if not self._state:
@@ -187,12 +193,18 @@ class Light(zha_new.Entity, light.Light):
         """Return True if entity has to be polled for state.
         False if entity pushes its state to HA.
         """
-        return False
+        return True
     
     def cluster_command(self, aps_frame, tsn, command_id, args):
         try:
-            dev_func= self._model.replace(".","_")
-            _custom_cluster_command = getattr(import_module("custom_components.device." + dev_func), "_custom_cluster_command")
-        except ImportError:
-            _LOGGER.debug("load module %s failed ", dev_func)
-        _custom_cluster_command(self, aps_frame, tsn, command_id, args)
+            dev_func= self._model.replace(".","_").replace(" ","_")
+            _custom_cluster_command = getattr(
+                import_module("custom_components.device." + dev_func),
+                "_custom_cluster_command"
+                )
+            _custom_cluster_command(self, aps_frame, tsn, command_id, args)
+        except ImportError as e:
+            _LOGGER.debug("Import DH %s failed: %s", dev_func, e.args)
+        except Exception as e:
+            _LOGGER.info("Excecution of DH %s failed: %s", dev_func, e.args)
+        

@@ -53,10 +53,9 @@ def async_setup_platform(hass, config, async_add_devices, discovery_info=None):
         endpoint.in_clusters[IasZone.cluster_id] = cluster
     else:
         cluster = in_clusters[IasZone.cluster_id]
-        
+    #yield from cluster.bind()    
     if discovery_info['new_join']:
         try:
-            yield from cluster.bind()
             ieee = cluster.endpoint.device.application.ieee
             yield from cluster.write_attributes({'cie_addr': ieee})
             _LOGGER.debug("write cie done")
@@ -69,11 +68,12 @@ def async_setup_platform(hass, config, async_add_devices, discovery_info=None):
             _LOGGER.debug("done zone read")
             device_class = CLASS_MAPPING.get(zone_type, None)
         except Exception:  # pylint: disable=broad-except
-            device_class='none'
+            #device_class='none'
+            pass
 
     sensor = yield from _make_sensor(device_class, discovery_info)
     
-    async_add_devices([sensor])
+    async_add_devices([sensor], update_before_add=True)
     endpoint._device._application.listener_event('device_updated', endpoint._device)
     _LOGGER.debug("Return from binary_sensor init-cluster %s", endpoint.in_clusters)
 
@@ -87,20 +87,23 @@ def _make_sensor(device_class, discovery_info):
     endpoint = discovery_info['endpoint']
     
     if OnOff.cluster_id in in_clusters:
-        sensor = OnOffSensor('opening', **discovery_info,cluster_key = OnOff.ep_attribute)
+        sensor = OnOffSensor('opening', **discovery_info,   cluster_key = OnOff.ep_attribute)
     elif OccupancySensing.cluster_id in in_clusters:
-        sensor = OccupancySensor('motion',**discovery_info,  cluster_key = OccupancySensing.ep_attribute )
+        sensor = OccupancySensor('motion',**discovery_info, cluster_key = OccupancySensing.ep_attribute )
         try: 
             result = yield from zha_new.get_attributes(endpoint, OccupancySensing.cluster_id, ['occupancy', 'occupancy_sensor_type'])
             sensor._device_state_attributes['occupancy_sensor_type'] = result[1]
             sensor._state= result[0]
         except:
             _LOGGER.debug("get attributes: failed")
+    elif device_class == 'moisture':
+        sensor = MoistureSensor('moisture', **discovery_info)
+        
     else:
         sensor = BinarySensor(device_class, **discovery_info)
-
     _LOGGER.debug("Return make_sensor")
     return sensor
+
 def _parse_attribute(attrib, value):
     return(attrib, value)
 
@@ -120,6 +123,7 @@ class BinarySensor(zha_new.Entity, BinarySensorDevice):
     @property
     def is_on(self) -> bool:
         """Return True if entity is on."""
+        #_LOGGER.debug("self_state: %s->%s", type(self._state), self._state)
         return bool(self._state)
 
     @property
@@ -139,13 +143,14 @@ class BinarySensor(zha_new.Entity, BinarySensorDevice):
 
     def attribute_updated(self, attribute, value):
         try:
-            dev_func= self._model.replace(".","_")
+            dev_func= self._model.replace(".","_").replace(" ","_")
             _parse_attribute = getattr(import_module("custom_components.device." + dev_func), "_parse_attribute")
-        except ImportError:
-            _LOGGER.debug("load module %s failed ", dev_func)
-
-        (attribute, value) = _parse_attribute(self,attribute, value)
-        
+            (attribute, value) = _parse_attribute(self,attribute, value, dev_func)
+        except ImportError as e:
+            _LOGGER.debug("Import DH %s failed: %s", dev_func, e.args)
+        except Exception as e:
+            _LOGGER.info("Excecution of DH %s failed: %s", dev_func, e.args)
+   
         if attribute == 0:
             self._state = value
                 
@@ -164,11 +169,14 @@ class OccupancySensor(BinarySensor):
         try:
             dev_func= self._model.replace(".","_")
             _parse_attribute = getattr(import_module("custom_components.device." + dev_func), "_parse_attribute")
-        except ImportError:
-            _LOGGER.debug("load module %s failed ", dev_func)
-            
+            (attribute, value) = _parse_attribute(self, attribute, value, dev_func)
+        except ImportError as e:
+            _LOGGER.debug("Import DH %s failed: %s", dev_func, e.args)
+        except Exception as e:
+            _LOGGER.info("Excecution of DH %s failed: %s", dev_func, e.args)
+                              
         """Handle attribute update from device."""
-        (attribute, value) = _parse_attribute(self, attribute, value)
+        
         
         """ handle trigger events from motion sensor, clear state after re_arm_sec seconds """
         _LOGGER.debug("Attribute updated: %s %s", attribute, value)
@@ -196,20 +204,6 @@ class OnOffSensor(BinarySensor):
     """ ZHA On Off Sensor """
     value_attribute = 0
 
-#    def attribute_updated(self, attribute, value):
-#        
-#        try:
-#            dev_func= self._model.replace(".","_")
-#            _parse_attribute = getattr(import_module("custom_components.device." + dev_func), "_parse_attribute")
-#        except ImportError:
-#            _LOGGER.debug("load module %s failed ", dev_func)
-#
-#        (attribute, value) = _parse_attribute(self, attribute, value)
-#        
-#        """Handle attribute update from device."""
-#        _LOGGER.debug("Attribute updated: %s %s", attribute, value)
-#        if attribute == self.value_attribute:
-#            self._state = value
-#        self.schedule_update_ha_state()
-
-
+class MoistureSensor(BinarySensor):
+    """ ZHA On Off Sensor """
+    value_attribute = 0

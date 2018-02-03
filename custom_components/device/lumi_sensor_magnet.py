@@ -9,12 +9,13 @@ def _custom_endpoint_init(self, node_config,*argv):
     selector=node_config.get('template',None)
     if not selector:
         selector = argv[0]
+        _LOGGER.debug(" selector: %s", selector)
     if selector in ['lumi_sensor_magnet', 'lumi_sensor_magnet_aq2']:
         config={
         "config_report": [
             [ 6, 0, 0, 3600, 1 ],            
             ],
-        "in_cluster": [0x0000, 0x0003, 0xff01 ],
+        "in_cluster": [0x0000,],
         "type": "binary_sensor", 
         }
     elif selector in ['lumi_sensor_ht', 'lumi_weather']:
@@ -24,16 +25,25 @@ def _custom_endpoint_init(self, node_config,*argv):
             [ 0x0403, 0, 10, 3600, 5],
             [ 0x0405, 0, 10, 3600, 5],
             ],
-        "in_cluster": [0x0000, 0x0001, 0x0003, 0xff01],
+        "in_cluster": [0x0000, ],
         "type": "sensor",
         }
     elif selector in ['lumi_sensor_motion', 'lumi_sensor_motion_aq2']:
         config={
         "config_report": [
-            [ 0x0406, 0, 10, 3600, 5],
+            [ 0x0406, 0, 10, 3600, 1],
+            [ 0x0400, 0, 10, 3600, 10],
             ],
-        "in_cluster": [0x0000, 0x0001, 0x0003, 0xff01],
+        "in_cluster": [0x0000,],
+ #       "type": "binary_sensor",
+        }
+    elif selector == 'lumi_sensor_wleak_aq1':
+        config={
+        "in_cluster": [0x0000, ],
         "type": "binary_sensor",
+        "config_report": [
+            [ 65281, 0, 10, 3600, 1],
+            ]
         }
     
     node_config.update(config)
@@ -43,7 +53,7 @@ def _battery_percent(voltage):
     max_voltage=3100
     return (voltage - min_voltage) / ( max_voltage - min_voltage) *100 
 
-def _parse_attribute(entity, attrib, value):
+def _parse_attribute(entity, attrib, value, *argv):
     import bellows.types as t
     from bellows.zigbee.zcl import foundation as f
     
@@ -61,11 +71,9 @@ def _parse_attribute(entity, attrib, value):
         while value:
             svalue, value = f.TypeValue.deserialize(value)
             result.append(svalue.value)
-            _LOGGER.debug("parse 0xff02: %s", svalue.value)
+            #_LOGGER.debug("parse 0xff02: %s", svalue.value)
         attributes = dict(zip(attribute_name,result))
-        if "state" in attributes:
-            attrib = 0
-            value=attributes["state"].value
+        
         if "battery_voltage_mV" in attributes:
             attributes["battery_level"] = int(_battery_percent(attributes["battery_voltage_mV"]) )
 
@@ -87,7 +95,7 @@ def _parse_attribute(entity, attrib, value):
             svalue, value = f.TypeValue.deserialize(value[1:])
             result[skey]  = svalue.value
         for item, value in result.items():
-            key = attribute_name[item] if item in attribute_name else "0xff02-" 
+            key = attribute_name[item] if item in attribute_name else "0xff01-" + str(item) 
             attributes[key] = value
         if "battery_voltage_mV" in attributes:
             attributes["battery_level"] = int(_battery_percent(attributes["battery_voltage_mV"]))
