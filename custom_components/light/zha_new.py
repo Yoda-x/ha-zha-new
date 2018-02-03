@@ -193,7 +193,7 @@ class Light(zha_new.Entity, light.Light):
         """Return True if entity has to be polled for state.
         False if entity pushes its state to HA.
         """
-        return False
+        return True
     
     def cluster_command(self, aps_frame, tsn, command_id, args):
         try:

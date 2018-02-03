@@ -35,7 +35,7 @@ def _custom_endpoint_init(self, node_config,*argv):
             [ 0x0400, 0, 10, 3600, 10],
             ],
         "in_cluster": [0x0000,],
-        "type": "binary_sensor",
+ #       "type": "binary_sensor",
         }
     elif selector == 'lumi_sensor_wleak_aq1':
         config={
@@ -73,9 +73,7 @@ def _parse_attribute(entity, attrib, value, *argv):
             result.append(svalue.value)
             #_LOGGER.debug("parse 0xff02: %s", svalue.value)
         attributes = dict(zip(attribute_name,result))
-        if "state" in attributes:
-            attrib = 0
-            value=attributes["state"].value
+        
         if "battery_voltage_mV" in attributes:
             attributes["battery_level"] = int(_battery_percent(attributes["battery_voltage_mV"]) )
 

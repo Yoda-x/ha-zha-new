@@ -73,7 +73,7 @@ def async_setup_platform(hass, config, async_add_devices, discovery_info=None):
 
     sensor = yield from _make_sensor(device_class, discovery_info)
     
-    async_add_devices([sensor])
+    async_add_devices([sensor], update_before_add=True)
     endpoint._device._application.listener_event('device_updated', endpoint._device)
     _LOGGER.debug("Return from binary_sensor init-cluster %s", endpoint.in_clusters)
 
@@ -123,6 +123,7 @@ class BinarySensor(zha_new.Entity, BinarySensorDevice):
     @property
     def is_on(self) -> bool:
         """Return True if entity is on."""
+        #_LOGGER.debug("self_state: %s->%s", type(self._state), self._state)
         return bool(self._state)
 
     @property

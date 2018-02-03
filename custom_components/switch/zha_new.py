@@ -21,7 +21,7 @@ def setup_platform(hass, config, add_devices, discovery_info=None):
     if discovery_info is None:
         return
 
-    add_devices([Switch(**discovery_info)])
+    add_devices([Switch(**discovery_info)],update_before_add=True)
 
 
 class Switch(zha_new.Entity, SwitchDevice):

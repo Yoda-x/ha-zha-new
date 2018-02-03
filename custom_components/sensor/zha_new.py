@@ -32,7 +32,7 @@ def async_setup_platform(hass, config, async_add_devices, discovery_info=None):
     endpoint=discovery_info['endpoint']
     sensor = yield from make_sensor(discovery_info)
     _LOGGER.debug("Create sensor.zha: %s",sensor.entity_id)
-    async_add_devices([sensor])
+    async_add_devices([sensor], update_before_add=True)
     endpoint._device._application.listener_event('device_updated', endpoint._device)
 
 
