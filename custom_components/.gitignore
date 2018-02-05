@@ -3,3 +3,5 @@ __pycache__/
 *.py[cod]
 *$py.class
 .gitignore
+.eric6project
+zha-NEW.e4p

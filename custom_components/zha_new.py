@@ -7,10 +7,13 @@ import asyncio
 import logging
 
 import voluptuous as vol
-
+from homeassistant.helpers.event import async_track_point_in_time
+import homeassistant.util.dt as dt_util
+import datetime
 import homeassistant.helpers.config_validation as cv
 from homeassistant import const as ha_const
 from homeassistant.helpers import discovery, entity
+from homeassistant.helpers.entity_component import EntityComponent
 from homeassistant.util import slugify
 #import custom_components.zha_new.const as zha_const
 from importlib import import_module
@@ -134,6 +137,30 @@ _LOGGER = logging.getLogger(__name__)
 def _custom_endpoint_init(self, node_config,*argv):
     pass
 
+class zha_state(entity.Entity):
+    def __init__(self, hass, name,  state='Init'):
+         self._device_state_attributes = {}
+         #self.hass = hass
+         self._state = state
+         self.entity_id  = DOMAIN + '.' + name
+         self.platform = DOMAIN
+
+   
+
+    @property
+    def state(self):
+        """Return the state of the sensor."""
+        return self._state
+
+
+    def update(self):
+        """Fetch new state data for the sensor.
+
+        This is the only method that should fetch new data for Home Assistant.
+        """
+        pass
+         
+         
 @asyncio.coroutine
 def async_setup(hass, config):
     """Set up ZHA.
@@ -155,6 +182,13 @@ def async_setup(hass, config):
     APPLICATION_CONTROLLER.add_listener(listener)
     yield from APPLICATION_CONTROLLER.startup(auto_form=True)
 
+    component = EntityComponent(_LOGGER, DOMAIN, hass)
+    zha_controller = zha_state(hass,  'controller',  'Init')
+    listener.controller = zha_controller
+    _LOGGER.debug("add zha-controller: %s %s",  type(zha_controller),  dir(component._platforms))
+    yield from component.async_add_entities([zha_controller])
+    zha_controller.async_schedule_update_ha_state()
+    
     for device in APPLICATION_CONTROLLER.devices.values():
         hass.async_add_job(listener.async_device_initialized(device, False))
         yield from asyncio.sleep(1)
@@ -164,11 +198,27 @@ def async_setup(hass, config):
         """Allow devices to join this network."""
         duration = service.data.get(ATTR_DURATION)
         _LOGGER.info("Permitting joins for %ss", duration)
+        zha_controller._state = 'Permit'
+        zha_controller.async_schedule_update_ha_state()
         yield from APPLICATION_CONTROLLER.permit(duration)
-
+        
+        @asyncio.coroutine
+        def _async_clear_state(entity):
+            if entity._state == 'Permit':
+                entity._state = 'Run'
+            entity.async_schedule_update_ha_state()
+                    
+        async_track_point_in_time(
+            zha_controller.hass, _async_clear_state(zha_controller),
+            dt_util.utcnow() + datetime.timedelta(seconds=duration))
+    
+    
+    
     hass.services.async_register(DOMAIN, SERVICE_PERMIT, permit,
                                  schema=SERVICE_SCHEMAS[SERVICE_PERMIT])
 
+    zha_controller._state= "Run"
+    zha_controller.async_schedule_update_ha_state()
     return True
 
         
@@ -181,6 +231,7 @@ class ApplicationListener:
         self._hass = hass
         self._config = config
         hass.data[DISCOVERY_KEY] = hass.data.get(DISCOVERY_KEY, {})
+        self.controller = None
 
     def device_joined(self, device):
         """Handle device joined.
@@ -188,26 +239,30 @@ class ApplicationListener:
         address
         """
         # Wait for device_initialized, instead
+        self.controller._state ='Joined ' + str(device._ieee) 
+        self.controller.async_schedule_update_ha_state()
         _LOGGER.debug("Device joined: %s:", device)
 
     def device_initialized(self, device):
         """Handle device joined and basic information discovered."""
+        self.controller._state ='Device init ' + str(device._ieee) 
+        self.controller.async_schedule_update_ha_state()
         self._hass.async_add_job(self.async_device_initialized(device, True))
-
+        
     def device_left(self, device):
         """Handle device leaving the network. need to  remove entities"""
         _LOGGER.debug("Device left: remove the device from bellows")
         self._hass.async_add_job(APPLICATION_CONTROLLER.remove(device._ieee))
 #        _LOGGER.debug("Device left, device: %s ", self._hass.states.entity_ids())
-        
-        
-    def device_removed(self, device):
-        """Handle device being removed from the network."""
-        pass
-
-    def device_updated(self, device ):
-        """ do realy nothing here """
-        pass
+        self.controller._state ='Left ' + str(device._ieee) 
+        self.controller.async_schedule_update_ha_state()
+        @asyncio.coroutine
+        def _async_clear_state(entity):
+            entity._state = 'Run'
+            entity.async_schedule_update_ha_state()
+        async_track_point_in_time(
+            self.controller.hass, _async_clear_state(self.controller),
+            dt_util.utcnow() + datetime.timedelta(seconds=5))
 
     @asyncio.coroutine
     def async_device_initialized(self, device, join):
@@ -382,6 +437,9 @@ class ApplicationListener:
         
         _LOGGER.debug("Return from zha device init: %s", endpoint.in_clusters)
         device._application.listener_event('device_updated', device)
+        self.controller._state ='Run' 
+        self.controller.async_schedule_update_ha_state()
+
 
     
 class Entity(entity.Entity):
