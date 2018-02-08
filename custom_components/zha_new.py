@@ -15,7 +15,6 @@ from homeassistant import const as ha_const
 from homeassistant.helpers import discovery, entity
 from homeassistant.helpers.entity_component import EntityComponent
 from homeassistant.util import slugify
-#import custom_components.zha_new.const as zha_const
 from importlib import import_module
 
 REQUIREMENTS = ['bellows==0.4.0']
@@ -138,29 +137,35 @@ def _custom_endpoint_init(self, node_config,*argv):
     pass
 
 class zha_state(entity.Entity):
-    def __init__(self, hass, name,  state='Init'):
+    def __init__(self, hass, stack,  name,   state='Init'):
          self._device_state_attributes = {}
+         self._device_state_attributes['friendly_name'] =  'Controller'
          #self.hass = hass
          self._state = state
          self.entity_id  = DOMAIN + '.' + name
          self.platform = DOMAIN
-
-   
+         self.stack = stack
 
     @property
     def state(self):
         """Return the state of the sensor."""
         return self._state
+        
+    @property
+    def device_state_attributes(self):
+        """Return device specific state attributes."""
+        return self._device_state_attributes
 
 
-    def update(self):
-        """Fetch new state data for the sensor.
 
-        This is the only method that should fetch new data for Home Assistant.
-        """
-        pass
-         
-         
+    @asyncio.coroutine
+    def async_update(self):
+        result = yield from self.stack._command('neighborCount', [])
+        self._device_state_attributes['neighborCount'] =  result[0]
+      #  result = yield from self.stack._command('getSourceRouteTableFilledSize',  [])
+      # self._device_state_attributes['getSourceRouteTableFilledSize'] =  result[0]
+
+
 @asyncio.coroutine
 def async_setup(hass, config):
     """Set up ZHA.
@@ -183,9 +188,8 @@ def async_setup(hass, config):
     yield from APPLICATION_CONTROLLER.startup(auto_form=True)
 
     component = EntityComponent(_LOGGER, DOMAIN, hass)
-    zha_controller = zha_state(hass,  'controller',  'Init')
+    zha_controller = zha_state(hass,   ezsp_, 'controller',  'Init')
     listener.controller = zha_controller
-    _LOGGER.debug("add zha-controller: %s %s",  type(zha_controller),  dir(component._platforms))
     yield from component.async_add_entities([zha_controller])
     zha_controller.async_schedule_update_ha_state()
     
@@ -232,7 +236,10 @@ class ApplicationListener:
         self._config = config
         hass.data[DISCOVERY_KEY] = hass.data.get(DISCOVERY_KEY, {})
         self.controller = None
-
+    
+    def device_updated(self,  device):
+        pass
+        
     def device_joined(self, device):
         """Handle device joined.
         At this point, no information about the device is known other than its
@@ -253,7 +260,6 @@ class ApplicationListener:
         """Handle device leaving the network. need to  remove entities"""
         _LOGGER.debug("Device left: remove the device from bellows")
         self._hass.async_add_job(APPLICATION_CONTROLLER.remove(device._ieee))
-#        _LOGGER.debug("Device left, device: %s ", self._hass.states.entity_ids())
         self.controller._state ='Left ' + str(device._ieee) 
         self.controller.async_schedule_update_ha_state()
         @asyncio.coroutine
