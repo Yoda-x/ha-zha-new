@@ -14,7 +14,6 @@ from homeassistant.helpers import discovery, entity
 from homeassistant.util import slugify
 #import custom_components.zha_new.const as zha_const
 from importlib import import_module
-from bellows.zigbee.device import Device
 
 REQUIREMENTS = ['bellows==0.4.0']
 
@@ -540,7 +539,6 @@ def attribute_read(endpoint, cluster, attributes):
 
 @asyncio.coroutine
 def get_battery(endpoint):
-    battery_voltage= None
     if 1 not in endpoint.in_clusters:
         return 0xff
     battery= yield from attribute_read(endpoint, 0x0001,['battery_voltage'])
