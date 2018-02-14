@@ -106,6 +106,7 @@ class Light(zha_new.Entity, light.Light):
                 light.ATTR_BRIGHTNESS, self._brightness or 255)
             self._brightness = brightness
             # Move to level with on/off:
+            _LOGGER.debug("Turn_on %s: Brightness %s", self.entity_id, brightness) 
             yield from self._endpoint.level.move_to_level_with_on_off(
                 brightness,
                 duration
