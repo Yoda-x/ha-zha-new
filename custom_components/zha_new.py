@@ -307,8 +307,8 @@ class ApplicationListener:
                 discovered_info[CONF_MODEL] = node_config[CONF_MODEL]
             elif 0 in endpoint.in_clusters :
                 """ just get device_info if cluster 0 exists"""
-                if join:                
-                    v = yield from discover_cluster_values(endpoint, endpoint.in_clusters[0])
+             #   if join:                
+              #      v = yield from discover_cluster_values(endpoint, endpoint.in_clusters[0])
                 discovered_info = yield from _discover_endpoint_info(endpoint)
                 
    
@@ -324,9 +324,6 @@ class ApplicationListener:
                 except Exception as e:
                     _LOGGER.info("Excecution of DH %s failed: %s", dev_func, e.args)
                     
-                
-                    
-                
             _LOGGER.debug("node config for %s: %s", device_key, node_config)
             
             #_LOGGER.debug("profile %s ", endpoint.profile_id)
@@ -398,7 +395,7 @@ class ApplicationListener:
                     {'discovery_key': device_key},
                     self._config,
                 )
-                _LOGGER.debug("Return from component general entity:%s", discovery_info)
+                _LOGGER.debug("Return from component general entity:%s", device._ieee)
            
             """if a disocered cluster is not in the allowed clusters and part of SINGLE_CLUSTERS_DEVCICE_CLASS, the clusters that were not in discovery above """
             """ then create just this cluster in discovery endpoints"""
@@ -413,13 +410,13 @@ class ApplicationListener:
                     component = node_config[ha_const.CONF_TYPE]
                 else:
                     component = SINGLE_CLUSTER_DEVICE_CLASS[cluster_type]
-                if join:
-                    v = yield from discover_cluster_values(endpoint, cluster)
-                    _LOGGER.debug("discovered atributes/values for %s-%s-%s: %s",
-                                  endpoint._device._ieee ,
-                                  endpoint._endpoint_id ,
-                                  cluster.cluster_id,
-                                  v )
+                #if join:
+                    #v = yield from discover_cluster_values(endpoint, cluster)
+                    #_LOGGER.debug("discovered atributes/values for %s-%s-%s: %s",
+                    #              endpoint._device._ieee ,
+                     #             endpoint._endpoint_id ,
+                      #            cluster.cluster_id,
+                       #           v )
                 discovery_info = {
                     'endpoint': endpoint,
                     'in_clusters': {cluster.cluster_id: cluster},
