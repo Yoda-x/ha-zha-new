@@ -18,7 +18,16 @@ def _custom_endpoint_init(self, node_config,*argv):
         "in_cluster": [0x0000,],
         "type": "binary_sensor", 
         }
-    elif selector in ['lumi_sensor_ht', 'lumi_weather']:
+    elif selector in ['lumi_sensor_ht', ] and self.endpoint_id == 1:
+        config={
+        "config_report": [
+            [ 0x0402, 0, 10, 3600, 5],
+            [ 0x0405, 0, 10, 3600, 5],
+            ],
+        "in_cluster": [0x0000, ],
+        "type": "sensor",
+        }
+    elif selector in ['lumi_weather', ] and self.endpoint_id == 1:
         config={
         "config_report": [
             [ 0x0402, 0, 10, 3600, 5],
@@ -28,7 +37,15 @@ def _custom_endpoint_init(self, node_config,*argv):
         "in_cluster": [0x0000, ],
         "type": "sensor",
         }
-    elif selector in ['lumi_sensor_motion', 'lumi_sensor_motion_aq2']:
+    elif selector in ['lumi_sensor_motion', ]:
+        config={
+        "config_report": [
+            [ 0x0406, 0, 10, 3600, 1],
+            ],
+        "in_cluster": [0x0000,],
+ #       "type": "binary_sensor",
+        }
+    elif selector in ['lumi_sensor_motion_aq2', ]:
         config={
         "config_report": [
             [ 0x0406, 0, 10, 3600, 1],
