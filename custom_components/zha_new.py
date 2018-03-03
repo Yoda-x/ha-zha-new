@@ -160,19 +160,24 @@ class zha_state(entity.Entity):
 
     @asyncio.coroutine
     def async_update(self):
+        import bellows.types as t 
+        from bellows.zigbee.zcl import foundation as f
+        
         result = yield from self.stack._command('neighborCount', [])
         self._device_state_attributes['neighborCount'] =  result[0]
+        result = yield from self.stack._command('getValue', 3 )
+       # buffer,  value =  f.TypeValue.deserialize(result[1])
+       # buffer = t.uint8_t(result[1])
+        # self._device_state_attributes['FreeBuffers'] =  buffer
+        
       #  result = yield from self.stack._command('getSourceRouteTableFilledSize',  [])
       # self._device_state_attributes['getSourceRouteTableFilledSize'] =  result[0]
 
 
 @asyncio.coroutine
 def async_setup(hass, config):
-    """Set up ZHA.
-    Will automatically load components to support devices found on the network.
-    """
-    global APPLICATION_CONTROLLER
 
+    global APPLICATION_CONTROLLER
     import bellows.ezsp
     from bellows.zigbee.application import ControllerApplication
 
@@ -382,6 +387,8 @@ class ApplicationListener:
                     'out_clusters': {c.cluster_id: c for c in out_clusters},
                     'new_join': join,
                     'device': device,
+                    'domain': DOMAIN, 
+                    'component': component, 
                 }
                 """ add 'manufacturer', 'model'  to discovery_info"""
                 
@@ -422,6 +429,8 @@ class ApplicationListener:
                     'in_clusters': {cluster.cluster_id: cluster},
                     'out_clusters': {},
                     'new_join': join,
+                    'domain': DOMAIN, 
+                    'component': component, 
                 }
                 discovery_info.update(discovered_info)
                 """cluster key -> single cluster """
@@ -458,7 +467,10 @@ class Entity(entity.Entity):
         ieeetail = ''.join([
             '%02x' % (o, ) for o in endpoint.device.ieee[-4:]
         ])
-        
+        self.uid= str(endpoint.device._ieee) + "_" + str(endpoint.endpoint_id)
+        if 'cluster_key' in kwargs:
+            self.uid += '_'
+            self.uid += kwargs['cluster_key']
             
         if manufacturer and model is not None:
             self.entity_id = '%s.%s_%s_%s_%s' % (
@@ -503,6 +515,9 @@ class Entity(entity.Entity):
         self._device_state_attributes['rssi'] = endpoint.device.rssi
         """ save entity_id and entity in device as dict """
         
+    @property
+    def unique_id(self):
+        return self.uid
 
     def attribute_updated(self, attribute, value):
         self._state=value

@@ -37,8 +37,12 @@ def async_setup_platform(hass, config, async_add_devices, discovery_info=None):
         _LOGGER.debug("Request for color_capabilities failed: %s", e.args)  
     except Exception as e:
         _LOGGER.debug("Request for color_capabilities, other error: %s", e.args)
-   
-    async_add_devices([Light(**discovery_info)], update_before_add=True)
+    entity = Light(**discovery_info)
+    
+    if hass.states.get(entity.entity_id):
+        _LOGGER.debug("entity exist,remove it: %s",  dir (hass.states.get(entity.entity_id)))
+        
+    async_add_devices([entity], update_before_add=True)
 
 
 class Light(zha_new.Entity, light.Light):

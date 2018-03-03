@@ -72,8 +72,10 @@ def async_setup_platform(hass, config, async_add_devices, discovery_info=None):
             pass
 
     sensor = yield from _make_sensor(device_class, discovery_info)
-    
-    async_add_devices([sensor], update_before_add=True)
+    if hass.states.get(sensor.entity_id):
+        _LOGGER.debug("entity exist,remove it: %s",  sensor.entity_id)
+        hass.states.async_remove(sensor.entity_id)
+    async_add_devices([sensor], update_before_add=False)
     endpoint._device._application.listener_event('device_updated', endpoint._device)
     _LOGGER.debug("Return from binary_sensor init-cluster %s", endpoint.in_clusters)
 

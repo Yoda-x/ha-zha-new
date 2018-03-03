@@ -10,7 +10,6 @@ import time
 from homeassistant.components.sensor import DOMAIN
 from homeassistant.const import TEMP_CELSIUS
 from homeassistant.util.temperature import convert as convert_temperature
-from homeassistant.helpers import discovery, entity
 from custom_components import zha_new
 from importlib import import_module
 from bellows.zigbee.zcl.clusters.smartenergy import Metering
@@ -23,15 +22,16 @@ DEPENDENCIES = ['zha_new']
 @asyncio.coroutine
 def async_setup_platform(hass, config, async_add_devices, discovery_info=None):
     """Set up Zigbee Home Automation sensors."""
-    _LOGGER.debug("Enter sensor.zha: %s",discovery_info)
     discovery_info = zha_new.get_discovery_info(hass, discovery_info)
-    
-    _LOGGER.debug("Enter sensor.zha: %s",discovery_info)
     if discovery_info is None:
         return
     endpoint=discovery_info['endpoint']
     sensor = yield from make_sensor(discovery_info)
-    _LOGGER.debug("Create sensor.zha: %s",sensor.entity_id)
+    _LOGGER.debug("Create sensor.zha: %s", sensor.entity_id)
+    if hass.states.get(sensor.entity_id):
+        _LOGGER.debug("entity exist,remove it: %s",  sensor.entity_id)
+        hass.states.async_remove(sensor.entity_id)
+        
     async_add_devices([sensor], update_before_add=True)
     endpoint._device._application.listener_event('device_updated', endpoint._device)
 
@@ -81,6 +81,10 @@ class Sensor(zha_new.Entity):
         return self._state
 
     def attribute_updated(self, attribute, value):
+
+#        dev_func= self._model.replace(".","_").replace(" ","_")
+#        _parse_attribute = getattr(import_module("custom_components.device." + dev_func), "_parse_attribute")
+#        (attribute, value) = _parse_attribute(self, attribute, value)
         try:
             dev_func= self._model.replace(".","_").replace(" ","_")
             _parse_attribute = getattr(import_module("custom_components.device." + dev_func), "_parse_attribute")
@@ -89,10 +93,7 @@ class Sensor(zha_new.Entity):
             _LOGGER.debug("Import DH %s failed: %s", dev_func, e.args)
         except Exception as e:
             _LOGGER.info("Excecution of DH %s failed: %s", dev_func, e.args)
-
-        
         """Handle attribute update from device."""
-     #   _LOGGER.debug("Attribute updated: %s=%s",attribute, value)
         if attribute == self.value_attribute:
             self._state = value        
         self.schedule_update_ha_state()
@@ -209,7 +210,6 @@ class MeteringSensor(Sensor):
     def async_update(self):
         """Retrieve latest state."""
         ptr=0
-        len_v=1
         #_LOGGER.debug("%s async_update", self.entity_id)
       #  while len_v==1:
         v = yield from self.meter_cls.discover_attributes(0, 32)
@@ -231,13 +231,8 @@ class MeteringSensor(Sensor):
             else:
                 self._device_state_attributes["metering_"+str(attrid)] = value
         #self._state = v[0].value  
-        
-       
-        
-        
+
     def cluster_command(self, aps_frame, tsn, command_id, args):
         """Handle commands received to this cluster."""
         _LOGGER.debug("sensor cluster_command %s",command_id   )
             
-            
-

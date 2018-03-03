@@ -20,8 +20,11 @@ def setup_platform(hass, config, add_devices, discovery_info=None):
     discovery_info = zha_new.get_discovery_info(hass, discovery_info)
     if discovery_info is None:
         return
-
-    add_devices([Switch(**discovery_info)],update_before_add=True)
+    entity=Switch(**discovery_info)
+    if hass.states.get(entity.entity_id):
+        _LOGGER.debug("entity exist,remove it: %s",  entity.entity_id)
+        hass.states.async_remove(entity.entity_id)
+    add_devices([entity])
 
 
 class Switch(zha_new.Entity, SwitchDevice):
