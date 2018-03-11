@@ -21,11 +21,31 @@ DEPENDENCIES = ['zha_new']
 
 @asyncio.coroutine
 def async_setup_platform(hass, config, async_add_devices, discovery_info=None):
+    from bellows.zigbee.zcl.clusters.security import IasZone
     """Set up Zigbee Home Automation sensors."""
     discovery_info = zha_new.get_discovery_info(hass, discovery_info)
     if discovery_info is None:
         return
     endpoint=discovery_info['endpoint']
+    in_clusters = discovery_info['in_clusters']
+    
+    """ create ias cluster if it not already exists"""
+    if IasZone.cluster_id not in in_clusters:
+        cluster = endpoint.add_input_cluster(IasZone.cluster_id)
+        in_clusters[IasZone.cluster_id] = cluster
+        endpoint.in_clusters[IasZone.cluster_id] = cluster
+    else:
+        cluster = in_clusters[IasZone.cluster_id]
+    
+    if discovery_info['new_join']:
+        try:
+            yield from cluster.bind()    
+            ieee = cluster.endpoint.device.application.ieee
+            yield from cluster.write_attributes({'cie_addr': ieee})
+            _LOGGER.debug("write cie done")
+        except:
+            _LOGGER.debug("bind/write cie failed")
+
     sensor = yield from make_sensor(discovery_info)
     _LOGGER.debug("Create sensor.zha: %s", sensor.entity_id)
     if hass.states.get(sensor.entity_id):
@@ -62,7 +82,7 @@ def make_sensor(discovery_info):
     else:
         sensor = Sensor(**discovery_info)
 
-    _LOGGER.debug("Return make_sensor - %s",endpoint)   
+    _LOGGER.debug("Return make_sensor - %s",endpoint._device._ieee)   
     return sensor
 
 

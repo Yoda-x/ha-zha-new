@@ -31,15 +31,14 @@ CLASS_MAPPING = {
 
 @asyncio.coroutine
 def async_setup_platform(hass, config, async_add_devices, discovery_info=None):
+    from bellows.zigbee.zcl.clusters.security import IasZone
+    import bellows.zigbee.endpoint
     """Set up the Zigbee Home Automation binary sensors."""
     discovery_info = zha_new.get_discovery_info(hass, discovery_info)
     _LOGGER.debug("disocery info: %s", discovery_info)
     
     if discovery_info is None:
         return
-
-    from bellows.zigbee.zcl.clusters.security import IasZone
-    import bellows.zigbee.endpoint
 
     in_clusters = discovery_info['in_clusters']
     endpoint=discovery_info['endpoint']
