@@ -5,14 +5,13 @@ at https://home-assistant.io/components/sensor.zha/
 """
 import asyncio
 import logging
-import time
 
 from homeassistant.components.sensor import DOMAIN
 from homeassistant.const import TEMP_CELSIUS
 from homeassistant.util.temperature import convert as convert_temperature
 from custom_components import zha_new
 from importlib import import_module
-from bellows.zigbee.zcl.clusters.smartenergy import Metering
+from zigpy.zigbee.zcl.clusters.smartenergy import Metering
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -21,7 +20,7 @@ DEPENDENCIES = ['zha_new']
 
 @asyncio.coroutine
 def async_setup_platform(hass, config, async_add_devices, discovery_info=None):
-    from bellows.zigbee.zcl.clusters.security import IasZone
+    from zigpy.zigbee.zcl.clusters.security import IasZone
     """Set up Zigbee Home Automation sensors."""
     discovery_info = zha_new.get_discovery_info(hass, discovery_info)
     if discovery_info is None:
@@ -59,11 +58,11 @@ def async_setup_platform(hass, config, async_add_devices, discovery_info=None):
 @asyncio.coroutine
 def make_sensor(discovery_info):
     """Create ZHA sensors factory."""
-    from bellows.zigbee.zcl.clusters.measurement import TemperatureMeasurement
-    from bellows.zigbee.zcl.clusters.measurement import RelativeHumidity
-    from bellows.zigbee.zcl.clusters.measurement import PressureMeasurement
-    from bellows.zigbee.zcl.clusters.measurement import IlluminanceMeasurement
-    from bellows.zigbee.zcl.clusters.smartenergy import Metering
+    from zigpy.zigbee.zcl.clusters.measurement import TemperatureMeasurement
+    from zigpy.zigbee.zcl.clusters.measurement import RelativeHumidity
+    from zigpy.zigbee.zcl.clusters.measurement import PressureMeasurement
+    from zigpy.zigbee.zcl.clusters.measurement import IlluminanceMeasurement
+    from zigpy.zigbee.zcl.clusters.smartenergy import Metering
     
 
     in_clusters = discovery_info['in_clusters']
@@ -121,7 +120,7 @@ class Sensor(zha_new.Entity):
 
 class TemperatureSensor(Sensor):
     """ZHA temperature sensor."""
-    from bellows.zigbee.zcl.clusters.measurement import TemperatureMeasurement
+    from zigpy.zigbee.zcl.clusters.measurement import TemperatureMeasurement
     
     min_reportable_change = 50
 
@@ -192,11 +191,10 @@ class IlluminanceSensor(Sensor):
         return self._state
     
 class MeteringSensor(Sensor):
-    
     value_attribute = 0
     """ZHA  smart engery metering."""
     def __init__(self, **kwargs):
-        import bellows.zigbee.zcl.clusters as zcl_clusters
+        import zigpy.zigbee.zcl.clusters as zcl_clusters
         super().__init__(**kwargs)
         self.meter_attributes={}
         self.meter_ptr=0

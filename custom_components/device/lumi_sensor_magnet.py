@@ -72,7 +72,7 @@ def _battery_percent(voltage):
 
 def _parse_attribute(entity, attrib, value, *argv):
     import bellows.types as t
-    from bellows.zigbee.zcl import foundation as f
+    from zigpy.zigbee.zcl import foundation as f
     
     if type(value) is str:
         result = bytearray()
