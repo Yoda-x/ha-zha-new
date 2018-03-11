@@ -58,7 +58,7 @@ class Light(zha_new.Entity, light.Light):
         self._xy_color = None
         self._brightness = None
 
-        import zigpy.zigbee.zcl.clusters as zcl_clusters
+        import zigpy.zcl.clusters as zcl_clusters
         if zcl_clusters.general.LevelControl.cluster_id in self._in_clusters:
             self._supported_features |= light.SUPPORT_BRIGHTNESS
             self._supported_features |= light.SUPPORT_TRANSITION

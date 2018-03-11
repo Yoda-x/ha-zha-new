@@ -46,8 +46,8 @@ def populate_data():
     These cannot be module level, as importing bellows must be done in a
     in a function.
     """
-    from zigpy.zigbee import zcl
-    from zigpy.zigbee.profiles import PROFILES, zha, zll
+    from zigpy import zcl
+    from zigpy.profiles import PROFILES, zha, zll
 
     DEVICE_CLASS[zha.PROFILE_ID] = {
         zha.DeviceType.ON_OFF_SWITCH: 'switch',
@@ -276,7 +276,7 @@ class ApplicationListener:
     @asyncio.coroutine
     def async_device_initialized(self, device, join):
         """Handle device joined and basic information discovered (async)."""
-        import zigpy.zigbee.profiles
+        import zigpy.profiles
         populate_data()
         discovered_info = {}
 
@@ -330,8 +330,8 @@ class ApplicationListener:
             _LOGGER.debug("node config for %s: %s", device_key, node_config)
             
             #_LOGGER.debug("profile %s ", endpoint.profile_id)
-            if endpoint.profile_id in zigpy.zigbee.profiles.PROFILES:
-                profile = zigpy.zigbee.profiles.PROFILES[endpoint.profile_id]
+            if endpoint.profile_id in zigpy.profiles.PROFILES:
+                profile = zigpy.profiles.PROFILES[endpoint.profile_id]
                 if DEVICE_CLASS.get(endpoint.profile_id,{}).get(endpoint.device_type, None):
                     profile_clusters[0].update( profile.CLUSTERS[endpoint.device_type][0])
                     profile_clusters[1].update( profile.CLUSTERS[endpoint.device_type][1])
