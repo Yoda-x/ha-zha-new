@@ -17,7 +17,8 @@ from homeassistant.helpers.entity_component import EntityComponent
 from homeassistant.util import slugify
 from importlib import import_module
 
-REQUIREMENTS = ['bellows==0.4.0']
+REQUIREMENTS = ['bellows>=0.4.0']
+
 
 DOMAIN = 'zha_new'
 
@@ -45,8 +46,8 @@ def populate_data():
     These cannot be module level, as importing bellows must be done in a
     in a function.
     """
-    from bellows.zigbee import zcl
-    from bellows.zigbee.profiles import PROFILES, zha, zll
+    from zigpy import zcl
+    from zigpy.profiles import PROFILES, zha, zll
 
     DEVICE_CLASS[zha.PROFILE_ID] = {
         zha.DeviceType.ON_OFF_SWITCH: 'switch',
@@ -160,9 +161,6 @@ class zha_state(entity.Entity):
 
     @asyncio.coroutine
     def async_update(self):
-        import bellows.types as t 
-        from bellows.zigbee.zcl import foundation as f
-        
         result = yield from self.stack._command('neighborCount', [])
         self._device_state_attributes['neighborCount'] =  result[0]
         result = yield from self.stack._command('getValue', 3 )
@@ -278,7 +276,7 @@ class ApplicationListener:
     @asyncio.coroutine
     def async_device_initialized(self, device, join):
         """Handle device joined and basic information discovered (async)."""
-        import bellows.zigbee.profiles
+        import zigpy.profiles
         populate_data()
         discovered_info = {}
 
@@ -332,8 +330,8 @@ class ApplicationListener:
             _LOGGER.debug("node config for %s: %s", device_key, node_config)
             
             #_LOGGER.debug("profile %s ", endpoint.profile_id)
-            if endpoint.profile_id in bellows.zigbee.profiles.PROFILES:
-                profile = bellows.zigbee.profiles.PROFILES[endpoint.profile_id]
+            if endpoint.profile_id in zigpy.profiles.PROFILES:
+                profile = zigpy.profiles.PROFILES[endpoint.profile_id]
                 if DEVICE_CLASS.get(endpoint.profile_id,{}).get(endpoint.device_type, None):
                     profile_clusters[0].update( profile.CLUSTERS[endpoint.device_type][0])
                     profile_clusters[1].update( profile.CLUSTERS[endpoint.device_type][1])

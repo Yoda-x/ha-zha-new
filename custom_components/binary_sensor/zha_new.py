@@ -10,7 +10,6 @@ from importlib import import_module
 import homeassistant.util.dt as dt_util
 from homeassistant.components.binary_sensor import DOMAIN, BinarySensorDevice
 from custom_components import zha_new
-from homeassistant.helpers.event import track_point_in_time
 from homeassistant.helpers.event import async_track_point_in_time
 
 
@@ -31,8 +30,7 @@ CLASS_MAPPING = {
 
 @asyncio.coroutine
 def async_setup_platform(hass, config, async_add_devices, discovery_info=None):
-    from bellows.zigbee.zcl.clusters.security import IasZone
-    import bellows.zigbee.endpoint
+    from zigpy.zcl.clusters.security import IasZone
     """Set up the Zigbee Home Automation binary sensors."""
     discovery_info = zha_new.get_discovery_info(hass, discovery_info)
     _LOGGER.debug("disocery info: %s", discovery_info)
@@ -80,10 +78,9 @@ def async_setup_platform(hass, config, async_add_devices, discovery_info=None):
 
 def _make_sensor(device_class, discovery_info):
     """Create ZHA sensors factory."""
-    from bellows.zigbee.zcl.clusters.general import OnOff
-    from bellows.zigbee.zcl.clusters.measurement import OccupancySensing
+    from zigpy.zcl.clusters.general import OnOff
+    from zigpy.zcl.clusters.measurement import OccupancySensing
     
-
     in_clusters = discovery_info['in_clusters']
     endpoint = discovery_info['endpoint']
     
@@ -118,7 +115,7 @@ class BinarySensor(zha_new.Entity, BinarySensorDevice):
         """Initialize the ZHA binary sensor."""
         super().__init__(**kwargs)
         self._device_class = device_class
-        from bellows.zigbee.zcl.clusters.security import IasZone
+        from zigpy.zcl.clusters.security import IasZone
         self._ias_zone_cluster = self._in_clusters[IasZone.cluster_id]
             
     @property
