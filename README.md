@@ -1,5 +1,5 @@
 # ha-zha-new
-=======
+see wiki for tips
 ## Breaking update
 switched from old bellows to zigpy/zigpy and zigpy/bellows
 Most of my needed changes are in the original zigpy distro. I will create PR´s for the others. For newer features or to be save use my bellows&zigpy fork.
