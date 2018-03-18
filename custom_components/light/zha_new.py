@@ -200,7 +200,7 @@ class Light(zha_new.Entity, light.Light):
         """
         return True
     
-    def cluster_command(self, aps_frame, tsn, command_id, args):
+    def cluster_command(self, tsn, command_id, args):
         try:
             dev_func= self._model.replace(".","_").replace(" ","_")
             _custom_cluster_command = getattr(
