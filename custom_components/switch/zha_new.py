@@ -39,7 +39,7 @@ class Switch(zha_new.Entity, SwitchDevice):
             return False
         return bool(self._state)
     
-    def cluster_command(self, aps_frame, tsn, command_id, args):
+    def cluster_command(self, tsn, command_id, args):
         """Handle commands received to this cluster."""
         pass
     

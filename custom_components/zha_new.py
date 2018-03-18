@@ -17,8 +17,8 @@ from homeassistant.helpers.entity_component import EntityComponent
 from homeassistant.util import slugify
 from importlib import import_module
 
-REQUIREMENTS = ['bellows>=0.4.0']
 
+REQUIREMENTS = ['bellows', 'zigpy']
 
 DOMAIN = 'zha_new'
 
