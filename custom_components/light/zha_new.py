@@ -41,8 +41,8 @@ def async_setup_platform(hass, config, async_add_devices, discovery_info=None):
     
     if hass.states.get(entity.entity_id):
         _LOGGER.debug("entity exist,remove it: %s",  dir (hass.states.get(entity.entity_id)))
-        
-    async_add_devices([entity], update_before_add=True)
+        hass.states.async_remove(entity.entity_id)
+    async_add_devices([entity])
 
 
 class Light(zha_new.Entity, light.Light):
@@ -57,6 +57,7 @@ class Light(zha_new.Entity, light.Light):
         self._color_temp = None
         self._xy_color = None
         self._brightness = None
+        self._available = True
 
         import zigpy.zcl.clusters as zcl_clusters
         if zcl_clusters.general.LevelControl.cluster_id in self._in_clusters:
@@ -79,7 +80,11 @@ class Light(zha_new.Entity, light.Light):
         if self._state == STATE_UNKNOWN:
             return False
         return bool(self._state)
-
+        
+    @property
+    def available(self) -> bool:
+        return bool(self._available)
+        
     @asyncio.coroutine
     def async_turn_on(self, **kwargs):
         """Turn the entity on."""
@@ -121,7 +126,7 @@ class Light(zha_new.Entity, light.Light):
 
         yield from self._endpoint.on_off.on()
         self._state = 1
-        self.async_schedule_update_ha_state()
+        self.async_update_ha_state(force_refresh=True)
 
     @asyncio.coroutine
     def async_turn_off(self, **kwargs):
@@ -172,7 +177,12 @@ class Light(zha_new.Entity, light.Light):
        
         #yield from self._endpoint.on_off.discover_attributes(0,4)
         result = yield from safe_read(self._endpoint.on_off, ['on_off'])
-        self._state = result.get('on_off', self._state)
+        try:
+            self._state = result['on_off']
+            self._available = True
+        except Exception:
+            self._available = False
+            
         if not self._state:
             return
 
@@ -207,7 +217,7 @@ class Light(zha_new.Entity, light.Light):
                 import_module("custom_components.device." + dev_func),
                 "_custom_cluster_command"
                 )
-            _custom_cluster_command(self, aps_frame, tsn, command_id, args)
+            _custom_cluster_command(self, tsn, command_id, args)
         except ImportError as e:
             _LOGGER.debug("Import DH %s failed: %s", dev_func, e.args)
         except Exception as e:
