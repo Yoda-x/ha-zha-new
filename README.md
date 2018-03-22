@@ -1,24 +1,62 @@
 # ha-zha-new
-=======
-
-#### update of the zha component
+see wiki for tips
+## Breaking update
+switched from old bellows to zigpy/zigpy and zigpy/bellows
+Most of my needed changes are in the original zigpy distro. I will create PR´s for the others. For newer features or to be save use my bellows&zigpy fork.
+### update of the zha component
 based on the work from rcloran and others
 Converted to a custom_component for an easier way to test and distribute to others without changing the homeassistant code. Should be forked back to the HA  codeafter testing. 
 
-**works for aqara and orignal xiaomi sensors
 
-**Current State:needs my bellows changes(timeout values and device_updated event), also includes some bug fixes, updated to latest commits from rcloran, added pull requests to rcloran/bellows** 
-
-## in pipeline for next release
+## NEW
 - metering/on-off support for sitecom WLE-1000 plugs with reporting
 - Aquara Water sensors as binary-sensors
 - add RSSI/LQI information in entity attributes
+- added zha_new object to monitor some parameters, which is helpful to see whats going on during pairing 
+- - device left
+- - permit enabled
+- - device joined
+- - device init - settting up device in hass
+- - run - normal operations
+
+## tested devices
+- xiaomi and aquara sensors
+- tradfri bulbs
+- tradfri dimmer
+
+## loadable device handler
+create your own device handlers for unsupported devices, see files under custom_components/devices
+
+## use master-pre-0,61 branch for HA <= 0.60 and master- >= 0.63
+pre 0.61 code - no updates
 
 ## Todo
 - detect returning endpoints and update state ( mainly for bulbs), needs endpoint 0 (zdo) enabled in zha Ha component
-- add zha entity to monitor zigbee network state
 
 
+
+##USAGE:
+check out inside your $home/.homeassistant/ directory, code needs to be in custom_component
+
+**configuration example:**
+tradfri bulbs and dimmer need  to use the template definition, xiaome sensors gets autodetected
+
+
+    #my current zha config with xiaomi sensors and tradfri bulbs
+    zha_new:
+        usb_path: /dev/ttyUSB0
+        database_path: /home/homeassistant/.homeassistant/zigbee.db
+        device_config: 
+    # tradfri dimmer
+        "00:0b:57:ff:fe:24:18:9f-1":
+          template: tradfri_dimmer
+    # tradfri dimmable bulbs
+        "00:0b:57:ff:fe:2d:ab:35-1":
+          template: TRADFRI_bulb
+        "00:0b:57:ff:fe:b2:d3:b7-1":
+          template: TRADFRI_bulb
+
+## History
 ## 1/8 dev-loader branch merged into master ->added support for:
 - tradfri dimmable bulbs, not tested for the temperature bulbs, but maybe working
 - loadable device handler modules in custom_components/device/
@@ -39,28 +77,3 @@ Converted to a custom_component for an easier way to test and distribute to othe
 - if a device leaves, the device gets removed from the database. Thus, you can unpair and pair a device now, without need to clear the database
 - see the zha.yaml file for configuration
 - it will create a base entity and a entity for each sensor(motion, temp, humidity, on/off)
-
-
-
-check out inside your $home/.homeassistant/ diretory, 
-
-USAGE: 
-
-```
-#my current zha config with xiaomi sensors and tradfri bulbs
-zha_new:
-    usb_path: /dev/ttyUSB0
-    database_path: /home/homeassistant/.homeassistant/zigbee.db
-    device_config: 
-  device_config: 
-# tradfri dimmer
-    "00:0b:57:ff:fe:24:18:9f-1":
-      template: tradfri_dimmer
-# tradfri dimmable bulbs
-    "00:0b:57:ff:fe:2d:ab:35-1":
-      template: TRADFRI_bulb
-    "00:0b:57:ff:fe:b2:d3:b7-1":
-      template: TRADFRI_bulb
-
-
-     
