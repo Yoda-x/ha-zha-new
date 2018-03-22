@@ -12,7 +12,7 @@ def _custom_endpoint_init(self, node_config, *argv):
         }
     node_config.update(config)
 
-def _custom_cluster_command(self, aps_frame, tsn, command_id, args):
+def _custom_cluster_command(self, tsn, command_id, args):
     self._state = 1
     if command_id == 5:
         _up_down=1
