@@ -17,8 +17,8 @@ from homeassistant.helpers.entity_component import EntityComponent
 from homeassistant.util import slugify
 from importlib import import_module
 
-REQUIREMENTS = ['bellows>=0.4.0']
 
+REQUIREMENTS = ['bellows', 'zigpy']
 
 DOMAIN = 'zha_new'
 
@@ -163,10 +163,10 @@ class zha_state(entity.Entity):
     def async_update(self):
         result = yield from self.stack._command('neighborCount', [])
         self._device_state_attributes['neighborCount'] =  result[0]
-        result = yield from self.stack._command('getValue', 3 )
-       # buffer,  value =  f.TypeValue.deserialize(result[1])
-       # buffer = t.uint8_t(result[1])
-        # self._device_state_attributes['FreeBuffers'] =  buffer
+ #       result = yield from self.stack._command('getValue', 3 )
+ #       buffer,  value =  f.TypeValue.deserialize(result[1])
+  #      buffer = t.uint8_t(result[1])
+   #     self._device_state_attributes['FreeBuffers'] =  buffer
         
       #  result = yield from self.stack._command('getSourceRouteTableFilledSize',  [])
       # self._device_state_attributes['getSourceRouteTableFilledSize'] =  result[0]
@@ -265,6 +265,7 @@ class ApplicationListener:
         self._hass.async_add_job(APPLICATION_CONTROLLER.remove(device._ieee))
         self.controller._state ='Left ' + str(device._ieee) 
         self.controller.async_schedule_update_ha_state()
+        
         @asyncio.coroutine
         def _async_clear_state(entity):
             entity._state = 'Run'
@@ -272,7 +273,7 @@ class ApplicationListener:
         async_track_point_in_time(
             self.controller.hass, _async_clear_state(self.controller),
             dt_util.utcnow() + datetime.timedelta(seconds=5))
-
+            
     @asyncio.coroutine
     def async_device_initialized(self, device, join):
         """Handle device joined and basic information discovered (async)."""
@@ -522,17 +523,17 @@ class Entity(entity.Entity):
         self.schedule_update_ha_state()
     
 
-    def zdo_command(self, aps_frame, tsn, command_id, args):
+    def zdo_command(self,  tsn, command_id, args):
         """Handle a ZDO command received on this cluster."""
         _LOGGER.debug("ZDO received: \n entity - \n command_id: %s \n args: %s",
                      self.entity_id, command_id, args)
 
-    def cluster_command(self, aps_frame, tsn, command_id, args):
+    def cluster_command(self,  tsn, command_id, args):
         """ handle incomming cluster commands """
         pass
     
     """dummy function; override from device handler"""
-    def _custom_cluster_command(self, aps_frame, tsn, command_id, args):
+    def _custom_cluster_command(self,  tsn, command_id, args):
         pass
     
     """dummy function; override from device handler"""

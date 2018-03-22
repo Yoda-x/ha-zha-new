@@ -101,9 +101,6 @@ class Sensor(zha_new.Entity):
 
     def attribute_updated(self, attribute, value):
 
-#        dev_func= self._model.replace(".","_").replace(" ","_")
-#        _parse_attribute = getattr(import_module("custom_components.device." + dev_func), "_parse_attribute")
-#        (attribute, value) = _parse_attribute(self, attribute, value)
         try:
             dev_func= self._model.replace(".","_").replace(" ","_")
             _parse_attribute = getattr(import_module("custom_components.device." + dev_func), "_parse_attribute")
@@ -196,13 +193,13 @@ class MeteringSensor(Sensor):
     def __init__(self, **kwargs):
         import zigpy.zcl.clusters as zcl_clusters
         super().__init__(**kwargs)
-        self.meter_attributes={}
-        self.meter_ptr=0
-        self.meter_max= 8
-       
-        self.meter_cls=self._endpoint.in_clusters[0x0702] # tODO: use speaking       name
-      #  _LOGGER.debug("MeteringSensor init done")
-        
+#        self.meter_attributes={}
+#        self.meter_ptr=0
+#        self.meter_max= 8
+#       
+        self.meter_cls=self._endpoint.in_clusters[0x0702] # todo: use speaking       name
+#      #  _LOGGER.debug("MeteringSensor init done")
+#        
 
     @property
     def unit_of_measurement(self):
@@ -227,30 +224,30 @@ class MeteringSensor(Sensor):
     @asyncio.coroutine
     def async_update(self):
         """Retrieve latest state."""
-        ptr=0
-        #_LOGGER.debug("%s async_update", self.entity_id)
-      #  while len_v==1:
-        v = yield from self.meter_cls.discover_attributes(0, 32)
+#        ptr=0
+#        #_LOGGER.debug("%s async_update", self.entity_id)
+#      #  while len_v==1:
+#        v = yield from self.meter_cls.discover_attributes(0, 32)
         attribs=[0,]
-        for item in v[0]:
-            self.meter_attributes[item.attrid]=item.datatype
-            ptr=item.attrid + 1 if item.attrid > ptr else ptr
-        attribs.extend(list(self.meter_attributes.keys()))
-     #   _LOGGER.debug("query %s:", attribs)
-        #v = yield from self.meter_cls.read_attributes_raw(attribs)
+#        for item in v[0]:
+#            self.meter_attributes[item.attrid]=item.datatype
+#            ptr=item.attrid + 1 if item.attrid > ptr else ptr
+#        attribs.extend(list(self.meter_attributes.keys()))
+#     #   _LOGGER.debug("query %s:", attribs)
+#        #v = yield from self.meter_cls.read_attributes_raw(attribs)
         v = yield from self.meter_cls.read_attributes(attribs)
-     #   _LOGGER.debug("attributes for cluster:%s" , v[0])
+#     #   _LOGGER.debug("attributes for cluster:%s" , v[0])
         for attrid, value  in v[0].items():
             if attrid == 0: 
                 self._state = value
-            attrid_record=Metering.attributes.get(attrid,None )
-            if attrid_record:
-                self._device_state_attributes[attrid_record[0]] = value
-            else:
-                self._device_state_attributes["metering_"+str(attrid)] = value
-        #self._state = v[0].value  
+#            attrid_record=Metering.attributes.get(attrid,None )
+#            if attrid_record:
+#                self._device_state_attributes[attrid_record[0]] = value
+#            else:
+#                self._device_state_attributes["metering_"+str(attrid)] = value
+#        #self._state = v[0].value  
 
-    def cluster_command(self, aps_frame, tsn, command_id, args):
+    def cluster_command(self, tsn, command_id, args):
         """Handle commands received to this cluster."""
         _LOGGER.debug("sensor cluster_command %s",command_id   )
             

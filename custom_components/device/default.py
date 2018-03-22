@@ -4,5 +4,5 @@ def _custom_endpoint_init(self, node_config, *argv):
 def _parse_attribute(entity, attrib, value, *argv):
     return(attrib, value)
 
-def _custom_cluster_command(self, aps_frame, tsn, command_id, args):
+def _custom_cluster_command(self,  tsn, command_id, args):
     pass

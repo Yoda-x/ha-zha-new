@@ -13,7 +13,7 @@ def _custom_endpoint_init(self, node_config,*argv):
     if selector in ['lumi_sensor_magnet', 'lumi_sensor_magnet_aq2']:
         config={
         "config_report": [
-            [ 6, 0, 0, 3600, 1 ],            
+            [ 6, 0, 0, 1800, 1 ],            
             ],
         "in_cluster": [0x0000,],
         "type": "binary_sensor", 
@@ -21,8 +21,8 @@ def _custom_endpoint_init(self, node_config,*argv):
     elif selector in ['lumi_sensor_ht', ] and self.endpoint_id == 1:
         config={
         "config_report": [
-            [ 0x0402, 0, 10, 3600, 5],
-            [ 0x0405, 0, 10, 3600, 5],
+            [ 0x0402, 0, 10, 1800, 5],
+            [ 0x0405, 0, 10, 1800, 5],
             ],
         "in_cluster": [0x0000, ],
         "type": "sensor",
@@ -30,9 +30,9 @@ def _custom_endpoint_init(self, node_config,*argv):
     elif selector in ['lumi_weather', ] and self.endpoint_id == 1:
         config={
         "config_report": [
-            [ 0x0402, 0, 10, 3600, 5],
-            [ 0x0403, 0, 10, 3600, 5],
-            [ 0x0405, 0, 10, 3600, 5],
+            [ 0x0402, 0, 10, 1800, 5],
+            [ 0x0403, 0, 10, 1800, 5],
+            [ 0x0405, 0, 10, 1800, 5],
             ],
         "in_cluster": [0x0000, ],
         "type": "sensor",
@@ -40,7 +40,7 @@ def _custom_endpoint_init(self, node_config,*argv):
     elif selector in ['lumi_sensor_motion', ]:
         config={
         "config_report": [
-            [ 0x0406, 0, 10, 3600, 1],
+            [ 0x0406, 0, 10, 1800, 1],
             ],
         "in_cluster": [0x0000,],
  #       "type": "binary_sensor",
@@ -48,8 +48,8 @@ def _custom_endpoint_init(self, node_config,*argv):
     elif selector in ['lumi_sensor_motion_aq2', ]:
         config={
         "config_report": [
-            [ 0x0406, 0, 10, 3600, 1],
-            [ 0x0400, 0, 10, 3600, 10],
+            [ 0x0406, 0, 10, 1800, 1],
+            [ 0x0400, 0, 10, 1800, 10],
             ],
         "in_cluster": [0x0000,],
  #       "type": "binary_sensor",
@@ -59,7 +59,7 @@ def _custom_endpoint_init(self, node_config,*argv):
         "in_cluster": [0x0000, ],
         "type": "binary_sensor",
         "config_report": [
-            [ 65281, 0, 10, 3600, 1],
+            [ 65281, 0, 10, 1800, 1],
             ]
         }
     
