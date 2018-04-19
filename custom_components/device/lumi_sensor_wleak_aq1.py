@@ -7,57 +7,7 @@ _LOGGER = logging.getLogger(__name__)
 
 def _custom_endpoint_init(self, node_config,*argv):
     """set node_config based obn Lumi device_type"""
-    config={}
-    selector=node_config.get('template',None)
-    if not selector:
-        selector = argv[0]
-        _LOGGER.debug(" selector: %s", selector)
-    if selector in ['lumi_sensor_magnet', 'lumi_sensor_magnet_aq2']:
-        config={
-        "config_report": [
-            [ 6, 0, 0, 1800, 1 ],            
-            ],
-        "in_cluster": [0x0000,],
-        "type": "binary_sensor", 
-        }
-    elif selector in ['lumi_sensor_ht', ] and self.endpoint_id == 1:
-        config={
-        "config_report": [
-            [ 0x0402, 0, 10, 1800, 5],
-            [ 0x0405, 0, 10, 1800, 5],
-            ],
-        "in_cluster": [0x0000, ],
-        "type": "sensor",
-        }
-    elif selector in ['lumi_weather', ] and self.endpoint_id == 1:
-        config={
-        "config_report": [
-            [ 0x0402, 0, 10, 1800, 5],
-            [ 0x0403, 0, 10, 1800, 5],
-            [ 0x0405, 0, 10, 1800, 5],
-            ],
-        "in_cluster": [0x0000, ],
-        "type": "sensor",
-        }
-    elif selector in ['lumi_sensor_motion', ]:
-        config={
-        "config_report": [
-            [ 0x0406, 0, 10, 1800, 1],
-            ],
-        "in_cluster": [0x0000,],
- #       "type": "binary_sensor",
-        }
-    elif selector in ['lumi_sensor_motion_aq2', ]:
-        config={
-        "config_report": [
-            [ 0x0406, 0, 10, 1800, 1],
-            [ 0x0400, 0, 10, 1800, 10],
-            ],
-        "in_cluster": [0x0000,],
- #       "type": "binary_sensor",
-        }
-    elif selector == 'lumi_sensor_wleak_aq1':
-        config={
+    config={
         "in_cluster": [0x0000, ],
         "type": "binary_sensor",
         "config_report": [
@@ -80,9 +30,6 @@ def _parse_attribute(entity, attrib, value, *argv):
         result = bytearray()
         result.extend(map(ord,value))
         value = result
-#    if entity.entity_connect == {}:
-#        entity_store = zha_new.get_entity_store(entity.hass)
-#        
         
     """ parse custom attributes """
     attributes={}
@@ -136,8 +83,6 @@ def _parse_attribute(entity, attrib, value, *argv):
     else:
         result=value    
     _LOGGER.debug("Parse Result: %s", result)
-    if "battery_level" in attributes:
-        entity._state = attributes.get("battery_level", 0)
     attributes["Last seen"] = dt_util.now()
     entity._device_state_attributes.update(attributes)
     return(attrib, result)

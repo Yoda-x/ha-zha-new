@@ -68,11 +68,18 @@ def async_setup_platform(hass, config, async_add_devices, discovery_info=None):
             #device_class='none'
             pass
 
-    sensor = yield from _make_sensor(device_class, discovery_info)
-    if hass.states.get(sensor.entity_id):
-        _LOGGER.debug("entity exist,remove it: %s",  sensor.entity_id)
-        hass.states.async_remove(sensor.entity_id)
-    async_add_devices([sensor], update_before_add=False)
+    entity = yield from _make_sensor(device_class, discovery_info)
+    if hass.states.get(entity.entity_id):
+        _LOGGER.debug("entity exist,remove it: %s",  entity.entity_id)
+        hass.states.async_remove(entity.entity_id)
+    async_add_devices([entity], update_before_add=False)
+    
+    _LOGGER.debug("set Entity object: %s-%s ",  type(entity),  entity.unique_id)
+    entity_store=zha_new.get_entity_store(hass)
+    if not endpoint.device._ieee in entity_store:
+        entity_store[endpoint.device._ieee] =[]
+    entity_store[endpoint.device._ieee].append(entity)
+    
     endpoint._device._application.listener_event('device_updated', endpoint._device)
     _LOGGER.debug("Return from binary_sensor init-cluster %s", endpoint.in_clusters)
 
@@ -146,8 +153,8 @@ class BinarySensor(zha_new.Entity, BinarySensorDevice):
             (attribute, value) = _parse_attribute(self,attribute, value, dev_func)
         except ImportError as e:
             _LOGGER.debug("Import DH %s failed: %s", dev_func, e.args)
-#        except Exception as e:
-#            _LOGGER.info("Excecution of DH %s failed: %s", dev_func, e.args)
+        except Exception as e:
+            _LOGGER.info("Excecution of DH %s failed: %s", dev_func, e.args)
    
         if attribute == self.value_attribute:
             self._state = value

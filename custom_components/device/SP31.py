@@ -1,6 +1,5 @@
 """" custom py file for device """
 import logging
-import homeassistant.util.dt as dt_util
 _LOGGER = logging.getLogger(__name__)
 
 def _custom_endpoint_init(self, node_config,*argv):

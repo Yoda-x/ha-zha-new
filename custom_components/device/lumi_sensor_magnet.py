@@ -1,6 +1,8 @@
 """" custom py file for device """
 import logging
 import homeassistant.util.dt as dt_util
+from custom_components import zha_new
+
 _LOGGER = logging.getLogger(__name__)
 
 def _custom_endpoint_init(self, node_config,*argv):
@@ -21,8 +23,8 @@ def _custom_endpoint_init(self, node_config,*argv):
     elif selector in ['lumi_sensor_ht', ] and self.endpoint_id == 1:
         config={
         "config_report": [
-            [ 0x0402, 0, 10, 1800, 5],
-            [ 0x0405, 0, 10, 1800, 5],
+            [ 0x0402, 0, 10, 600, 5],
+            [ 0x0405, 0, 10, 600, 5],
             ],
         "in_cluster": [0x0000, ],
         "type": "sensor",
@@ -30,9 +32,9 @@ def _custom_endpoint_init(self, node_config,*argv):
     elif selector in ['lumi_weather', ] and self.endpoint_id == 1:
         config={
         "config_report": [
-            [ 0x0402, 0, 10, 1800, 5],
-            [ 0x0403, 0, 10, 1800, 5],
-            [ 0x0405, 0, 10, 1800, 5],
+            [ 0x0402, 0, 10, 120, 5],
+            [ 0x0403, 0, 10, 120, 5],
+            [ 0x0405, 0, 10, 120, 5],
             ],
         "in_cluster": [0x0000, ],
         "type": "sensor",
@@ -78,7 +80,14 @@ def _parse_attribute(entity, attrib, value, *argv):
         result = bytearray()
         result.extend(map(ord,value))
         value = result
-
+        
+    if entity.entity_connect == {}:
+        entity_store = zha_new.get_entity_store(entity.hass)
+        device_store=entity_store.get(entity._endpoint._device._ieee, {}) 
+        for dev_ent in device_store:
+            if hasattr(dev_ent, 'cluster_key'):
+                entity.entity_connect[dev_ent.cluster_key] = dev_ent
+                
     """ parse custom attributes """
     attributes={}
     if attrib == 0xff02:
@@ -88,7 +97,7 @@ def _parse_attribute(entity, attrib, value, *argv):
         while value:
             svalue, value = f.TypeValue.deserialize(value)
             result.append(svalue.value)
-            #_LOGGER.debug("parse 0xff02: %s", svalue.value)
+            _LOGGER.debug("parse 0xff02: %s", svalue.value)
         attributes = dict(zip(attribute_name,result))
         
         if "battery_voltage_mV" in attributes:
@@ -101,6 +110,7 @@ def _parse_attribute(entity, attrib, value, *argv):
             1 : "battery_voltage_mV", 
             100 : "temperature" , 
             101 : "humidity",
+            102 : "pressure", 
             5 : "X-attrib-5",
             6 : "X-attrib-6", 
             10 : "X-attrib-10"
@@ -131,7 +141,14 @@ def _parse_attribute(entity, attrib, value, *argv):
     else:
         result=value    
     _LOGGER.debug("Parse Result: %s", result)
-    
+    if "battery_level" in attributes:
+        entity._state = attributes.get("battery_level", 0)
+    for attr in ("temperature","humidity" ):
+        if attr in attributes and attr in entity.entity_connect:
+            entity.entity_connect[attr]._state = attributes[attr]
+    if "pressure" in attributes:
+         entity.entity_connect["pressure"]._state = round(float(attributes["pressure"]) / 100, 1)
+                
     attributes["Last seen"] = dt_util.now()
     entity._device_state_attributes.update(attributes)
     return(attrib, result)

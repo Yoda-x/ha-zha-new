@@ -20,16 +20,23 @@ def setup_platform(hass, config, add_devices, discovery_info=None):
     discovery_info = zha_new.get_discovery_info(hass, discovery_info)
     if discovery_info is None:
         return
+#    endpoint=discovery_info['endpoint']
     entity=Switch(**discovery_info)
     if hass.states.get(entity.entity_id):
         _LOGGER.debug("entity exist,remove it: %s",  entity.entity_id)
         hass.states.async_remove(entity.entity_id)
     add_devices([entity])
+    endpoint = discovery_info['endpoint']
+ #   endpoint._device._application.listener_event('device_updated', endpoint._device)
 
+    entity_store=zha_new.get_entity_store(hass)
+    if not endpoint.device._ieee in entity_store:
+        entity_store[endpoint.device._ieee] =[]
+    entity_store[endpoint.device._ieee].append(entity)
 
 class Switch(zha_new.Entity, SwitchDevice):
     """ZHA switch."""
-
+    from zigpy.zcl.clusters.general import OnOff
     _domain = DOMAIN
 
     @property
@@ -39,23 +46,16 @@ class Switch(zha_new.Entity, SwitchDevice):
             return False
         return bool(self._state)
     
-    def cluster_command(self, tsn, command_id, args):
-        """Handle commands received to this cluster."""
-        pass
-    
     def attribute_updated(self, attribute, value):
         _LOGGER.debug("attribute update: %s = %s ", attribute, value)
         try:
             dev_func= self._model.replace(".","_").replace(" ","_")
             _parse_attribute = getattr(import_module("custom_components.device." + dev_func), "_parse_attribute")
-            #(attribute, value) = _parse_attribute(self,attribute, value, dev_func)
+            (attribute, value) = _parse_attribute(self,attribute, value, dev_func)
         except ImportError as e:
             _LOGGER.debug("Import DH %s failed: %s", dev_func, e.args)
         except Exception as e:
             _LOGGER.info("Excecution of DH %s failed: %s", dev_func, e.args)
-
-        
-        
         if attribute == 0:
             self._state = bool(value)   
         _LOGGER.debug("attribute update: %s = %s ", attribute, value)       
@@ -76,9 +76,28 @@ class Switch(zha_new.Entity, SwitchDevice):
     @asyncio.coroutine
     def async_update(self):
         """Retrieve latest state."""
-        v = yield from self._endpoint.on_off.read_attributes(
-            ['on_off',],
-            allow_cache=False,
-            )
-        self._state = v[0]['on_off']
-        _LOGGER.debug("on_off %s",  self._state)
+        if 6 in self._in_clusters:
+            result = yield from zha_new.safe_read(self._endpoint.on_off, ['on_off'])
+        else:
+            return
+        try:
+            self._state = result['on_off']
+            self._available = True
+        except Exception:
+            self._available = False
+            
+        if not self._state:
+            return
+    
+    def cluster_command(self, tsn, command_id, args):
+        try:
+            dev_func= self._model.replace(".","_").replace(" ","_")
+            _custom_cluster_command = getattr(
+                import_module("custom_components.device." + dev_func),
+                "_custom_cluster_command"
+                )
+            _custom_cluster_command(self, tsn, command_id, args)
+        except ImportError as e:
+            _LOGGER.debug("Import DH %s failed: %s", dev_func, e.args)
+        except Exception as e:
+            _LOGGER.info("Excecution of DH %s failed: %s", dev_func, e.args)

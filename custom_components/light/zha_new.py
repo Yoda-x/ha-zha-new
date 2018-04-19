@@ -7,20 +7,23 @@ import asyncio
 import logging
 
 from homeassistant.components import light
-from homeassistant.util.color import color_RGB_to_xy
 from homeassistant.const import STATE_UNKNOWN
 from custom_components import zha_new
 from importlib import import_module
+import homeassistant.util.color as color_util
 
 _LOGGER = logging.getLogger(__name__)
 """ change to ZHA-new for use in home-dir """
 DEPENDENCIES = ['zha_new']
 
 DEFAULT_DURATION = 0.5
+CAPABILITIES_COLOR_XY = 0x08
+CAPABILITIES_COLOR_TEMP = 0x10
+
+UNSUPPORTED_ATTRIBUTE = 0x86
 
 
-@asyncio.coroutine
-def async_setup_platform(hass, config, async_add_devices, discovery_info=None):
+async def async_setup_platform(hass, config, async_add_devices, discovery_info=None):
     """Set up the Zigbee Home Automation lights."""
     discovery_info = zha_new.get_discovery_info(hass, discovery_info)
     if discovery_info is None:
@@ -29,7 +32,7 @@ def async_setup_platform(hass, config, async_add_devices, discovery_info=None):
     endpoint = discovery_info['endpoint']
     try:
         discovery_info['color_capabilities'] \
-            = yield from endpoint.light_color['color_capabilities']
+            = await endpoint.light_color['color_capabilities']
         _LOGGER.debug("Request for color_capabilities: %s",discovery_info['color_capabilities'])
     except AttributeError as e:
         _LOGGER.debug("No color cluster: %s", e.args)
@@ -43,6 +46,12 @@ def async_setup_platform(hass, config, async_add_devices, discovery_info=None):
         _LOGGER.debug("entity exist,remove it: %s",  dir (hass.states.get(entity.entity_id)))
         hass.states.async_remove(entity.entity_id)
     async_add_devices([entity])
+
+    entity_store=zha_new.get_entity_store(hass)
+    if not endpoint.device._ieee in entity_store:
+        entity_store[endpoint.device._ieee] =[]
+    entity_store[endpoint.device._ieee].append(entity)
+    endpoint._device._application.listener_event('device_updated', endpoint._device)
 
 
 class Light(zha_new.Entity, light.Light):
@@ -58,6 +67,9 @@ class Light(zha_new.Entity, light.Light):
         self._xy_color = None
         self._brightness = None
         self._available = True
+        self._groups = None
+        self._grp_name = None
+        
 
         import zigpy.zcl.clusters as zcl_clusters
         if zcl_clusters.general.LevelControl.cluster_id in self._in_clusters:
@@ -66,13 +78,17 @@ class Light(zha_new.Entity, light.Light):
             self._brightness = 0
         if zcl_clusters.lighting.Color.cluster_id in self._in_clusters:
             color_capabilities = kwargs.get('color_capabilities', 0x10)
-            if color_capabilities & 0x10:
+            if color_capabilities & CAPABILITIES_COLOR_TEMP:
                 self._supported_features |= light.SUPPORT_COLOR_TEMP
 
-            if color_capabilities & 0x08:
-                self._supported_features |= light.SUPPORT_XY_COLOR
-                self._supported_features |= light.SUPPORT_RGB_COLOR
-                self._xy_color = (1.0, 1.0)
+            if color_capabilities & CAPABILITIES_COLOR_XY:
+                self._supported_features |= light.SUPPORT_COLOR
+                self._hs_color = (0, 0)
+                
+        if zcl_clusters.general.Groups.cluster_id in self._in_clusters:
+            self._groups=[]
+            self._device_state_attributes["Group_id"] = self._groups
+            
 
     @property
     def is_on(self) -> bool:
@@ -85,38 +101,34 @@ class Light(zha_new.Entity, light.Light):
     def available(self) -> bool:
         return bool(self._available)
         
-    @asyncio.coroutine
-    def async_turn_on(self, **kwargs):
+    
+    async def async_turn_on(self, **kwargs):
         """Turn the entity on."""
         duration = kwargs.get(light.ATTR_TRANSITION, DEFAULT_DURATION)
         duration = duration * 10  # tenths of s
         if light.ATTR_COLOR_TEMP in kwargs:
             temperature = kwargs[light.ATTR_COLOR_TEMP]
-            yield from self._endpoint.light_color.move_to_color_temp(
+            await self._endpoint.light_color.move_to_color_temp(
                 temperature, duration)
             self._color_temp = temperature
-
-        if light.ATTR_XY_COLOR in kwargs:
-            self._xy_color = kwargs[light.ATTR_XY_COLOR]
-        elif light.ATTR_RGB_COLOR in kwargs:
-            xyb = color_RGB_to_xy(
-                *(int(val) for val in kwargs[light.ATTR_RGB_COLOR]))
-            self._xy_color = (xyb[0], xyb[1])
-            self._brightness = xyb[2]
-        if light.ATTR_XY_COLOR in kwargs or light.ATTR_RGB_COLOR in kwargs:
-            yield from self._endpoint.light_color.move_to_color(
-                int(self._xy_color[0] * 65535),
-                int(self._xy_color[1] * 65535),
+        
+        if light.ATTR_HS_COLOR in kwargs:
+            self._hs_color = kwargs[light.ATTR_HS_COLOR]
+            xy_color = color_util.color_hs_to_xy(*self._hs_color)
+            await self._endpoint.light_color.move_to_color(
+                int(xy_color[0] * 65535),
+                int(xy_color[1] * 65535),
                 duration,
             )
 
+       
         if self._brightness is not None:
             brightness = kwargs.get(
                 light.ATTR_BRIGHTNESS, self._brightness or 255)
             self._brightness = brightness
             # Move to level with on/off:
             _LOGGER.debug("Turn_on %s: Brightness %s", self.entity_id, brightness) 
-            yield from self._endpoint.level.move_to_level_with_on_off(
+            await self._endpoint.level.move_to_level_with_on_off(
                 brightness,
                 duration
             )
@@ -124,14 +136,14 @@ class Light(zha_new.Entity, light.Light):
             self.async_schedule_update_ha_state()
             return
 
-        yield from self._endpoint.on_off.on()
+        await self._endpoint.on_off.on()
         self._state = 1
         self.async_update_ha_state(force_refresh=True)
 
-    @asyncio.coroutine
-    def async_turn_off(self, **kwargs):
+
+    async def async_turn_off(self, **kwargs):
         """Turn the entity off."""
-        yield from self._endpoint.on_off.off()
+        await self._endpoint.on_off.off()
         self._state = 0
         self.async_schedule_update_ha_state()
 
@@ -155,50 +167,50 @@ class Light(zha_new.Entity, light.Light):
         """Flag supported features."""
         return self._supported_features
 
-    @asyncio.coroutine
-    def async_update(self):
+    
+    async def async_update(self):
         """Retrieve latest state."""
+        import zigpy.zcl.clusters as zcl_clusters
         _LOGGER.debug("%s async_update", self.entity_id)
-
-        @asyncio.coroutine
-        def safe_read(cluster, attributes):
-            """Swallow all exceptions from network read.
-            If we throw during initialization, setup fails. Rather have an
-            entity that exists, but is in a maybe wrong state, than no entity.
-            """
-            try:
-                result, _ = yield from cluster.read_attributes(
-                    attributes,
-                    allow_cache=False,
-                )
-                return result
-            except Exception:  # pylint: disable=broad-except
-                return {}
        
-        #yield from self._endpoint.on_off.discover_attributes(0,4)
-        result = yield from safe_read(self._endpoint.on_off, ['on_off'])
+        #await self._endpoint.on_off.discover_attributes(0,4)
+        if zcl_clusters.general.OnOff.cluster_id in self._in_clusters:
+            result = await zha_new.safe_read(self._endpoint.on_off, ['on_off'])
+        else:
+            return
         try:
             self._state = result['on_off']
             self._available = True
         except Exception:
             self._available = False
+            return
             
+        _LOGGER.debug("%s async_update group", self.entity_id)
+        if self._groups is not None:
+            
+#            result = await zha_new.safe_read(self._endpoint.groups, ['name_support'])
+#            self._grp__name= result['name_support']
+            result = await self._endpoint.groups.get_membership([])
+            self._groups = result[1]
+            if self._device_state_attributes["Group_id"] != self._groups:
+                self._device_state_attributes["Group_id"] = self._groups
+                self._endpoint._device._application.listener_event('subscribe_group', self._groups[0])
+            _LOGGER.debug("%s get_groups %s ", self.entity_id,  self._groups)
         if not self._state:
             return
-
         if self._supported_features & light.SUPPORT_BRIGHTNESS:
-            result = yield from safe_read(self._endpoint.level,
+            result = await zha_new.safe_read(self._endpoint.level,
                                           ['current_level'])
             self._brightness = result.get('current_level', self._brightness)
 
         if self._supported_features & light.SUPPORT_COLOR_TEMP:
-            result = yield from safe_read(self._endpoint.light_color,
+            result = await zha_new.safe_read(self._endpoint.light_color,
                                           ['color_temperature'])
             self._color_temp = result.get('color_temperature',
                                           self._color_temp)
 
         if self._supported_features & light.SUPPORT_XY_COLOR:
-            result = yield from safe_read(self._endpoint.light_color,
+            result = await zha_new.safe_read(self._endpoint.light_color,
                                           ['current_x', 'current_y'])
             if 'current_x' in result and 'current_y' in result:
                 self._xy_color = (result['current_x'], result['current_y'])

@@ -11,7 +11,6 @@ from homeassistant.const import TEMP_CELSIUS
 from homeassistant.util.temperature import convert as convert_temperature
 from custom_components import zha_new
 from importlib import import_module
-from zigpy.zcl.clusters.smartenergy import Metering
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -45,14 +44,19 @@ def async_setup_platform(hass, config, async_add_devices, discovery_info=None):
         except:
             _LOGGER.debug("bind/write cie failed")
 
-    sensor = yield from make_sensor(discovery_info)
-    _LOGGER.debug("Create sensor.zha: %s", sensor.entity_id)
-    if hass.states.get(sensor.entity_id):
-        _LOGGER.debug("entity exist,remove it: %s",  sensor.entity_id)
-        hass.states.async_remove(sensor.entity_id)
+    entity = yield from make_sensor(discovery_info)
+    _LOGGER.debug("Create sensor.zha: %s", entity.entity_id)
+    if hass.states.get(entity.entity_id):
+        _LOGGER.debug("entity exist,remove it: %s",  entity.entity_id)
+        hass.states.async_remove(entity.entity_id)
         
-    async_add_devices([sensor], update_before_add=True)
+    async_add_devices([entity], update_before_add=False)
     endpoint._device._application.listener_event('device_updated', endpoint._device)
+    entity_store=zha_new.get_entity_store(hass)
+    if not endpoint.device._ieee in entity_store:
+        entity_store[endpoint.device._ieee] =[]
+    entity_store[endpoint.device._ieee].append(entity)
+
 
 
 @asyncio.coroutine
@@ -107,19 +111,18 @@ class Sensor(zha_new.Entity):
             (attribute, value) = _parse_attribute(self, attribute, value)
         except ImportError as e:
             _LOGGER.debug("Import DH %s failed: %s", dev_func, e.args)
-        except Exception as e:
-            _LOGGER.info("Excecution of DH %s failed: %s", dev_func, e.args)
-        """Handle attribute update from device."""
+#        except Exception as e:
+#            _LOGGER.info("Excecution of DH %s failed: %s", dev_func, e.args)
+#        """Handle attribute update from device."""
         if attribute == self.value_attribute:
-            self._state = value        
+            self._state = value  
         self.schedule_update_ha_state()
 
 
 class TemperatureSensor(Sensor):
     """ZHA temperature sensor."""
-    from zigpy.zcl.clusters.measurement import TemperatureMeasurement
     
-    min_reportable_change = 50
+    min_reportable_change = 20
 
     @property
     def unit_of_measurement(self):
@@ -191,7 +194,7 @@ class MeteringSensor(Sensor):
     value_attribute = 0
     """ZHA  smart engery metering."""
     def __init__(self, **kwargs):
-        import zigpy.zcl.clusters as zcl_clusters
+#        import zigpy.zcl.clusters as zcl_clusters
         super().__init__(**kwargs)
 #        self.meter_attributes={}
 #        self.meter_ptr=0

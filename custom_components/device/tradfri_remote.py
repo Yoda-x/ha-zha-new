@@ -6,12 +6,7 @@ def _custom_endpoint_init(self, node_config, *argv):
     config={
         "model": "tradfri_remote",
         "manufacturer": "Ikea",
-        "config_report": [
-            [ 0x0008, 0, 0, 3600, 1],
-            [ 0x0005, 0, 0, 3600, 1], 
-            [ 0x0006, 0, 0, 3600, 1], 
-            ],
-        "type": "light",
+        "type": "switch",
         }
     node_config.update(config)
 
