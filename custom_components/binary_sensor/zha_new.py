@@ -1,6 +1,8 @@
 """
 Binary sensors on Zigbee Home Automation networks.
+
 For more details on this platform, please refer to the documentation
+
 at https://home-assistant.io/components/binary_sensor.zha/
 """
 import asyncio
@@ -34,12 +36,12 @@ def async_setup_platform(hass, config, async_add_devices, discovery_info=None):
     """Set up the Zigbee Home Automation binary sensors."""
     discovery_info = zha_new.get_discovery_info(hass, discovery_info)
     _LOGGER.debug("disocery info: %s", discovery_info)
-    
+
     if discovery_info is None:
         return
 
     in_clusters = discovery_info['in_clusters']
-    endpoint=discovery_info['endpoint']
+    endpoint = discovery_info['endpoint']
     
     device_class = None
     """ create ias cluster if it not already exists"""
@@ -50,7 +52,7 @@ def async_setup_platform(hass, config, async_add_devices, discovery_info=None):
         endpoint.in_clusters[IasZone.cluster_id] = cluster
     else:
         cluster = in_clusters[IasZone.cluster_id]
-    #yield from cluster.bind()    
+#        yield from cluster.bind()    
     if discovery_info['new_join']:
         try:
             ieee = cluster.endpoint.device.application.ieee
@@ -83,6 +85,7 @@ def async_setup_platform(hass, config, async_add_devices, discovery_info=None):
     endpoint._device._application.listener_event('device_updated', endpoint._device)
     _LOGGER.debug("Return from binary_sensor init-cluster %s", endpoint.in_clusters)
 
+
 def _make_sensor(device_class, discovery_info):
     """Create ZHA sensors factory."""
     from zigpy.zcl.clusters.general import OnOff
@@ -109,8 +112,10 @@ def _make_sensor(device_class, discovery_info):
     _LOGGER.debug("Return make_sensor")
     return sensor
 
+
 def _parse_attribute(attrib, value):
     return(attrib, value)
+
 
 class BinarySensor(zha_new.Entity, BinarySensorDevice):
     """THe ZHA Binary Sensor."""
@@ -192,9 +197,10 @@ class OccupancySensor(BinarySensor):
             @asyncio.coroutine
             def _async_clear_state(entity):
                 _LOGGER.debug("async_clear_state")
-                if (entity.invalidate_after == None) or ( entity.invalidate_after < dt_util.utcnow()):
+                if (entity.invalidate_after == None
+                        or entity.invalidate_after < dt_util.utcnow()):
                     entity._state = bool(0)
-        #            entity.invalidate_after=None
+#                    entity.invalidate_after=None
                     entity.schedule_update_ha_state()
                 
         self.invalidate_after = dt_util.utcnow() + datetime.timedelta(

@@ -420,40 +420,40 @@ class ApplicationListener:
                     profile_clusters[1].update(profile.CLUSTERS[endpoint.device_type][1])
                     profile_info = DEVICE_CLASS[endpoint.profile_id]
                     component = profile_info[endpoint.device_type]
-
-            """ Override type (switch,light,sensor, binary_sensor,...) from config """
+                    
+            # Override type (switch,light,sensor, binary_sensor,...) from config
             if ha_const.CONF_TYPE in node_config:
                 component = node_config[ha_const.CONF_TYPE]
             if component in COMPONENT_CLUSTERS:
                 profile_clusters = COMPONENT_CLUSTERS[component]
 
-            """ Add additional allowed In_Clusters from config """
+            # Add additional allowed In_Clusters from config
             if CONF_IN_CLUSTER in node_config:
                 profile_clusters[0].update(node_config.get(CONF_IN_CLUSTER))
-            """ Add aditional allowed Out_Clusters from config """
+            # Add aditional allowed Out_Clusters from config
             if CONF_OUT_CLUSTER in node_config:
                 profile_clusters[1].update(node_config.get(CONF_OUT_CLUSTER))
 
-            """ if reporting is configured in yaml, then create cluster if needed and setup reporting """
-            if CONF_CONFIG_REPORT in node_config and join:
-                for report in node_config.get(CONF_CONFIG_REPORT):
-                    report_cls, report_attr, report_min, report_max, report_change = report
-                    if report_cls not in endpoint.in_clusters:
-                        cluster = endpoint.add_input_cluster(report_cls)
-                    else:
-                        cluster = endpoint.in_clusters[report_cls]
-                    try:
-                        yield from endpoint.in_clusters[report_cls].bind()
-                        yield from endpoint.in_clusters[
-                            report_cls].configure_reporting(
-                            report_attr, int(report_min),
-                            int(report_max), report_change)
-                    except:
-                        _LOGGER.info("Error: set config report failed: %s", report)
-#            try:
-#                battery_voltage = yield from get_battery(endpoint)
-#            except:
-#                pass
+            # if reporting is configured in yaml, 
+            # then create cluster if needed and setup reporting
+            if join:
+                if CONF_CONFIG_REPORT in node_config: 
+                    for report in node_config.get(CONF_CONFIG_REPORT):
+                        report_cls, report_attr, report_min, report_max, report_change = report
+                        if report_cls not in endpoint.in_clusters:
+                            cluster = endpoint.add_input_cluster(report_cls)
+                        else:
+                            cluster = endpoint.in_clusters[report_cls]
+                        try:
+                            yield from endpoint.in_clusters[report_cls].bind()
+                            yield from endpoint.in_clusters[
+                                report_cls].configure_reporting(
+                                report_attr, int(report_min),
+                                int(report_max), report_change)
+                        except:
+                            _LOGGER.info("Error: set config report failed: %s", report)
+            else:
+                _LOGGER.debug("config reports skipped, already joined %s", device._ieee)
 
             _LOGGER.debug("2:profile %s, component: %s cluster:%s",
                           endpoint.profile_id, component, profile_clusters)
@@ -465,7 +465,7 @@ class ApplicationListener:
                 out_clusters = [endpoint.out_clusters[c]
                                 for c in profile_clusters[1]
                                 if c in endpoint.out_clusters]
-                """create  discovery info """
+                # create  discovery info
                 discovery_info = {
                     'component': component,
                     'device': device,
@@ -477,7 +477,7 @@ class ApplicationListener:
                     'in_clusters': {c.cluster_id: c for c in in_clusters},
                     'out_clusters': {c.cluster_id: c for c in out_clusters},
                 }
-                """ add 'manufacturer', 'model'  to discovery_info"""
+                # add 'manufacturer', 'model'  to discovery_info
 
                 discovery_info.update(discovered_info)
                 self._hass.data[DISCOVERY_KEY][device_key] = discovery_info
@@ -491,10 +491,10 @@ class ApplicationListener:
                 )
                 _LOGGER.debug("Return from component general entity:%s", device._ieee)
 
-            """if a discovered cluster is not in the allowed clusters and part of
-            SINGLE_CLUSTERS_DEVCICE_CLASS, the clusters that were not in discovery above
-            then create just this cluster in discovery endpoints
-            initialize single clusters """
+            # if a discovered cluster is not in the allowed clusters and part of
+            # SINGLE_CLUSTERS_DEVCICE_CLASS, the clusters that were not in discovery above
+            # then create just this cluster in discovery endpoints
+            # initialize single clusters
             for cluster_id, cluster in endpoint.in_clusters.items():
                 cluster_type = type(cluster)
                 if cluster_id in profile_clusters[0]:

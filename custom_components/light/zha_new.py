@@ -3,7 +3,6 @@ Lights on Zigbee Home Automation networks.
 For more details on this platform, please refer to the documentation
 at https://home-assistant.io/components/light.zha/
 """
-import asyncio
 import logging
 
 from homeassistant.components import light
@@ -19,7 +18,6 @@ DEPENDENCIES = ['zha_new']
 DEFAULT_DURATION = 0.5
 CAPABILITIES_COLOR_XY = 0x08
 CAPABILITIES_COLOR_TEMP = 0x10
-
 UNSUPPORTED_ATTRIBUTE = 0x86
 
 

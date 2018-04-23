@@ -90,6 +90,7 @@ class Switch(zha_new.Entity, SwitchDevice):
             return
     
     def cluster_command(self, tsn, command_id, args):
+        _LOGGER.debug("cluster command update: %s = %s ", command_id, args)
         try:
             dev_func= self._model.replace(".","_").replace(" ","_")
             _custom_cluster_command = getattr(
