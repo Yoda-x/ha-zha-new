@@ -5,14 +5,14 @@ from custom_components import zha_new
 
 _LOGGER = logging.getLogger(__name__)
 
-def _custom_endpoint_init(self, node_config,*argv):
+def _custom_endpoint_init(self, node_config, *argv):
     """set node_config based obn Lumi device_type"""
     config={}
     selector=node_config.get('template',None)
     if not selector:
         selector = argv[0]
         _LOGGER.debug(" selector: %s", selector)
-    if selector in ['lumi_sensor_magnet', 'lumi_sensor_magnet_aq2']:
+    if selector in ['lumi.sensor_magnet', 'lumi.sensor_magnet.aq2']:
         config={
         "config_report": [
             [ 6, 0, 0, 1800, 1 ],            
@@ -20,7 +20,7 @@ def _custom_endpoint_init(self, node_config,*argv):
         "in_cluster": [0x0000,],
         "type": "binary_sensor", 
         }
-    elif selector in ['lumi_sensor_ht', ] and self.endpoint_id == 1:
+    elif selector in ['lumi.sensor_ht', ] and self.endpoint_id == 1:
         config={
         "config_report": [
             [ 0x0402, 0, 10, 600, 5],
@@ -29,7 +29,7 @@ def _custom_endpoint_init(self, node_config,*argv):
         "in_cluster": [0x0000, ],
         "type": "sensor",
         }
-    elif selector in ['lumi_weather', ] and self.endpoint_id == 1:
+    elif selector in ['lumi.weather', ] and self.endpoint_id == 1:
         config={
         "config_report": [
             [ 0x0402, 0, 10, 120, 5],
@@ -39,7 +39,7 @@ def _custom_endpoint_init(self, node_config,*argv):
         "in_cluster": [0x0000, ],
         "type": "sensor",
         }
-    elif selector in ['lumi_sensor_motion', ]:
+    elif selector in ['lumi.sensor_motion', ]:
         config={
         "config_report": [
             [ 0x0406, 0, 10, 1800, 1],
@@ -47,7 +47,7 @@ def _custom_endpoint_init(self, node_config,*argv):
         "in_cluster": [0x0000,],
  #       "type": "binary_sensor",
         }
-    elif selector in ['lumi_sensor_motion_aq2', ]:
+    elif selector in ['lumi.sensor_motion.aq2', ]:
         config={
         "config_report": [
             [ 0x0406, 0, 10, 1800, 1],
@@ -56,7 +56,7 @@ def _custom_endpoint_init(self, node_config,*argv):
         "in_cluster": [0x0000,],
  #       "type": "binary_sensor",
         }
-    elif selector == 'lumi_sensor_wleak_aq1':
+    elif selector == 'lumi.sensor_wleak.aq1':
         config={
         "in_cluster": [0x0000, ],
         "type": "binary_sensor",
@@ -91,6 +91,7 @@ def _parse_attribute(entity, attrib, value, *argv):
     """ parse custom attributes """
     attributes={}
     if attrib == 0xff02:
+        _LOGGER.debug("Parse type:%s", type(value))
         attribute_name=("state", "battery_voltage_mV","val3","val4","val5","val6")
         result=[]
         value= value[1:]

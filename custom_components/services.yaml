@@ -6,3 +6,11 @@ permit:
     duration:
       description: Time to permit joins, in seconds
       example: 60
+
+remove:
+  description: remove node(s) from the ZigBee network.
+  fields:
+    ieee:
+      description: ieee or parts of it
+      example: 7c:8a:01
+

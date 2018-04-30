@@ -95,6 +95,13 @@ class Sensor(zha_new.Entity):
     _domain = DOMAIN
     value_attribute = 0
     min_reportable_change = 1
+    
+    def __init__(self, **kwargs):
+        endpoint = kwargs['endpoint']
+        super().__init__(**kwargs)
+        for cluster in endpoint.out_clusters.values():
+            cluster.add_listener(self)
+         
 
     @property
     def state(self) -> str:
@@ -104,13 +111,14 @@ class Sensor(zha_new.Entity):
         return self._state
 
     def attribute_updated(self, attribute, value):
-
-        try:
-            dev_func= self._model.replace(".","_").replace(" ","_")
-            _parse_attribute = getattr(import_module("custom_components.device." + dev_func), "_parse_attribute")
-            (attribute, value) = _parse_attribute(self, attribute, value)
-        except ImportError as e:
-            _LOGGER.debug("Import DH %s failed: %s", dev_func, e.args)
+        if self._custom_module.get('_parse_attribute', None) is not None:
+            (attribute, value) = self._custom_module['_parse_attribute'](self, attribute, value, self._model)
+#        try:
+#            dev_func= self._model.replace(".","_").replace(" ","_")
+#            _parse_attribute = getattr(import_module("custom_components.device." + dev_func), "_parse_attribute")
+#            (attribute, value) = _parse_attribute(self, attribute, value)
+#        except ImportError as e:
+#            _LOGGER.debug("Import DH %s failed: %s", dev_func, e.args)
 #        except Exception as e:
 #            _LOGGER.info("Excecution of DH %s failed: %s", dev_func, e.args)
 #        """Handle attribute update from device."""

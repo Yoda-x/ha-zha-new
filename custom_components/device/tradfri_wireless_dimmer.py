@@ -1,14 +1,6 @@
-""" tradfri TRADFRI remote template """
-from zigpy.zcl.clusters.general import OnOff
+""" tradfri dimmer template """
 def _custom_endpoint_init(self, node_config, *argv):
-  #  self.device_type= 0x0104
-  #  self.profile_id=260
-    config={
-        "model": "tradfri_remote",
-        "manufacturer": "Ikea",
-        "type": "switch",
-        }
-    node_config.update(config)
+    pass
 
 def _custom_cluster_command(self, tsn, command_id, args):
     value=self._brightness
@@ -31,4 +23,4 @@ def _custom_cluster_command(self, tsn, command_id, args):
         self._brightness= 0
     else:
         self._brightness = value
-    self.schedule_update_ha_state()
+    

@@ -1,16 +1,4 @@
-""" tradfri dimmer template """
-def _custom_endpoint_init(self, node_config, *argv):
-  #  self.device_type= 0x0104
-  #  self.profile_id=260
-    config={
-        "model": "tradfri_dimmer",
-        "manufacturer": "Ikea",
-        "config_report": [
-            [ 0x0008, 0, 0, 3600, 1],
-            ],
-        "type": "switch",
-        }
-    node_config.update(config)
+""" tradfri TRADFRI remote template """
 
 def _custom_cluster_command(self, tsn, command_id, args):
     value=self._brightness

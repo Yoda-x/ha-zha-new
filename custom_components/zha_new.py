@@ -77,6 +77,7 @@ def populate_data():
         zha.DeviceType.ON_OFF_LIGHT_SWITCH: 'light',
         zha.DeviceType.DIMMER_SWITCH: 'light',
         zha.DeviceType.COLOR_DIMMER_SWITCH: 'light',
+        zha.DeviceType.COLOR_SCENE_CONTROLLER: 'binary_sensor'
         }
 
     DEVICE_CLASS[zll.PROFILE_ID] = {
@@ -87,6 +88,7 @@ def populate_data():
         zll.DeviceType.COLOR_LIGHT: 'light',
         zll.DeviceType.EXTENDED_COLOR_LIGHT: 'light',
         zll.DeviceType.COLOR_TEMPERATURE_LIGHT: 'light',
+        zll.DeviceType.COLOR_SCENE_CONTROLLER: 'binary_sensor',
         }
 
     SINGLE_CLUSTER_DEVICE_CLASS.update({
@@ -286,6 +288,7 @@ class ApplicationListener:
         self._entity_list = []
         self.device_store = []
         self.mc_subscribers = {}
+        self.custom_devices = {}
 
     def device_updated(self,  device):
         pass
@@ -297,7 +300,7 @@ class ApplicationListener:
         self._hass.async_add_job(APPLICATION_CONTROLLER.subscribe_group(group_id))
 
     def unsubscribe_group(self, group_id):
-        # keeps a list of susbcribers, 
+        # keeps a list of susbcribers,
         # forwardrequest to zigpy if last subscriber is gone, otherwise do nothing
         self._hass.async_add_job(APPLICATION_CONTROLLER.unsubscribe_group(group_id))
 
@@ -315,11 +318,9 @@ class ApplicationListener:
 
     def device_joined(self, device):
         """Handle device joined.
-
         At this point, no information about the device is known other than its
         address
-
-        """
+"""
         # Wait for device_initialized, instead
         self.controller._state = 'Joined ' + str(device._ieee)
         self.controller.async_schedule_update_ha_state()
@@ -334,6 +335,7 @@ class ApplicationListener:
         """Handle device joined and basic information discovered."""
         self.controller._state = 'Device init ' + str(device._ieee)
         self.controller.async_schedule_update_ha_state()
+        _LOGGER.debug("Device initialized: %s:", device._ieee)
         self._hass.async_add_job(self.async_device_initialized(device, True))
 
     def device_left(self, device):
@@ -357,62 +359,51 @@ class ApplicationListener:
 
         # loop over endpoints
         for endpoint_id, endpoint in device.endpoints.items():
-            _LOGGER.debug("ZHA_NEW: Endpoint loop : %s", endpoint_id)
             if endpoint_id == 0:  # ZDO
                 continue
-                
+
             component = None
             profile_clusters = [set(), set()]
             device_key = '%s-%s' % (str(device.ieee), endpoint_id)
             node_config = self._config[DOMAIN][CONF_DEVICE_CONFIG].get(device_key, {})
             _LOGGER.debug("node config for %s: %s", device_key, node_config)
+            
             if CONF_TEMPLATE in node_config:
-                try:
-                    dev_func = node_config.get(CONF_TEMPLATE, "default").replace(".", "_").replace(" ", "_")
-                    _custom_endpoint_init = getattr(import_module("custom_components.device." + dev_func), "_custom_endpoint_init")
-                    _custom_endpoint_init(endpoint, node_config, dev_func)
-                    _LOGGER.debug("Load template %s success ", dev_func)
-                except ImportError as e:
-                    _LOGGER.debug("Import of template %s failed: %s", dev_func, e.args)
-                except Exception as e:
-                    _LOGGER.info("Excecution of template %s failed: %s", dev_func, e.args)
+                device_model = node_config.get(CONF_TEMPLATE, "default")
+                if device_model not in self.custom_devices:
+                    self.custom_devices[device_model] = custom_module = get_custom_device_info(device_model)
+                if '_custom_endpoint_init' in custom_module:
+                    custom_module['_custom_endpoint_init'](endpoint, node_config,  device_model)
 
             if CONF_MANUFACTURER in node_config:
                 discovered_info[CONF_MANUFACTURER] = node_config[CONF_MANUFACTURER]
             if CONF_MODEL in node_config:
                 discovered_info[CONF_MODEL] = node_config[CONF_MODEL]
             elif 0 in endpoint.in_clusters:
-                """ just get device_info if cluster 0 exists"""
-             #   if join:
-              #      v = yield from discover_cluster_values(endpoint, endpoint.in_clusters[0])
+                # just get device_info if cluster 0 exists
+#                if join:
+#                    v = yield from discover_cluster_values(endpoint, endpoint.in_clusters[0])
                 discovered_info = yield from _discover_endpoint_info(endpoint)
-#                if discovered_info[CONF_MODEL] is None  \
-#                    and discovered_info[CONF_MANUFACTURER] is None  \
-#                        and endpoint.profile_id == 49246:
-#                    endpoint.profile_id = 260
-#                    discovered_info = yield from _discover_endpoint_info(endpoint)
-#                    endpoint.profile_id = 49246
 
             # when a model name is available and not the template already applied,
             # use it to do custom init
             if (discovered_info[CONF_MODEL] is not None
                 and CONF_TEMPLATE not in node_config):
-                try:
-                    dev_func = discovered_info.get(CONF_MODEL, "default").replace(".", "_").replace(" ", "_")
-                    _custom_endpoint_init = getattr(
-                        import_module("custom_components.device." + dev_func),
-                        "_custom_endpoint_init"
-                        )
-                    _custom_endpoint_init(endpoint, node_config, dev_func)
-                    _LOGGER.debug("Load DH %s success ", dev_func)
-                except ImportError as e:
-                    _LOGGER.debug("Import DH %s failed: %s", dev_func, e.args)
-                except Exception as e:
-                    _LOGGER.info("Excecution of DH %s failed: %s", dev_func, e.args)
+                device_model = discovered_info[CONF_MODEL]
+                if device_model not in self.custom_devices:
+                    self.custom_devices[device_model] = custom_module = get_custom_device_info(device_model)
+                else:
+                    custom_module = self.custom_devices[device_model]
+                _LOGGER.debug('pre call _custom_endpoint_init: %s',  custom_module)
+
+                if custom_module.get('_custom_endpoint_init', None) is not None:
+                    _LOGGER.debug('call _custom_endpoint_init: %s',  device_model)
+                    custom_module['_custom_endpoint_init'](endpoint, node_config, device_model)
+                else:
+                    _LOGGER.debug('no call _custom_endpoint_init: %s',  device_model)
 
             _LOGGER.debug("node config for %s: %s", device_key, node_config)
 
-            #_LOGGER.debug("profile %s ", endpoint.profile_id)
             if endpoint.profile_id in zigpy.profiles.PROFILES:
                 profile = zigpy.profiles.PROFILES[endpoint.profile_id]
                 if DEVICE_CLASS.get(endpoint.profile_id, {}).get(endpoint.device_type, None):
@@ -420,7 +411,7 @@ class ApplicationListener:
                     profile_clusters[1].update(profile.CLUSTERS[endpoint.device_type][1])
                     profile_info = DEVICE_CLASS[endpoint.profile_id]
                     component = profile_info[endpoint.device_type]
-                    
+#            _LOGGER.debug("profile for %s: %s", device_key, profile_info)
             # Override type (switch,light,sensor, binary_sensor,...) from config
             if ha_const.CONF_TYPE in node_config:
                 component = node_config[ha_const.CONF_TYPE]
@@ -434,29 +425,49 @@ class ApplicationListener:
             if CONF_OUT_CLUSTER in node_config:
                 profile_clusters[1].update(node_config.get(CONF_OUT_CLUSTER))
 
-            # if reporting is configured in yaml, 
+            @asyncio.coroutine
+            def req_conf_report(report_cls, report_attr, report_min, report_max, report_change):
+                try:
+#                    yield from report_cls.bind()
+                    v = yield from report_cls.configure_reporting(
+                        report_attr, int(report_min),
+                        int(report_max), report_change)
+                    _LOGGER.debug("%s: set config report %s status: %s",
+                        device_key,
+                        report_cls.cluster_id,
+                        v[0])                        
+                except:
+                    _LOGGER.error("%s:set config report failed: %s",
+                        device_key,
+                        report_cls.cluster_id)
+
+            # if reporting is configured in yaml,
             # then create cluster if needed and setup reporting
             if join:
-                if CONF_CONFIG_REPORT in node_config: 
+                if CONF_CONFIG_REPORT in node_config:
                     for report in node_config.get(CONF_CONFIG_REPORT):
                         report_cls, report_attr, report_min, report_max, report_change = report
-                        if report_cls not in endpoint.in_clusters:
-                            cluster = endpoint.add_input_cluster(report_cls)
-                        else:
+                        if report_cls in endpoint.in_clusters:
                             cluster = endpoint.in_clusters[report_cls]
-                        try:
-                            yield from endpoint.in_clusters[report_cls].bind()
-                            yield from endpoint.in_clusters[
-                                report_cls].configure_reporting(
-                                report_attr, int(report_min),
-                                int(report_max), report_change)
-                        except:
-                            _LOGGER.info("Error: set config report failed: %s", report)
+                            yield from req_conf_report(
+                                cluster,
+                                report_attr,
+                                report_min,
+                                report_max,
+                                report_change)
+                        elif report_cls in endpoint.out_clusters:
+                            cluster = endpoint.out_clusters[report_cls]
+                            yield from req_conf_report(
+                                cluster,
+                                report_attr,
+                                report_min,
+                                report_max,
+                                report_change)
             else:
-                _LOGGER.debug("config reports skipped, already joined %s", device._ieee)
+                _LOGGER.debug("[0x%04x] config reports skipped, already joined %s", device.nwk, device._ieee)
 
-            _LOGGER.debug("2:profile %s, component: %s cluster:%s",
-                          endpoint.profile_id, component, profile_clusters)
+            _LOGGER.debug("[0x%04x] 2:profile %s, component: %s cluster:%s",
+                          device.nwk, endpoint.profile_id, component, profile_clusters)
             if component:
                 # only discovered clusters that are in the profile or configuration listed
                 in_clusters = [endpoint.in_clusters[c]
@@ -467,16 +478,20 @@ class ApplicationListener:
                                 if c in endpoint.out_clusters]
                 # create  discovery info
                 discovery_info = {
+                    'endpoint': endpoint,
+                    'in_clusters': {c.cluster_id: c for c in in_clusters},
+                    'out_clusters': {c.cluster_id: c for c in out_clusters},
                     'component': component,
                     'device': device,
                     'domain': DOMAIN,
-                    'discovery_key': device_key,
-                    'endpoint': endpoint,
-                    'entity': None,
+                    'discovery_key': device_key,    
                     'new_join': join,
-                    'in_clusters': {c.cluster_id: c for c in in_clusters},
-                    'out_clusters': {c.cluster_id: c for c in out_clusters},
+                    'application': self
+                    
                 }
+                _LOGGER.debug("[0x%04x] Output clusters:%s",
+                    device.nwk, 
+                    list(c.cluster_id for c in out_clusters))
                 # add 'manufacturer', 'model'  to discovery_info
 
                 discovery_info.update(discovered_info)
@@ -489,7 +504,9 @@ class ApplicationListener:
                     {'discovery_key': device_key},
                     self._config,
                 )
-                _LOGGER.debug("Return from component general entity:%s", device._ieee)
+                _LOGGER.debug("[0x%04x] Return from component general entity:%s",
+                    device.nwk, 
+                    device._ieee)
 
             # if a discovered cluster is not in the allowed clusters and part of
             # SINGLE_CLUSTERS_DEVCICE_CLASS, the clusters that were not in discovery above
@@ -522,7 +539,7 @@ class ApplicationListener:
                     'new_join': join,
                     'domain': DOMAIN,
                     'component': component,
-                    'entity': None,
+                    'application': self
                 }
                 discovery_info.update(discovered_info)
 
@@ -535,9 +552,15 @@ class ApplicationListener:
                     {'discovery_key': cluster_key},
                     self._config,
                 )
-                _LOGGER.debug("Return from single-cluster entity:%s", discovery_info)
+                _LOGGER.debug("[0x%04x] Return from single-cluster entity:%s", 
+                    device.nwk, 
+                    discovery_info)
 
-        _LOGGER.debug("Return from zha device init: %s", endpoint.in_clusters)
+        _LOGGER.debug("[0x%04x] Return from zha device init: Input:%s Output:%s", 
+            device.nwk, 
+            endpoint.in_clusters.keys(), 
+            endpoint.out_clusters.keys()
+            )
         device._application.listener_event('device_updated', device)
         self.controller._state = 'Run'
         self.controller._device_state_attributes['no_of_entities'] = len(self._entity_list)
@@ -563,7 +586,12 @@ class Entity(entity.Entity):
             self.cluster_key = kwargs['cluster_key']
             self.uid += '_'
             self.uid += self.cluster_key
-
+        if 'application' in kwargs:
+            self._application = kwargs['application']
+        if model in self._application.custom_devices:
+            self._custom_module = self._application.custom_devices[model]
+        else:
+            self._custom_module = {}
         if manufacturer and model is not None:
             self.entity_id = '%s.%s_%s_%s_%s' % (
                 self._domain,
@@ -594,16 +622,16 @@ class Entity(entity.Entity):
 
         for cluster in in_clusters.values():
             cluster.add_listener(self)
-            cluster.bind()
-        for cluster in out_clusters.values():
-            cluster.add_listener(self)
-            cluster.bind()
+#        for cluster in out_clusters.values():
+#            cluster.add_listener(self)
+        
         self._endpoint = endpoint
         self._in_clusters = in_clusters
         self._out_clusters = out_clusters
         self._state = None
         self._device_state_attributes['lqi'] = endpoint.device.lqi
         self._device_state_attributes['rssi'] = endpoint.device.rssi
+        _LOGGER.debug("dir entity:%s",  dir(self))
 
     @property
     def unique_id(self):
@@ -750,4 +778,48 @@ async def safe_read(cluster, attributes):
         )
         return result
     except Exception:  # pylint: disable=broad-except
+        return 
+        
+def get_custom_device_info(_model):
+    custom_info={}
+    
+    try:
+        dev_func = _model.lower().replace(".","_").replace(" ","_")
+        device_module = import_module("custom_components.device." + dev_func)  
+        _LOGGER.debug("Import DH %s success", _model) 
+    except ImportError as e:
+        _LOGGER.debug("Import DH %s failed: %s", _model, e.args)
         return {}
+    custom_info['module'] = device_module
+    custom_info['_custom_endpoint_init'] = getattr(
+                                            device_module,
+                                            '_custom_endpoint_init',
+                                            None)
+    custom_info['_custom_cluster_command'] = getattr(
+                                            device_module,
+                                            '_custom_cluster_command',
+                                            None)
+    custom_info['_parse_attribute'] = getattr(
+                                            device_module,
+                                            '_parse_attribute',
+                                            None)                                           
+    custom_info['custom_parameters'] = getattr(
+                                            device_module,
+                                            'custom_parmeters',
+                                            None)
+    _LOGGER.debug('custom_info for %s: %s', _model, custom_info)
+    return custom_info
+
+def call_func(_model, function, *args):
+    try:
+        dev_func = _model.lower().replace(".","_").replace(" ","_")
+        
+        call_function = getattr(
+            import_module("custom_components.device." + dev_func),
+            function
+            )
+        return call_function(args)
+    except ImportError as e:
+        _LOGGER.debug("Import DH %s failed: %s", function, e.args)
+    except Exception as e:
+            _LOGGER.info("Excecution of DH %s failed: %s", dev_func, e.args)

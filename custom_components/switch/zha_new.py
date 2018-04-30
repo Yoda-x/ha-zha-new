@@ -38,7 +38,14 @@ class Switch(zha_new.Entity, SwitchDevice):
     """ZHA switch."""
     from zigpy.zcl.clusters.general import OnOff
     _domain = DOMAIN
-
+    
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        endpoint = kwargs['endpoint']
+        for cluster in endpoint.out_clusters.values():
+            cluster.add_listener(self)
+            
+         
     @property
     def is_on(self) -> bool:
         """Return if the switch is on based on the statemachine."""
@@ -49,7 +56,7 @@ class Switch(zha_new.Entity, SwitchDevice):
     def attribute_updated(self, attribute, value):
         _LOGGER.debug("attribute update: %s = %s ", attribute, value)
         try:
-            dev_func= self._model.replace(".","_").replace(" ","_")
+            dev_func= self._model.lower().replace(".","_").replace(" ","_")
             _parse_attribute = getattr(import_module("custom_components.device." + dev_func), "_parse_attribute")
             (attribute, value) = _parse_attribute(self,attribute, value, dev_func)
         except ImportError as e:
@@ -92,7 +99,7 @@ class Switch(zha_new.Entity, SwitchDevice):
     def cluster_command(self, tsn, command_id, args):
         _LOGGER.debug("cluster command update: %s = %s ", command_id, args)
         try:
-            dev_func= self._model.replace(".","_").replace(" ","_")
+            dev_func= self._model.lower().replace(".","_").replace(" ","_")
             _custom_cluster_command = getattr(
                 import_module("custom_components.device." + dev_func),
                 "_custom_cluster_command"
