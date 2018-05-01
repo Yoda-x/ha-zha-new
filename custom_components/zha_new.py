@@ -188,13 +188,14 @@ class zha_state(entity.Entity):
 
     @asyncio.coroutine
     def async_update(self):
+#        from zigpy.zcl import foundation as f
         result = yield from self.stack._command('neighborCount', [])
         self._device_state_attributes['neighborCount'] = result[0]
         entity_store = get_entity_store(self.hass)
         self._device_state_attributes['no_devices'] = len(entity_store)
         result = yield from self.stack._command('getValue', 3)
-        _LOGGER.debug("buffer: %s",  result)
-#        buffer = t.uint8_t(result[1])
+        _LOGGER.debug("buffer: %s",result[1])
+        #        buffer = t.uint8_t(result[1])
 #        self._device_state_attributes['FreeBuffers'] =  buffer
 #        result = yield from self.stack._command('getSourceRouteTableFilledSize', [])
 #        self._device_state_attributes['getSourceRouteTableFilledSize'] = result[0]
@@ -588,28 +589,32 @@ class Entity(entity.Entity):
             self._custom_module = self._application.custom_devices[model]
         else:
             self._custom_module = {}
-        if manufacturer and model is not None:
-            self.entity_id = '%s.%s_%s_%s_%s' % (
-                self._domain,
-                slugify(manufacturer),
-                slugify(model),
-                ieeetail,
-                endpoint.endpoint_id,
-            )
-            self._device_state_attributes['friendly_name'] = '%s %s' % (
-                manufacturer,
-                model,
-            )
-            self._device_state_attributes['model'] = model
-            self._device_state_attributes['manufacturer'] = manufacturer
-            self._model = model
+        if manufacturer is None:
+            manufacturer = 'unknown'
+        if model is None:
+            model = 'unknown'
+        
+        self.entity_id = '%s.%s_%s_%s_%s' % (
+            self._domain,
+            slugify(manufacturer),
+            slugify(model),
+            ieeetail,
+            endpoint.endpoint_id,
+        )
+        self._device_state_attributes['friendly_name'] = '%s %s' % (
+            manufacturer,
+            model,
+        )
+        self._device_state_attributes['model'] = model
+        self._device_state_attributes['manufacturer'] = manufacturer
+        self._model = model
 
-        else:
-            self.entity_id = "%s.zha_%s_%s" % (
-                self._domain,
-                ieeetail,
-                endpoint.endpoint_id,
-            )
+#        else:
+#            self.entity_id = "%s.zha_%s_%s" % (
+#                self._domain,
+#                ieeetail,
+#                endpoint.endpoint_id,
+#            )
         if 'cluster_key' in kwargs:
             self.entity_id += '_'
             self.entity_id += kwargs['cluster_key']

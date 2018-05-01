@@ -96,12 +96,15 @@ async def _make_sensor(device_class, discovery_info):
     in_clusters = discovery_info['in_clusters']
     out_clusters = discovery_info['out_clusters']
     endpoint = discovery_info['endpoint']
-
-    if OnOff.cluster_id in in_clusters:
+    if endpoint.device_type in (0x0800, 0x0810, 0x0820, 0x0830):
+        sensor = RemoteSensor('remote', **discovery_info)
+    elif (OnOff.cluster_id in in_clusters 
+        or OnOff.cluster_id in out_clusters):
         sensor = OnOffSensor('opening',
                              **discovery_info,
                              cluster_key=OnOff.ep_attribute)
-    elif OccupancySensing.cluster_id in in_clusters:
+    elif (OccupancySensing.cluster_id in in_clusters 
+        or OccupancySensing.cluster_id in out_clusters):
         sensor = OccupancySensor('motion',
                                  **discovery_info,
                                  cluster_key=OccupancySensing.ep_attribute)
@@ -116,8 +119,6 @@ async def _make_sensor(device_class, discovery_info):
             _LOGGER.debug("get attributes: failed")
     elif device_class == 'moisture':
         sensor = MoistureSensor('moisture', **discovery_info)
-    elif endpoint.device_type in (0x0800, 0x0810, 0x0820, 0x0830):
-        sensor = RemoteSensor(device_class, **discovery_info)
     else:
         sensor = BinarySensor(device_class, **discovery_info)
 
@@ -420,9 +421,9 @@ class RemoteSensor(BinarySensor):
         super().__init__(device_class, **kwargs)
         self._brightness = 0
         self._supported_features = 0
-        endpoint = kwargs['endpoint']
+        out_clusters = kwargs['out_clusters']
         self.sub_listener_out = {}
-        for cluster in endpoint.out_clusters.values():
+        for cluster in out_clusters.values():
             if LevelControl.cluster_id == cluster.cluster_id:
                 self.sub_listener_out[cluster.cluster_id] = Server_LevelControl(
                                 self, cluster, 'Level')

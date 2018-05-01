@@ -15,9 +15,6 @@ def _custom_endpoint_init(self, node_config, *argv):
         _LOGGER.debug(" selector: %s", selector)
     if selector in ['lumi.sensor_magnet', 'lumi.sensor_magnet.aq2']:
         config = {
-            "config_report": [
-                [6, 0, 0, 1800, 1],
-            ],
             "in_cluster": [0x0000, ],
             "type": "binary_sensor",
         }
@@ -78,7 +75,7 @@ def _battery_percent(voltage):
 
 def _parse_attribute(entity, attrib, value, *argv):
     """ parse non standard atrributes."""
-    import bellows.types as t
+    import zigpy.types as t
     from zigpy.zcl import foundation as f
 
     if type(value) is str:
