@@ -1,7 +1,9 @@
 """
 Lights on Zigbee Home Automation networks.
+
 For more details on this platform, please refer to the documentation
 at https://home-assistant.io/components/light.zha/
+
 """
 import logging
 
@@ -21,7 +23,8 @@ CAPABILITIES_COLOR_TEMP = 0x10
 UNSUPPORTED_ATTRIBUTE = 0x86
 
 
-async def async_setup_platform(hass, config, async_add_devices, discovery_info=None):
+async def async_setup_platform(hass, config,
+                               async_add_devices, discovery_info=None):
     """Set up the Zigbee Home Automation lights."""
     discovery_info = zha_new.get_discovery_info(hass, discovery_info)
     if discovery_info is None:
@@ -31,28 +34,30 @@ async def async_setup_platform(hass, config, async_add_devices, discovery_info=N
     try:
         discovery_info['color_capabilities'] \
             = await endpoint.light_color['color_capabilities']
-        _LOGGER.debug("Request for color_capabilities: %s",discovery_info['color_capabilities'])
     except AttributeError as e:
         _LOGGER.debug("No color cluster: %s", e.args)
     except KeyError as e:
-        _LOGGER.debug("Request for color_capabilities failed: %s", e.args)  
+        _LOGGER.debug("Request for color_capabilities failed: %s", e.args)
     except Exception as e:
-        _LOGGER.debug("Request for color_capabilities, other error: %s", e.args)
+        _LOGGER.debug("Request for color_capabilities other error: %s", e.args)
     entity = Light(**discovery_info)
-    
+
     if hass.states.get(entity.entity_id):
-        _LOGGER.debug("entity exist,remove it: %s",  dir (hass.states.get(entity.entity_id)))
+        _LOGGER.debug("entity exist,remove it: %s",
+                      dir(hass.states.get(entity.entity_id)))
         hass.states.async_remove(entity.entity_id)
     async_add_devices([entity])
 
-    entity_store=zha_new.get_entity_store(hass)
-    if not endpoint.device._ieee in entity_store:
-        entity_store[endpoint.device._ieee] =[]
+    entity_store = zha_new.get_entity_store(hass)
+    if endpoint.device._ieee not in entity_store:
+        entity_store[endpoint.device._ieee] = []
     entity_store[endpoint.device._ieee].append(entity)
-    endpoint._device._application.listener_event('device_updated', endpoint._device)
+    endpoint._device._application.listener_event('device_updated',
+                                                 endpoint._device)
 
 
 class Light(zha_new.Entity, light.Light):
+
     """Representation of a ZHA or ZLL light."""
 
     _domain = light.DOMAIN
@@ -60,7 +65,7 @@ class Light(zha_new.Entity, light.Light):
     def __init__(self, **kwargs):
         """Initialize the ZHA light."""
         super().__init__(**kwargs)
-        
+
         self._available = True
         self._groups = None
         self._grp_name = None
@@ -82,11 +87,10 @@ class Light(zha_new.Entity, light.Light):
             if color_capabilities & CAPABILITIES_COLOR_XY:
                 self._supported_features |= light.SUPPORT_COLOR
                 self._hs_color = (0, 0)
-                
+
         if zcl_clusters.general.Groups.cluster_id in self._in_clusters:
-            self._groups=[]
+            self._groups = []
             self._device_state_attributes["Group_id"] = self._groups
-            
 
     @property
     def is_on(self) -> bool:
@@ -94,12 +98,11 @@ class Light(zha_new.Entity, light.Light):
         if self._state == STATE_UNKNOWN:
             return False
         return bool(self._state)
-        
+
     @property
     def available(self) -> bool:
         return bool(self._available)
-        
-    
+
     async def async_turn_on(self, **kwargs):
         """Turn the entity on."""
         duration = kwargs.get(light.ATTR_TRANSITION, DEFAULT_DURATION)
@@ -109,7 +112,7 @@ class Light(zha_new.Entity, light.Light):
             await self._endpoint.light_color.move_to_color_temp(
                 temperature, duration)
             self._color_temp = temperature
-        
+
         if light.ATTR_HS_COLOR in kwargs:
             self._hs_color = kwargs[light.ATTR_HS_COLOR]
             xy_color = color_util.color_hs_to_xy(*self._hs_color)
@@ -119,13 +122,12 @@ class Light(zha_new.Entity, light.Light):
                 duration,
             )
 
-       
         if self._brightness is not None:
             brightness = kwargs.get(
                 light.ATTR_BRIGHTNESS, self._brightness or 255)
             self._brightness = brightness
             # Move to level with on/off:
-            _LOGGER.debug("Turn_on %s: Brightness %s", self.entity_id, brightness) 
+
             await self._endpoint.level.move_to_level_with_on_off(
                 brightness,
                 duration
@@ -137,7 +139,6 @@ class Light(zha_new.Entity, light.Light):
         await self._endpoint.on_off.on()
         self._state = 1
         self.async_update_ha_state(force_refresh=True)
-
 
     async def async_turn_off(self, **kwargs):
         """Turn the entity off."""
@@ -165,13 +166,11 @@ class Light(zha_new.Entity, light.Light):
         """Flag supported features."""
         return self._supported_features
 
-    
     async def async_update(self):
         """Retrieve latest state."""
         import zigpy.zcl.clusters as zcl_clusters
         _LOGGER.debug("%s async_update", self.entity_id)
-       
-        #await self._endpoint.on_off.discover_attributes(0,4)
+
         if zcl_clusters.general.OnOff.cluster_id in self._in_clusters:
             result = await zha_new.safe_read(self._endpoint.on_off, ['on_off'])
         else:
@@ -182,30 +181,32 @@ class Light(zha_new.Entity, light.Light):
         except Exception:
             self._available = False
             return
-            
+
         if self._groups is not None:
             result = await self._endpoint.groups.get_membership([])
             self._groups = result[1]
             if self._device_state_attributes["Group_id"] != self._groups:
                 self._device_state_attributes["Group_id"] = self._groups
-                self._endpoint._device._application.listener_event('subscribe_group', self._groups[0])
+                self._endpoint._device._application.listener_event(
+                    'subscribe_group',
+                    self._groups[0])
         if not self._state:
             return
-            
+
         if self._supported_features & light.SUPPORT_BRIGHTNESS:
             result = await zha_new.safe_read(self._endpoint.level,
-                                          ['current_level'])
+                                             ['current_level'])
             self._brightness = result.get('current_level', self._brightness)
 
         if self._supported_features & light.SUPPORT_COLOR_TEMP:
             result = await zha_new.safe_read(self._endpoint.light_color,
-                                          ['color_temperature'])
+                                             ['color_temperature'])
             self._color_temp = result.get('color_temperature',
                                           self._color_temp)
 
         if self._supported_features & light.SUPPORT_COLOR:
             result = await zha_new.safe_read(self._endpoint.light_color,
-                                          ['current_x', 'current_y'])
+                                             ['current_x', 'current_y'])
             if 'current_x' in result and 'current_y' in result:
                 self._hs_color = (result['current_x'], result['current_y'])
 
@@ -215,10 +216,10 @@ class Light(zha_new.Entity, light.Light):
         False if entity pushes its state to HA.
         """
         return True
-    
+
     def cluster_command(self, tsn, command_id, args):
         try:
-            dev_func= self._model.replace(".","_").replace(" ","_")
+            dev_func = self._model.replace(".", "_").replace(" ", "_")
             _custom_cluster_command = getattr(
                 import_module("custom_components.device." + dev_func),
                 "_custom_cluster_command"
@@ -228,4 +229,3 @@ class Light(zha_new.Entity, light.Light):
             _LOGGER.debug("Import DH %s failed: %s", dev_func, e.args)
         except Exception as e:
             _LOGGER.info("Excecution of DH %s failed: %s", dev_func, e.args)
-        
