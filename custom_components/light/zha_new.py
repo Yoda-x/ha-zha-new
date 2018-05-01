@@ -60,14 +60,14 @@ class Light(zha_new.Entity, light.Light):
     def __init__(self, **kwargs):
         """Initialize the ZHA light."""
         super().__init__(**kwargs)
-        self._supported_features = 0
-        self._color_temp = None
-        self._xy_color = None
-        self._brightness = None
+        
         self._available = True
         self._groups = None
         self._grp_name = None
-        
+        self._supported_features = 0
+        self._color_temp = None
+        self._hs_color = None
+        self._brightness = None
 
         import zigpy.zcl.clusters as zcl_clusters
         if zcl_clusters.general.LevelControl.cluster_id in self._in_clusters:
@@ -183,19 +183,15 @@ class Light(zha_new.Entity, light.Light):
             self._available = False
             return
             
-        _LOGGER.debug("%s async_update group", self.entity_id)
         if self._groups is not None:
-            
-#            result = await zha_new.safe_read(self._endpoint.groups, ['name_support'])
-#            self._grp__name= result['name_support']
             result = await self._endpoint.groups.get_membership([])
             self._groups = result[1]
             if self._device_state_attributes["Group_id"] != self._groups:
                 self._device_state_attributes["Group_id"] = self._groups
                 self._endpoint._device._application.listener_event('subscribe_group', self._groups[0])
-            _LOGGER.debug("%s get_groups %s ", self.entity_id,  self._groups)
         if not self._state:
             return
+            
         if self._supported_features & light.SUPPORT_BRIGHTNESS:
             result = await zha_new.safe_read(self._endpoint.level,
                                           ['current_level'])
@@ -207,11 +203,11 @@ class Light(zha_new.Entity, light.Light):
             self._color_temp = result.get('color_temperature',
                                           self._color_temp)
 
-        if self._supported_features & light.SUPPORT_XY_COLOR:
+        if self._supported_features & light.SUPPORT_COLOR:
             result = await zha_new.safe_read(self._endpoint.light_color,
                                           ['current_x', 'current_y'])
             if 'current_x' in result and 'current_y' in result:
-                self._xy_color = (result['current_x'], result['current_y'])
+                self._hs_color = (result['current_x'], result['current_y'])
 
     @property
     def should_poll(self) -> bool:
