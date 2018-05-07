@@ -321,6 +321,7 @@ class Server_LevelControl(Cluster_Server):
     def __init__(self, entity,  cluster,  identifier):
         self.start_time = None
         self.step=int()
+        self.on_off = None
         super().__init__(entity,  cluster,  identifier)
         
     def cluster_command(self, tsn, command_id, args):
@@ -334,6 +335,9 @@ class Server_LevelControl(Cluster_Server):
                     'channel': self._identifier,
                     'command': command
                    }
+        if command in ( 'move_with_on_off', 'step_with_on_off'):
+            self.on_off = True
+
         if command in ( 'step', 'step_with_on_off'):
             if args[0] == 0:
                 event_data['up_down'] = 1
@@ -345,14 +349,17 @@ class Server_LevelControl(Cluster_Server):
             event_data['step'] = args[1]
             self._value += event_data['up_down'] * event_data['step']
             if self._value <= 0:
+                if self.on_off:
+                    self._entity._state  = 0
                 self.value = 1
                 self._value = 1
             elif self._value > 255:
-
                 self._value = 254
                 self.value = 254
             else:
                 self.value = int(self._value)
+                if self.on_off:
+                    self._entity._state  = 1
 #        elif command == 'move_to_level_with_on_off':
 #            self.value = self._value
         elif command in ('move_with_on_off', 'move'):
@@ -372,7 +379,9 @@ class Server_LevelControl(Cluster_Server):
                 _LOGGER.debug('Delta: %s move: %s',  delta_time, delta_time * self.step )
                 self._value += int(delta_time * self.step)
                 self.start_time = None
-                if self._value <= 0:
+                if self._value <= 1:
+                    if self.on_off:
+                        self._entity._state  = 0
                     self.value = 1
                     self._value = 1
                 elif self._value >= 254:
@@ -381,6 +390,8 @@ class Server_LevelControl(Cluster_Server):
                     self.value = 254
                 else:
                     self.value = int(self._value)
+                    if self.on_off:
+                        self._entity._state  = 1
 
         self._entity.hass.bus.fire('click', event_data)
         _LOGGER.debug('click event [tsn:%s] %s', tsn, event_data)
