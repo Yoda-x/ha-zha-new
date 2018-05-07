@@ -20,7 +20,6 @@ def _custom_endpoint_init(self, node_config, *argv):
             "in_cluster": [0, ],
             "config_report": [
                 [0x0006, 0, 1, 180, 1],
-                [0x0702, 0, 5, 180, 1],
             ],
             "type": "switch",
             }

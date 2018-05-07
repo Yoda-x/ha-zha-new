@@ -104,9 +104,9 @@ class Sensor(zha_new.Entity):
     min_reportable_change = 1
 
     def __init__(self, **kwargs):
-        endpoint = kwargs['endpoint']
         super().__init__(**kwargs)
-        for cluster in endpoint.out_clusters.values():
+        out_clusters = kwargs['out_clusters']
+        for cluster in out_clusters.values():
             cluster.add_listener(self)
 
     @property

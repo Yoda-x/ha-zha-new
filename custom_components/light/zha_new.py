@@ -184,31 +184,35 @@ class Light(zha_new.Entity, light.Light):
 
         if self._groups is not None:
             result = await self._endpoint.groups.get_membership([])
-            self._groups = result[1]
-            if self._device_state_attributes["Group_id"] != self._groups:
-                self._device_state_attributes["Group_id"] = self._groups
-                self._endpoint._device._application.listener_event(
-                    'subscribe_group',
-                    self._groups[0])
+            if result[0] >= 1:
+                self._groups = result[1]
+                if self._device_state_attributes["Group_id"] != self._groups:
+                    self._device_state_attributes["Group_id"] = self._groups
+                    self._endpoint._device._application.listener_event(
+                        'subscribe_group',
+                        self._groups[0])
         if not self._state:
             return
 
         if self._supported_features & light.SUPPORT_BRIGHTNESS:
             result = await zha_new.safe_read(self._endpoint.level,
                                              ['current_level'])
-            self._brightness = result.get('current_level', self._brightness)
+            if result:
+                self._brightness = result.get('current_level', self._brightness)
 
         if self._supported_features & light.SUPPORT_COLOR_TEMP:
             result = await zha_new.safe_read(self._endpoint.light_color,
                                              ['color_temperature'])
-            self._color_temp = result.get('color_temperature',
+            if result:
+                self._color_temp = result.get('color_temperature',
                                           self._color_temp)
 
         if self._supported_features & light.SUPPORT_COLOR:
             result = await zha_new.safe_read(self._endpoint.light_color,
                                              ['current_x', 'current_y'])
-            if 'current_x' in result and 'current_y' in result:
-                self._hs_color = (result['current_x'], result['current_y'])
+            if result:
+                if 'current_x' in result and 'current_y' in result:
+                    self._hs_color = (result['current_x'], result['current_y'])
 
     @property
     def should_poll(self) -> bool:

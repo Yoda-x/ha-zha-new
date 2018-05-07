@@ -36,7 +36,7 @@ async def async_setup_platform(hass, config, async_add_devices,
     from zigpy.zcl.clusters.security import IasZone
     """Set up the Zigbee Home Automation binary sensors."""
     discovery_info = zha_new.get_discovery_info(hass, discovery_info)
-    _LOGGER.debug("disocery info: %s", discovery_info)
+#    _LOGGER.debug("disocery info: %s", discovery_info)
 
     if discovery_info is None:
         return
@@ -191,8 +191,8 @@ class BinarySensor(zha_new.Entity, BinarySensorDevice):
             self.hass.add_job(self._ias_zone_cluster.enroll_response(0, 0))
 
     def attribute_updated(self, attribute, value):
-        _LOGGER.debug('Binary sensor call _parse attribute: %s -- %s --%s',
-                      self._custom_module,  attribute,  value)
+#        _LOGGER.debug('Binary sensor call _parse attribute: %s -- %s --%s',
+#                      self._custom_module,  attribute,  value)
         if self._custom_module.get('_parse_attribute', None) is not None:
             (attribute, value) = self._custom_module['_parse_attribute'](
                         self,
@@ -206,7 +206,7 @@ class BinarySensor(zha_new.Entity, BinarySensorDevice):
             self._state = value
 
         self.schedule_update_ha_state()
-        _LOGGER.debug("zha.binary_sensor update: %s = %s ", attribute, value)
+#        _LOGGER.debug("zha.binary_sensor update: %s = %s ", attribute, value)
 
 
 class OccupancySensor(BinarySensor):
@@ -286,7 +286,7 @@ class Cluster_Server(object):
         self._identifier = identifier
         cluster.add_listener(self)
         self._value = int(0)
-        self.value = int()
+        self.value = int(0)
         self._prev_tsn = int()
 
     def cluster_command(self, tsn, command_id, args):
@@ -318,6 +318,11 @@ class Basic(Cluster_Server):
 
 
 class Server_LevelControl(Cluster_Server):
+    def __init__(self, entity,  cluster,  identifier):
+        self.start_time = None
+        self.step=int()
+        super().__init__(entity,  cluster,  identifier)
+        
     def cluster_command(self, tsn, command_id, args):
         from zigpy.zcl.clusters.general import LevelControl
         if tsn == self._prev_tsn:
@@ -329,29 +334,56 @@ class Server_LevelControl(Cluster_Server):
                     'channel': self._identifier,
                     'command': command
                    }
-        if args[0] == 0:
-            event_data['up_down'] = 1
-        else:
-            event_data['up_down'] = -1
-        event_data['step'] = args[1]
-        if command in ('move_with_on_off', 'move', 'step', 'step_with_on_off'):
+        if command in ( 'step', 'step_with_on_off'):
+            if args[0] == 0:
+                event_data['up_down'] = 1
+            elif args[0] == 1:
+                event_data['up_down'] = -1
+                if args[1] == 0:
+                    self._value = 254
+                    self._entity._state = 1
+            event_data['step'] = args[1]
             self._value += event_data['up_down'] * event_data['step']
             if self._value <= 0:
-                self.value = 0
-                self._value = -10
-            elif self._value > 1000:
+                self.value = 1
+                self._value = 1
+            elif self._value > 255:
 
-                self._value = 1000
-                self.value = 100
+                self._value = 254
+                self.value = 254
             else:
-                self.value = int(self._value/10)
+                self.value = int(self._value)
 #        elif command == 'move_to_level_with_on_off':
 #            self.value = self._value
+        elif command in ('move_with_on_off', 'move'):
+            if args[0] == 0:
+                event_data['up_down'] = 1
+            elif args[0] == 1:
+                event_data['up_down'] = -1
+            self.step = args[1] * event_data['up_down']
+            event_data['step'] = args[1] 
+            if self.start_time is None:
+                self.start_time = dt_util.utcnow().timestamp()
+                
+            
         elif command == 'stop':
-            return
+            if self.start_time is not None:
+                delta_time = dt_util.utcnow().timestamp() - self.start_time
+                _LOGGER.debug('Delta: %s move: %s',  delta_time, delta_time * self.step )
+                self._value += int(delta_time * self.step)
+                self.start_time = None
+                if self._value <= 0:
+                    self.value = 1
+                    self._value = 1
+                elif self._value >= 254:
+    
+                    self._value = 254
+                    self.value = 254
+                else:
+                    self.value = int(self._value)
 
         self._entity.hass.bus.fire('click', event_data)
-#        _LOGGER.debug('click event [tsn:%s] %s', tsn, event_data)
+        _LOGGER.debug('click event [tsn:%s] %s', tsn, event_data)
         self._entity._device_state_attributes.update({
                 'Last seen': dt_util.now(),
                 self._identifier: self.value,
@@ -373,14 +405,13 @@ class Server_OnOff(Cluster_Server):
                     'command': command
                    }
         if command == 'on':
-            self._value = 1
+            self._entity._state  = 1
         elif command == 'off':
-            self._value = 0
+            self._entity._state  = 0
         elif command == 'toggle':
-            self._value = int(abs(self._value - 1))
-        self._entity._state = self._value
+            self._entity._state  = int(abs(self._value - 1))
         self._entity.hass.bus.fire('click', event_data)
-#        _LOGGER.debug('click event [tsn:%s] %s', tsn, event_data)
+        _LOGGER.debug('click event [tsn:%s] %s', tsn, event_data)
         self._entity._device_state_attributes.update({
                 'Last seen': dt_util.now(),
                 self._identifier: self._value,
@@ -403,7 +434,7 @@ class Server_Scenes(Cluster_Server):
                     self._identifier: args
                    }
         self._entity.hass.bus.fire('click', event_data)
-#        _LOGGER.debug('Scenes cluster called %s', event_data)
+        _LOGGER.debug('click event [tsn:%s] %s', tsn, event_data)
         self._entity._device_state_attributes.update({
                 'Last seen': dt_util.now(),
                 self._identifier: args,
