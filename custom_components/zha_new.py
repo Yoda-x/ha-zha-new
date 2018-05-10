@@ -355,7 +355,7 @@ class ApplicationListener:
         populate_data()
         discovered_info = {}
         out_clusters=[]
-
+        model = None
         # loop over endpoints
         for endpoint_id, endpoint in device.endpoints.items():
             if endpoint_id == 0:  # ZDO
@@ -368,7 +368,7 @@ class ApplicationListener:
             _LOGGER.debug("node config for %s: %s", device_key, node_config)
 
             if CONF_TEMPLATE in node_config:
-                device_model = node_config.get(CONF_TEMPLATE, "default")
+                device_model = model = node_config.get(CONF_TEMPLATE, "default")
                 if device_model not in self.custom_devices:
                     self.custom_devices[device_model] = custom_module = get_custom_device_info(device_model)
                 if '_custom_endpoint_init' in custom_module:
@@ -383,12 +383,14 @@ class ApplicationListener:
 #                if join:
 #                    v = await discover_cluster_values(endpoint, endpoint.in_clusters[0])
                 discovered_info = await _discover_endpoint_info(endpoint)
-
+            if model is not None and discovered_info[CONF_MODEL] is None:
+                discovered_info[CONF_MODEL] = model
+                
             # when a model name is available and not the template already applied,
             # use it to do custom init
             if (discovered_info[CONF_MODEL] is not None
                 and CONF_TEMPLATE not in node_config):
-                device_model = discovered_info[CONF_MODEL]
+                device_model = model = discovered_info[CONF_MODEL]
                 if device_model not in self.custom_devices:
                     self.custom_devices[device_model] = custom_module = get_custom_device_info(device_model)
                 else:
@@ -688,6 +690,7 @@ class Entity(entity.Entity):
 
 
 async def _discover_endpoint_info(endpoint):
+    import string
     """Find some basic information about an endpoint."""
     extra_info = {
         'manufacturer': None,
@@ -709,6 +712,8 @@ async def _discover_endpoint_info(endpoint):
         await read(['model'])
     except:
         _LOGGER.debug("single read attribute failed: model")
+    else:
+        _LOGGER.debug("single read attribute model <%s>", list(extra_info.get('model')))
     try:
         await read(['manufacturer'])
     except:
@@ -716,10 +721,12 @@ async def _discover_endpoint_info(endpoint):
     for key, value in extra_info.items():
         if isinstance(value, bytes):
             try:
-                extra_info[key] = value.decode('ascii').strip()
+                value = value.decode('ascii').strip()
+                extra_info[key] = ''.join([x for x in value if x in string.printable])
+                
             except UnicodeDecodeError:
                 # Unsure what the best behaviour here is. Unset the key?
-                pass
+                _LOGGER.debug("unicode decode error ")
 
     return extra_info
 
