@@ -558,14 +558,14 @@ class ApplicationListener:
 #                              discovery_info)
 
 #            _LOGGER.debug("[0x%04x:%s] Start bind clusters",
-                          device.nwk,
-                          endpoint_id)
+#                          device.nwk,
+#                          endpoint_id)
             if join:
                 for cluster in out_clusters:
                     try:
-                        v=await cluster.bind()
+                        v = await cluster.bind()
                     except Exception:
-                         _LOGGER.error("[0x%04x:%s] bind output-cluster exception %s ",
+                        _LOGGER.error("[0x%04x:%s] bind output-cluster exception %s ",
                                       device.nwk, endpoint_id,
                                       cluster.cluster_id)
                     if v[0]:
@@ -585,12 +585,12 @@ class ApplicationListener:
 #                              list(endpoint.out_clusters.keys())
 #                              )
         device._application.listener_event('device_updated', device)
-        self.controller._state='Run'
-        self.controller._device_state_attributes['no_of_entities']=len(self._entity_list)
+        self.controller._state = 'Run'
+        self.controller._device_state_attributes['no_of_entities'] = len(self._entity_list)
         self.controller.async_schedule_update_ha_state()
         _LOGGER.debug("[0x%04x] Exit device init %s",
-                      device.nwk, 
-                      device.ieee, 
+                      device.nwk,
+                      device.ieee,
                       )
 
 
@@ -623,7 +623,7 @@ class Entity(entity.Entity):
             manufacturer = 'unknown'
         if model is None:
             model = 'unknown'
-        
+
         self.entity_id = '%s.%s_%s_%s_%s' % (
             self._domain,
             slugify(manufacturer),
@@ -663,7 +663,6 @@ class Entity(entity.Entity):
         self._device_state_attributes['lqi'] = endpoint.device.lqi
         self._device_state_attributes['rssi'] = endpoint.device.rssi
         _LOGGER.debug("dir entity:%s",  dir(self))
-
 
     @property
     def unique_id(self):
@@ -708,7 +707,6 @@ async def _discover_endpoint_info(endpoint):
     if 0 not in endpoint.in_clusters:
         return extra_info
 
-
     async def read(attributes):
         """Read attributes and update extra_info convenience function."""
         result, _ = await endpoint.in_clusters[0].read_attributes(
@@ -732,7 +730,7 @@ async def _discover_endpoint_info(endpoint):
             try:
                 value = value.decode('ascii').strip()
                 extra_info[key] = ''.join([x for x in value if x in string.printable])
-                
+
             except UnicodeDecodeError:
                 # Unsure what the best behaviour here is. Unset the key?
                 _LOGGER.debug("unicode decode error ")
