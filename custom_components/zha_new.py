@@ -70,7 +70,7 @@ def populate_data():
     DEVICE_CLASS[zha.PROFILE_ID] = {
         zha.DeviceType.ON_OFF_SWITCH: 'switch',
         zha.DeviceType.SMART_PLUG: 'switch',
-        zha.DeviceType.MAIN_POWER_OUTLET: 'switch', 
+        zha.DeviceType.MAIN_POWER_OUTLET: 'switch',
         zha.DeviceType.ON_OFF_LIGHT: 'light',
         zha.DeviceType.DIMMABLE_LIGHT: 'light',
         zha.DeviceType.COLOR_DIMMABLE_LIGHT: 'light',
@@ -186,7 +186,6 @@ class zha_state(entity.Entity):
         """Return device specific state attributes."""
         return self._device_state_attributes
 
-    
     async def async_update(self):
 #        from zigpy.zcl import foundation as f
         result = await self.stack._command('neighborCount', [])
@@ -194,12 +193,11 @@ class zha_state(entity.Entity):
         entity_store = get_entity_store(self.hass)
         self._device_state_attributes['no_devices'] = len(entity_store)
         result = await self.stack._command('getValue', 3)
-        _LOGGER.debug("buffer: %s",result[1])
+        _LOGGER.debug("buffer: %s", result[1])
         #        buffer = t.uint8_t(result[1])
 #        self._device_state_attributes['FreeBuffers'] =  buffer
 #        result = await self.stack._command('getSourceRouteTableFilledSize', [])
 #        self._device_state_attributes['getSourceRouteTableFilledSize'] = result[0]
-
 
 
 async def async_setup(hass, config):
@@ -347,17 +345,18 @@ class ApplicationListener:
             self.controller.hass, _async_clear_state(self.controller),
             dt_util.utcnow() + datetime.timedelta(seconds=5))
 
-  
     async def async_device_initialized(self, device, join):
         """Handle device joined and basic information discovered (async)."""
         from zigpy.zdo.types import Status
         import zigpy.profiles
         populate_data()
         discovered_info = {}
-        out_clusters=[]
+        out_clusters = []
         model = None
         # loop over endpoints
+        _LOGGER.debug("[0x%04x] device init %s: %s", device.nwk,  device.ieee, list(device.endpoints.keys()))
         for endpoint_id, endpoint in device.endpoints.items():
+            _LOGGER.debug("[0x%04x] endpoint init %s", device.nwk, endpoint_id, )
             if endpoint_id == 0:  # ZDO
                 continue
 
@@ -365,7 +364,7 @@ class ApplicationListener:
             profile_clusters = [set(), set()]
             device_key = '%s-%s' % (str(device.ieee), endpoint_id)
             node_config = self._config[DOMAIN][CONF_DEVICE_CONFIG].get(device_key, {})
-            _LOGGER.debug("node config for %s: %s", device_key, node_config)
+            _LOGGER.debug("[0x%04x] node config for %s: %s", device.nwk, device_key, node_config)
 
             if CONF_TEMPLATE in node_config:
                 device_model = model = node_config.get(CONF_TEMPLATE, "default")
@@ -385,7 +384,7 @@ class ApplicationListener:
                 discovered_info = await _discover_endpoint_info(endpoint)
             if model is not None and discovered_info[CONF_MODEL] is None:
                 discovered_info[CONF_MODEL] = model
-                
+
             # when a model name is available and not the template already applied,
             # use it to do custom init
             if (discovered_info[CONF_MODEL] is not None
@@ -395,15 +394,15 @@ class ApplicationListener:
                     self.custom_devices[device_model] = custom_module = get_custom_device_info(device_model)
                 else:
                     custom_module = self.custom_devices[device_model]
-                _LOGGER.debug('pre call _custom_endpoint_init: %s',  custom_module)
+                _LOGGER.debug('[0x%04x] pre call _custom_endpoint_init: %s', device.nwk, custom_module)
 
                 if custom_module.get('_custom_endpoint_init', None) is not None:
-                    _LOGGER.debug('call _custom_endpoint_init: %s',  device_model)
+                    _LOGGER.debug('[0x%04x] call _custom_endpoint_init: %s', device.nwk,  device_model)
                     custom_module['_custom_endpoint_init'](endpoint, node_config, device_model)
                 else:
-                    _LOGGER.debug('no call _custom_endpoint_init: %s',  device_model)
+                    _LOGGER.debug('[0x%04x] no call _custom_endpoint_init: %s', device.nwk, device_model)
 
-            _LOGGER.debug("node config for %s: %s", device_key, node_config)
+            _LOGGER.debug("[0x%04x] node config for %s: %s", device.nwk, device_key, node_config)
 
             if endpoint.profile_id in zigpy.profiles.PROFILES:
                 profile = zigpy.profiles.PROFILES[endpoint.profile_id]
@@ -432,12 +431,14 @@ class ApplicationListener:
                     v = await report_cls.configure_reporting(
                         report_attr, int(report_min),
                         int(report_max), report_change)
-                    _LOGGER.debug("%s: set config report %s status: %s",
+                    _LOGGER.debug("[0x%04x] %s: set config report %s status: %s",
+                                  device.nwk,
                                   device_key,
                                   report_cls.cluster_id,
                                   v[0])
                 except:
-                    _LOGGER.error("%s:set config report failed: %s",
+                    _LOGGER.error("[0x%04x] %s:set config report failed: %s",
+                                  device.nwk,
                                   device_key,
                                   report_cls.cluster_id)
 
@@ -493,10 +494,10 @@ class ApplicationListener:
                               device.nwk,
                               list(c.cluster_id for c in out_clusters))
                 # add 'manufacturer', 'model'  to discovery_info
-      
+
                 discovery_info.update(discovered_info)
                 self._hass.data[DISCOVERY_KEY][device_key] = discovery_info
-                """ goto to the specific code for switch, 
+                """ goto to the specific code for switch,
                 light sensor or binary_sensor """
                 await discovery.async_load_platform(
                     self._hass,
@@ -508,10 +509,14 @@ class ApplicationListener:
                 _LOGGER.debug("[0x%04x] Return from component general entity:%s",
                               device.nwk,
                               device._ieee)
-                        
+
             # initialize single clusters
             for cluster_id, cluster in endpoint.in_clusters.items():
                 cluster_type = type(cluster)
+#                _LOGGER.debug("[0x%04x:%s] Start single-cluster entity: %s",
+#                              device.nwk,
+#                              endpoint_id,
+#                              cluster_id)
                 if cluster_id in profile_clusters[0]:
                     continue
                 if cluster_type not in SINGLE_CLUSTER_DEVICE_CLASS:
@@ -521,7 +526,7 @@ class ApplicationListener:
                 else:
                     component = SINGLE_CLUSTER_DEVICE_CLASS[cluster_type]
 
-                cluster_key = '%s-%s' % (device_key, cluster_id) 
+                cluster_key = '%s-%s' % (device_key, cluster_id)
                 # cluster key -> single cluster
                 discovery_info = {
                     'discovery_key': cluster_key,
@@ -536,7 +541,10 @@ class ApplicationListener:
                 discovery_info.update(discovered_info)
 
                 self._hass.data[DISCOVERY_KEY][cluster_key] = discovery_info
-
+                _LOGGER.debug("[0x%04x] Call single-cluster entity:%s: %s",
+                              device.nwk,
+                              discovery_info,
+                              cluster_id)
                 await discovery.async_load_platform(
                     self._hass,
                     component,
@@ -545,44 +553,45 @@ class ApplicationListener:
                     self._config,
                 )
 #                in_clusters.append(cluster)
-                _LOGGER.debug("[0x%04x] Return from single-cluster entity:%s",
-                              device.nwk,
-                              discovery_info)
-            
-#            for cluster in in_clusters:
-#                v = await cluster.bind()
-#                if v[0]:
-#                    _LOGGER.error("[0x%04x:%s] bind input-cluster failed %s",
-#                                  endpoint._device.nwk, endpoint.endpoint_id,
-#                                  Status(v[0]).name
-#                                  )
-#                _LOGGER.debug("[0x%04x:%s] bind input-cluster %s: %s",
-#                              endpoint._device.nwk,
-#                              endpoint.endpoint_id,
-#                              cluster.cluster_id,
-#                              v)
-            for cluster in out_clusters:
-                v = await cluster.bind()
-                if v[0]:
-                    _LOGGER.error("[0x%04x:%s] bind output-cluster failed %s",
-                                  endpoint._device.nwk, endpoint.endpoint_id,
-                                  Status(v[0]).name
-                                  )
-                _LOGGER.debug("[0x%04x:%s] bind output-cluster %s: %s",
-                              endpoint._device.nwk,
-                              endpoint.endpoint_id,
-                              cluster.cluster_id,
-                              v)
-    
-            _LOGGER.debug("[0x%04x] Return from zha device init: Input:%s Output:%s",
+#                _LOGGER.debug("[0x%04x] Return from single-cluster entity:%s",
+#                              device.nwk,
+#                              discovery_info)
+
+#            _LOGGER.debug("[0x%04x:%s] Start bind clusters",
                           device.nwk,
-                          endpoint.in_clusters.keys(),
-                          endpoint.out_clusters.keys()
-                          )
+                          endpoint_id)
+            if join:
+                for cluster in out_clusters:
+                    try:
+                        v=await cluster.bind()
+                    except Exception:
+                         _LOGGER.error("[0x%04x:%s] bind output-cluster exception %s ",
+                                      device.nwk, endpoint_id,
+                                      cluster.cluster_id)
+                    if v[0]:
+                        _LOGGER.error("[0x%04x:%s] bind output-cluster failed %s : %s",
+                                      device.nwk, endpoint_id,
+                                      cluster.cluster_id, Status(v[0]).name
+                                      )
+#                    _LOGGER.debug("[0x%04x:%s] bind output-cluster %s: %s",
+#                                  device.nwk,
+#                                  endpoint_id,
+#                                  cluster.cluster_id,
+#                                  v)
+
+#                _LOGGER.debug("[0x%04x] Exit endpoint init: Input:%s Output:%s",
+#                              device.nwk,
+#                              list(endpoint.in_clusters.keys()),
+#                              list(endpoint.out_clusters.keys())
+#                              )
         device._application.listener_event('device_updated', device)
-        self.controller._state = 'Run'
-        self.controller._device_state_attributes['no_of_entities'] = len(self._entity_list)
+        self.controller._state='Run'
+        self.controller._device_state_attributes['no_of_entities']=len(self._entity_list)
         self.controller.async_schedule_update_ha_state()
+        _LOGGER.debug("[0x%04x] Exit device init %s",
+                      device.nwk, 
+                      device.ieee, 
+                      )
 
 
 class Entity(entity.Entity):

@@ -98,13 +98,13 @@ async def _make_sensor(device_class, discovery_info):
     endpoint = discovery_info['endpoint']
     if endpoint.device_type in (0x0800, 0x0810, 0x0820, 0x0830):
         sensor = RemoteSensor('remote', **discovery_info)
-    elif (OnOff.cluster_id in in_clusters 
-        or OnOff.cluster_id in out_clusters):
+    elif (OnOff.cluster_id in in_clusters
+              or OnOff.cluster_id in out_clusters):
         sensor = OnOffSensor('opening',
                              **discovery_info,
                              cluster_key=OnOff.ep_attribute)
-    elif (OccupancySensing.cluster_id in in_clusters 
-        or OccupancySensing.cluster_id in out_clusters):
+    elif (OccupancySensing.cluster_id in in_clusters
+              or OccupancySensing.cluster_id in out_clusters):
         sensor = OccupancySensor('motion',
                                  **discovery_info,
                                  cluster_key=OccupancySensing.ep_attribute)
@@ -148,7 +148,9 @@ async def _make_sensor(device_class, discovery_info):
                           cluster.cluster_id,
                           v)
 
-    _LOGGER.debug("Return make_sensor")
+    _LOGGER.debug("[0x%04x:%s] exit make binary-sensor ",
+                  endpoint._device.nwk,
+                  endpoint.endpoint_id)
     return sensor
 
 
@@ -320,10 +322,10 @@ class Basic(Cluster_Server):
 class Server_LevelControl(Cluster_Server):
     def __init__(self, entity,  cluster,  identifier):
         self.start_time = None
-        self.step=int()
+        self.step = int()
         self.on_off = None
         super().__init__(entity,  cluster,  identifier)
-        
+
     def cluster_command(self, tsn, command_id, args):
         from zigpy.zcl.clusters.general import LevelControl
         if tsn == self._prev_tsn:
@@ -335,10 +337,10 @@ class Server_LevelControl(Cluster_Server):
                     'channel': self._identifier,
                     'command': command
                    }
-        if command in ( 'move_with_on_off', 'step_with_on_off'):
+        if command in ('move_with_on_off', 'step_with_on_off'):
             self.on_off = True
 
-        if command in ( 'step', 'step_with_on_off'):
+        if command in ('step', 'step_with_on_off'):
             if args[0] == 0:
                 event_data['up_down'] = 1
             elif args[0] == 1:
@@ -350,7 +352,7 @@ class Server_LevelControl(Cluster_Server):
             self._value += event_data['up_down'] * event_data['step']
             if self._value <= 0:
                 if self.on_off:
-                    self._entity._state  = 0
+                    self._entity._state = 0
                 self.value = 1
                 self._value = 1
             elif self._value > 255:
@@ -359,7 +361,7 @@ class Server_LevelControl(Cluster_Server):
             else:
                 self.value = int(self._value)
                 if self.on_off:
-                    self._entity._state  = 1
+                    self._entity._state = 1
 #        elif command == 'move_to_level_with_on_off':
 #            self.value = self._value
         elif command in ('move_with_on_off', 'move'):
@@ -368,30 +370,29 @@ class Server_LevelControl(Cluster_Server):
             elif args[0] == 1:
                 event_data['up_down'] = -1
             self.step = args[1] * event_data['up_down']
-            event_data['step'] = args[1] 
+            event_data['step'] = args[1]
             if self.start_time is None:
                 self.start_time = dt_util.utcnow().timestamp()
-                
-            
+
         elif command == 'stop':
             if self.start_time is not None:
                 delta_time = dt_util.utcnow().timestamp() - self.start_time
-                _LOGGER.debug('Delta: %s move: %s',  delta_time, delta_time * self.step )
+                _LOGGER.debug('Delta: %s move: %s',  delta_time, delta_time * self.step)
                 self._value += int(delta_time * self.step)
                 self.start_time = None
                 if self._value <= 1:
                     if self.on_off:
-                        self._entity._state  = 0
+                        self._entity._state = 0
                     self.value = 1
                     self._value = 1
                 elif self._value >= 254:
-    
+
                     self._value = 254
                     self.value = 254
                 else:
                     self.value = int(self._value)
                     if self.on_off:
-                        self._entity._state  = 1
+                        self._entity._state = 1
 
         self._entity.hass.bus.fire('click', event_data)
         _LOGGER.debug('click event [tsn:%s] %s', tsn, event_data)
@@ -416,11 +417,11 @@ class Server_OnOff(Cluster_Server):
                     'command': command
                    }
         if command == 'on':
-            self._entity._state  = 1
+            self._entity._state = 1
         elif command == 'off':
-            self._entity._state  = 0
+            self._entity._state = 0
         elif command == 'toggle':
-            self._entity._state  = int(abs(self._value - 1))
+            self._entity._state = int(abs(self._value - 1))
         self._entity.hass.bus.fire('click', event_data)
         _LOGGER.debug('click event [tsn:%s] %s', tsn, event_data)
         self._entity._device_state_attributes.update({
