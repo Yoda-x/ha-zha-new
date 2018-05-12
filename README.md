@@ -7,17 +7,26 @@ Most of my needed changes are in the original zigpy distro. I will create PR´s 
 based on the work from rcloran and others
 Converted to a custom_component for an easier way to test and distribute to others without changing the homeassistant code. Should be forked back to the HA  codeafter testing. 
 
-
+## NEW REMOTES
+- tested for tradfri dimmer and remotes
+- created a virtual device with On/Off, Level, Scenes(also a kind of Level for colortemp)
+- sends events upstream to HASS for scripting
+  - event data
+    - 'entity_id': self._entity.entity_id
+    - 'channel': OnOff, Level or Scenes, it is the cluster name where a command comes in
+    - 'command': the incoming comand name, eg : on,off,toggle,move, move_with_on_of...
+    - 'up_down': 1 or -1 for increase descrease
+    - 'step': how much up or down
 ## NEW
 - metering/on-off support for sitecom WLE-1000 plugs with reporting
 - Aquara Water sensors as binary-sensors
 - add RSSI/LQI information in entity attributes
 - added zha_new object to monitor some parameters, which is helpful to see whats going on during pairing 
-- - device left
-- - permit enabled
-- - device joined
-- - device init - settting up device in hass
-- - run - normal operations
+  - device left
+  - permit enabled
+  - device joined
+  - device init - settting up device in hass
+  - run - normal operations
 
 ## tested devices
 - xiaomi and aquara sensors
