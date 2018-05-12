@@ -43,7 +43,7 @@ def _custom_endpoint_init(self, node_config, *argv):
                 [0x0406, 0, 10, 1800, 1],
             ],
             "in_cluster": [0x0000, ],
-            #       "type": "binary_sensor",
+            "type": "binary_sensor",
         }
     elif selector in ['lumi.sensor_motion.aq2', ]:
         config = {
@@ -52,7 +52,7 @@ def _custom_endpoint_init(self, node_config, *argv):
                 [0x0400, 0, 10, 1800, 10],
             ],
             "in_cluster": [0x0000, ],
-            #       "type": "binary_sensor",
+            "type": "binary_sensor",
         }
     elif selector == 'lumi.sensor_wleak.aq1':
         config = {
