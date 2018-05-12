@@ -541,9 +541,9 @@ class ApplicationListener:
                 discovery_info.update(discovered_info)
 
                 self._hass.data[DISCOVERY_KEY][cluster_key] = discovery_info
-                _LOGGER.debug("[0x%04x] Call single-cluster entity:%s: %s",
+                _LOGGER.debug("[0x%04x:%s] Call single-cluster entity: %s",
                               device.nwk,
-                              discovery_info,
+                              endpoint_id, 
                               cluster_id)
                 await discovery.async_load_platform(
                     self._hass,
@@ -564,15 +564,15 @@ class ApplicationListener:
                 for cluster in out_clusters:
                     try:
                         v = await cluster.bind()
+                        if v[0]:
+                            _LOGGER.error("[0x%04x:%s] bind output-cluster failed %s : %s",
+                                          device.nwk, endpoint_id,
+                                          cluster.cluster_id, Status(v[0]).name
+                                          )
                     except Exception:
                         _LOGGER.error("[0x%04x:%s] bind output-cluster exception %s ",
                                       device.nwk, endpoint_id,
                                       cluster.cluster_id)
-                    if v[0]:
-                        _LOGGER.error("[0x%04x:%s] bind output-cluster failed %s : %s",
-                                      device.nwk, endpoint_id,
-                                      cluster.cluster_id, Status(v[0]).name
-                                      )
 #                    _LOGGER.debug("[0x%04x:%s] bind output-cluster %s: %s",
 #                                  device.nwk,
 #                                  endpoint_id,

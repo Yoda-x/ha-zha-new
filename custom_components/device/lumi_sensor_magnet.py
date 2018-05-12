@@ -37,14 +37,18 @@ def _custom_endpoint_init(self, node_config, *argv):
             "in_cluster": [0x0000, ],
             "type": "sensor",
         }
+        self.add_input_cluster(0x402)
+        self.add_input_cluster(0x405)
+        self.add_input_cluster(0x406)
     elif selector in ['lumi.sensor_motion', ]:
         config = {
             "config_report": [
                 [0x0406, 0, 10, 1800, 1],
             ],
             "in_cluster": [0x0000, ],
-            "type": "binary_sensor",
+            "type": "binary_sensor",    
         }
+        self.add_input_cluster(0x406)
     elif selector in ['lumi.sensor_motion.aq2', ]:
         config = {
             "config_report": [
@@ -54,6 +58,8 @@ def _custom_endpoint_init(self, node_config, *argv):
             "in_cluster": [0x0000, ],
             "type": "binary_sensor",
         }
+        self.add_input_cluster(0x406)
+        self.add_input_cluster(0x400)
     elif selector == 'lumi.sensor_wleak.aq1':
         config = {
             "in_cluster": [0x0000, ],
@@ -155,7 +161,7 @@ def _parse_attribute(entity, attrib, value, *argv):
             entity.entity_connect[attr]._state = attributes[attr]
     if "pressure" in attributes:
         entity.entity_connect["pressure"]._state = round(
-            float(attributes["pressure"]) / 100, 1)
+            float(attributes["pressure"]) / 100, 0)
 
     attributes["Last seen"] = dt_util.now()
     entity._device_state_attributes.update(attributes)
