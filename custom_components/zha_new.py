@@ -77,7 +77,10 @@ def populate_data():
         zha.DeviceType.ON_OFF_LIGHT_SWITCH: 'light',
         zha.DeviceType.DIMMER_SWITCH: 'light',
         zha.DeviceType.COLOR_DIMMER_SWITCH: 'light',
-        zha.DeviceType.COLOR_SCENE_CONTROLLER: 'binary_sensor'
+        zha.DeviceType.COLOR_SCENE_CONTROLLER: 'binary_sensor', 
+        zha.DeviceType.ON_OFF_SWITCH: 'binary_sensor', 
+        zha.DeviceType.LEVEL_CONTROL_SWITCH: 'binary_sensor',
+        zha.DeviceType.REMOTE_CONTROL: 'binary_sensor',
         }
 
     DEVICE_CLASS[zll.PROFILE_ID] = {
@@ -89,6 +92,7 @@ def populate_data():
         zll.DeviceType.EXTENDED_COLOR_LIGHT: 'light',
         zll.DeviceType.COLOR_TEMPERATURE_LIGHT: 'light',
         zll.DeviceType.COLOR_SCENE_CONTROLLER: 'binary_sensor',
+        zll.DeviceType.ON_OFF_SENSOR: 'binary_sensor',
         }
 
     SINGLE_CLUSTER_DEVICE_CLASS.update({
@@ -444,8 +448,7 @@ class ApplicationListener:
 
             # if reporting is configured in yaml,
             # then create cluster if needed and setup reporting
-            if join:
-#                if CONF_CONFIG_REPORT in node_config:
+            if join and CONF_CONFIG_REPORT in node_config:
                 for report in node_config.get(CONF_CONFIG_REPORT):
                     report_cls, report_attr, report_min, report_max, report_change = report
                     if report_cls in endpoint.in_clusters:
