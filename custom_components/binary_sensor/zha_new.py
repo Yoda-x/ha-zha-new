@@ -96,7 +96,7 @@ async def _make_sensor(device_class, discovery_info):
     in_clusters = discovery_info['in_clusters']
     out_clusters = discovery_info['out_clusters']
     endpoint = discovery_info['endpoint']
-    if endpoint.device_type in (0x0800, 0x0810, 0x0820, 0x0830):
+    if endpoint.device_type in (0x0800, 0x0810, 0x0820, 0x0830, 0x0000, 0x0001, 0x0006):
         sensor = RemoteSensor('remote', **discovery_info)
     elif (OnOff.cluster_id in in_clusters
               or OnOff.cluster_id in out_clusters):
