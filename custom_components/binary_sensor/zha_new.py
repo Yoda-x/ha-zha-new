@@ -9,7 +9,6 @@ at https://home-assistant.io/components/binary_sensor.zha/
 import asyncio
 import logging
 import datetime
-from importlib import import_module
 import homeassistant.util.dt as dt_util
 from homeassistant.components.binary_sensor import DOMAIN, BinarySensorDevice
 from custom_components import zha_new
@@ -161,7 +160,7 @@ def _parse_attribute(attrib, value):
 class BinarySensor(zha_new.Entity, BinarySensorDevice):
 
     """THe ZHA Binary Sensor."""
-
+    
     _domain = DOMAIN
     value_attribute = 0
 
