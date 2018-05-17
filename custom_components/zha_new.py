@@ -74,13 +74,14 @@ def populate_data():
         zha.DeviceType.ON_OFF_LIGHT: 'light',
         zha.DeviceType.DIMMABLE_LIGHT: 'light',
         zha.DeviceType.COLOR_DIMMABLE_LIGHT: 'light',
-        zha.DeviceType.ON_OFF_LIGHT_SWITCH: 'light',
-        zha.DeviceType.DIMMER_SWITCH: 'light',
-        zha.DeviceType.COLOR_DIMMER_SWITCH: 'light',
-        zha.DeviceType.COLOR_SCENE_CONTROLLER: 'binary_sensor', 
-        zha.DeviceType.ON_OFF_SWITCH: 'binary_sensor', 
+        zha.DeviceType.ON_OFF_LIGHT_SWITCH: 'binary_sensor',
+        zha.DeviceType.DIMMER_SWITCH: 'binary_sensor',
+        zha.DeviceType.COLOR_DIMMER_SWITCH: 'binary_sensor',
+        zha.DeviceType.COLOR_SCENE_CONTROLLER: 'binary_sensor',
+        zha.DeviceType.ON_OFF_SWITCH: 'binary_sensor',
         zha.DeviceType.LEVEL_CONTROL_SWITCH: 'binary_sensor',
         zha.DeviceType.REMOTE_CONTROL: 'binary_sensor',
+        zha.DeviceType.OCCUPANCY_SENSOR: 'binary_sensor',
         }
 
     DEVICE_CLASS[zll.PROFILE_ID] = {
@@ -358,9 +359,9 @@ class ApplicationListener:
         out_clusters = []
         model = None
         # loop over endpoints
-        _LOGGER.debug("[0x%04x] device init %s: %s", device.nwk,  device.ieee, list(device.endpoints.keys()))
+        _LOGGER.debug("[0x%04x] device init for %s -> Endpoints: %s", device.nwk,  device.ieee, list(device.endpoints.keys()))
         for endpoint_id, endpoint in device.endpoints.items():
-            _LOGGER.debug("[0x%04x] endpoint init %s", device.nwk, endpoint_id, )
+            _LOGGER.debug("[0x%04x:%s] endpoint init", device.nwk, endpoint_id, )
             if endpoint_id == 0:  # ZDO
                 continue
 
@@ -368,7 +369,11 @@ class ApplicationListener:
             profile_clusters = [set(), set()]
             device_key = '%s-%s' % (str(device.ieee), endpoint_id)
             node_config = self._config[DOMAIN][CONF_DEVICE_CONFIG].get(device_key, {})
-            _LOGGER.debug("[0x%04x] node config for %s: %s", device.nwk, device_key, node_config)
+            _LOGGER.debug("[0x%04x:%s] node config for %s: %s",
+                          device.nwk,
+                          endpoint_id,
+                          device_key,
+                          node_config)
 
             if CONF_TEMPLATE in node_config:
                 device_model = model = node_config.get(CONF_TEMPLATE, "default")
@@ -398,15 +403,27 @@ class ApplicationListener:
                     self.custom_devices[device_model] = custom_module = get_custom_device_info(device_model)
                 else:
                     custom_module = self.custom_devices[device_model]
-                _LOGGER.debug('[0x%04x] pre call _custom_endpoint_init: %s', device.nwk, custom_module)
+                _LOGGER.debug('[0x%04x:%s] pre call _custom_endpoint_init: %s',
+                              device.nwk, endpoint_id,
+                              custom_module)
 
                 if custom_module.get('_custom_endpoint_init', None) is not None:
-                    _LOGGER.debug('[0x%04x] call _custom_endpoint_init: %s', device.nwk,  device_model)
+                    _LOGGER.debug('[0x%04x:%s] call _custom_endpoint_init: %s',
+                                  device.nwk,
+                                  endpoint_id,
+                                  device_model)
                     custom_module['_custom_endpoint_init'](endpoint, node_config, device_model)
                 else:
-                    _LOGGER.debug('[0x%04x] no call _custom_endpoint_init: %s', device.nwk, device_model)
+                    _LOGGER.debug('[0x%04x:%s] no call _custom_endpoint_init: %s',
+                                  device.nwk,
+                                  endpoint_id,
+                                  device_model)
 
-            _LOGGER.debug("[0x%04x] node config for %s: %s", device.nwk, device_key, node_config)
+            _LOGGER.debug("[0x%04x:%s] node config for %s: %s",
+                          device.nwk,
+                          endpoint_id, 
+                          device_key,
+                          node_config)
 
             if endpoint.profile_id in zigpy.profiles.PROFILES:
                 profile = zigpy.profiles.PROFILES[endpoint.profile_id]
@@ -420,14 +437,16 @@ class ApplicationListener:
             if ha_const.CONF_TYPE in node_config:
                 component = node_config[ha_const.CONF_TYPE]
             if component in COMPONENT_CLUSTERS:
-                profile_clusters = COMPONENT_CLUSTERS[component]
-
-            # Add additional allowed In_Clusters from config
+                profile_clusters = list(COMPONENT_CLUSTERS[component])
+            
+            # Add allowed In_Clusters from config
             if CONF_IN_CLUSTER in node_config:
-                profile_clusters[0].update(node_config.get(CONF_IN_CLUSTER))
-            # Add aditional allowed Out_Clusters from config
+                a= set(node_config.get(CONF_IN_CLUSTER))
+#                _LOGGER.debug('%s', type(profile_clusters))
+                profile_clusters[0] = a
+            # Add allowed Out_Clusters from config
             if CONF_OUT_CLUSTER in node_config:
-                profile_clusters[1].update(node_config.get(CONF_OUT_CLUSTER))
+                profile_clusters[1] = set(node_config.get(CONF_OUT_CLUSTER))
 
             async def req_conf_report(report_cls, report_attr, report_min, report_max, report_change):
                 try:
@@ -435,14 +454,16 @@ class ApplicationListener:
                     v = await report_cls.configure_reporting(
                         report_attr, int(report_min),
                         int(report_max), report_change)
-                    _LOGGER.debug("[0x%04x] %s: set config report %s status: %s",
+                    _LOGGER.debug("[0x%04x:%s] %s: set config report %s status: %s",
                                   device.nwk,
+                                  endpoint_id, 
                                   device_key,
                                   report_cls.cluster_id,
                                   v[0])
                 except:
-                    _LOGGER.error("[0x%04x] %s:set config report failed: %s",
+                    _LOGGER.error("[0x%04x:%s] %s:set config report failed: %s",
                                   device.nwk,
+                                  endpoint_id, 
                                   device_key,
                                   report_cls.cluster_id)
 
@@ -468,10 +489,17 @@ class ApplicationListener:
 #                                report_max,
 #                                report_change)
             else:
-                _LOGGER.debug("[0x%04x] config reports skipped, already joined %s", device.nwk, device._ieee)
+                _LOGGER.debug("[0x%04x:%s] config reports skipped, already joined %s", 
+                              device.nwk,
+                              endpoint_id, 
+                              device._ieee)
 
-            _LOGGER.debug("[0x%04x] 2:profile %s, component: %s cluster:%s",
-                          device.nwk, endpoint.profile_id, component, profile_clusters)
+            _LOGGER.debug("[0x%04x:%s] 2:profile %s, component: %s cluster:%s",
+                          device.nwk, 
+                          endpoint_id, 
+                          endpoint.profile_id, 
+                          component, 
+                          profile_clusters)
             if component:
                 # only discovered clusters that are in the profile or configuration listed
                 in_clusters = [endpoint.in_clusters[c]
@@ -480,38 +508,41 @@ class ApplicationListener:
                 out_clusters = [endpoint.out_clusters[c]
                                 for c in profile_clusters[1]
                                 if c in endpoint.out_clusters]
-                # create  discovery info
-                discovery_info = {
-                    'endpoint': endpoint,
-                    'in_clusters': {c.cluster_id: c for c in in_clusters},
-                    'out_clusters': {c.cluster_id: c for c in out_clusters},
-                    'component': component,
-                    'device': device,
-                    'domain': DOMAIN,
-                    'discovery_key': device_key,
-                    'new_join': join,
-                    'application': self
-
-                }
-                _LOGGER.debug("[0x%04x] Output clusters:%s",
-                              device.nwk,
-                              list(c.cluster_id for c in out_clusters))
-                # add 'manufacturer', 'model'  to discovery_info
-
-                discovery_info.update(discovered_info)
-                self._hass.data[DISCOVERY_KEY][device_key] = discovery_info
-                """ goto to the specific code for switch,
-                light sensor or binary_sensor """
-                await discovery.async_load_platform(
-                    self._hass,
-                    component,
-                    DOMAIN,
-                    {'discovery_key': device_key},
-                    self._config,
-                )
-                _LOGGER.debug("[0x%04x] Return from component general entity:%s",
-                              device.nwk,
-                              device._ieee)
+                if in_clusters !=  [] or out_clusters != []:
+                    # create  discovery info
+                    discovery_info = {
+                        'endpoint': endpoint,
+                        'in_clusters': {c.cluster_id: c for c in in_clusters},
+                        'out_clusters': {c.cluster_id: c for c in out_clusters},
+                        'component': component,
+                        'device': device,
+                        'domain': DOMAIN,
+                        'discovery_key': device_key,
+                        'new_join': join,
+                        'application': self
+    
+                    }
+#                    _LOGGER.debug("[0x%04x:%s] Output clusters:%s",
+#                                  device.nwk,
+#                                  endpoint_id, 
+#                                  list(c.cluster_id for c in out_clusters))
+                    # add 'manufacturer', 'model'  to discovery_info
+    
+                    discovery_info.update(discovered_info)
+                    self._hass.data[DISCOVERY_KEY][device_key] = discovery_info
+                    """ goto to the specific code for switch,
+                    light sensor or binary_sensor """
+                    await discovery.async_load_platform(
+                        self._hass,
+                        component,
+                        DOMAIN,
+                        {'discovery_key': device_key},
+                        self._config,
+                    )
+                    _LOGGER.debug("[0x%04x:%s] Return from component general entity:%s",
+                                  device.nwk,
+                                  endpoint_id, 
+                                  device._ieee)
 
             # initialize single clusters
             for cluster_id, cluster in endpoint.in_clusters.items():
@@ -546,7 +577,7 @@ class ApplicationListener:
                 self._hass.data[DISCOVERY_KEY][cluster_key] = discovery_info
                 _LOGGER.debug("[0x%04x:%s] Call single-cluster entity: %s",
                               device.nwk,
-                              endpoint_id, 
+                              endpoint_id,
                               cluster_id)
                 await discovery.async_load_platform(
                     self._hass,

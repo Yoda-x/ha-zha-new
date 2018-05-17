@@ -15,7 +15,7 @@ def _custom_endpoint_init(self, node_config, *argv):
         _LOGGER.debug(" selector: %s", selector)
     if selector in ['lumi.sensor_magnet', 'lumi.sensor_magnet.aq2']:
         config = {
-            "in_cluster": [0x0000, ],
+            "in_cluster": [0x0000, 0x0006 ],
             "type": "binary_sensor",
         }
     elif selector in ['lumi.sensor_ht', ] and self.endpoint_id == 1:
@@ -24,7 +24,8 @@ def _custom_endpoint_init(self, node_config, *argv):
                 [0x0402, 0, 10, 600, 5],
                 [0x0405, 0, 10, 600, 5],
             ],
-            "in_cluster": [0x0000, ],
+            "in_cluster": [0x0000, 0x0402, ],
+            "out_cluster": [], 
             "type": "sensor",
         }
     elif selector in ['lumi.weather', ] and self.endpoint_id == 1:
@@ -34,39 +35,43 @@ def _custom_endpoint_init(self, node_config, *argv):
                 [0x0403, 0, 10, 120, 5],
                 [0x0405, 0, 10, 120, 5],
             ],
-            "in_cluster": [0x0000, ],
+            "in_cluster": [0x0000, 0x402],
+            "out_cluster": [], 
             "type": "sensor",
         }
-        self.add_input_cluster(0x402)
-        self.add_input_cluster(0x405)
-        self.add_input_cluster(0x406)
+        self.add_input_cluster(0x0402)
+        self.add_input_cluster(0x0405)
+        self.add_input_cluster(0x0406)
     elif selector in ['lumi.sensor_motion', ]:
         config = {
             "config_report": [
                 [0x0406, 0, 10, 1800, 1],
             ],
-            "in_cluster": [0x0000, ],
+            "in_cluster": [0x0000, 0xffff, 0x0406 ],
+            "out_cluster": [], 
             "type": "binary_sensor",    
         }
-        self.add_input_cluster(0x406)
+        self.add_input_cluster(0x0406)
     elif selector in ['lumi.sensor_motion.aq2', ]:
         config = {
             "config_report": [
                 [0x0406, 0, 10, 1800, 1],
                 [0x0400, 0, 10, 1800, 10],
             ],
-            "in_cluster": [0x0000, ],
-            "type": "binary_sensor",
+            "in_cluster": [0x0000,0x0406,  0xffff],
+            "out_cluster": [], 
+#            "type": "binary_sensor",
         }
-        self.add_input_cluster(0x406)
-        self.add_input_cluster(0x400)
+        self.add_input_cluster(0x0406)
+        self.add_input_cluster(0x0400)
     elif selector == 'lumi.sensor_wleak.aq1':
         config = {
-            "in_cluster": [0x0000, ],
+            "in_cluster": [0x0000, 0xff01],
+            "out_cluster": [], 
             "type": "binary_sensor",
             "config_report": [
                 [65281, 0, 10, 1800, 1],
-            ]
+            ], 
         }
 
     node_config.update(config)
@@ -83,11 +88,11 @@ def _parse_attribute(entity, attrib, value, *argv):
     """ parse non standard atrributes."""
     import zigpy.types as t
     from zigpy.zcl import foundation as f
-
-    if type(value) is str:
-        result = bytearray()
-        result.extend(map(ord, value))
-        value = result
+#    _LOGGER.debug('parse value type %s', type(value))
+#    if type(value) is str:
+#        result = bytearray()
+#        result.extend(map(ord, value))
+#        value = result
 
     if entity.entity_connect == {}:
         entity_store = zha_new.get_entity_store(entity.hass)
@@ -98,16 +103,13 @@ def _parse_attribute(entity, attrib, value, *argv):
 
     attributes = {}
     if attrib == 0xff02:
-        _LOGGER.debug("Parse type:%s", type(value))
+#        _LOGGER.debug("Parse dict 0xff02: set friendly attribute names")
         attribute_name = ("state", "battery_voltage_mV",
                           "val3", "val4",
                           "val5", "val6")
         result = []
-        value = value[1:]
-        while value:
-            svalue, value = f.TypeValue.deserialize(value)
+        for svalue in value:
             result.append(svalue.value)
-            _LOGGER.debug("parse 0xff02: %s", svalue.value)
         attributes = dict(zip(attribute_name, result))
 
         if "battery_voltage_mV" in attributes:
@@ -127,7 +129,7 @@ def _parse_attribute(entity, attrib, value, *argv):
             10: "X-attrib-10"
         }
         result = {}
-        _LOGGER.debug("Parse dict 0xff01: parsing")
+#        _LOGGER.debug("Parse dict 0xff01: parsing")
         while value:
             skey = int(value[0])
             svalue, value = f.TypeValue.deserialize(value[1:])
@@ -154,8 +156,6 @@ def _parse_attribute(entity, attrib, value, *argv):
     else:
         result = value
     _LOGGER.debug("Parse Result: %s", result)
-    if "battery_level" in attributes:
-        entity._state = attributes.get("battery_level", 0)
     for attr in ("temperature", "humidity"):
         if attr in attributes and attr in entity.entity_connect:
             entity.entity_connect[attr]._state = attributes[attr]

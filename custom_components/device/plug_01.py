@@ -12,7 +12,9 @@ def _custom_endpoint_init(self, node_config, *argv):
     config = {
         "config_report": [
             [6, 0, 0, 60, 1],
-            ]
+            ], 
+        "in_cluster": [0x0000,0x0006],
+        "out_cluster": [], 
     }
     node_config.update(config)
 
