@@ -28,6 +28,9 @@ def _custom_endpoint_init(self, node_config, *argv):
             "out_cluster": [], 
             "type": "sensor",
         }
+        self.add_input_cluster(0x0402)
+        self.add_input_cluster(0x0405)
+
     elif selector in ['lumi.weather', ] and self.endpoint_id == 1:
         config = {
             "config_report": [
