@@ -107,15 +107,15 @@ async def _make_sensor(device_class, discovery_info):
         sensor = OccupancySensor('motion',
                                  **discovery_info,
                                  cluster_key=OccupancySensing.ep_attribute)
-        try:
-            result = await zha_new.get_attributes(
-                            endpoint,
-                            OccupancySensing.cluster_id,
-                            ['occupancy', 'occupancy_sensor_type'])
-            sensor._device_state_attributes['occupancy_sensor_type'] = result[1]
-            sensor._state = result[0]
-        except:
-            _LOGGER.debug("get attributes: failed")
+ #       try:
+ #           result = await zha_new.get_attributes(
+ #                           endpoint,
+ #                           OccupancySensing.cluster_id,
+ #                           ['occupancy', 'occupancy_sensor_type'])
+ #           sensor._device_state_attributes['occupancy_sensor_type'] = result[1]
+ #           sensor._state = result[0]
+ #       except:
+ #           _LOGGER.debug("get attributes: failed")
     elif device_class == 'moisture':
         sensor = MoistureSensor('moisture', **discovery_info)
     else:
