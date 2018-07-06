@@ -379,6 +379,8 @@ class ApplicationListener:
                 device_model = model = node_config.get(CONF_TEMPLATE, "default")
                 if device_model not in self.custom_devices:
                     self.custom_devices[device_model] = custom_module = get_custom_device_info(device_model)
+                else:
+                    custom_module = self.custom_devices[device_model]
                 if '_custom_endpoint_init' in custom_module:
                     custom_module['_custom_endpoint_init'](endpoint, node_config,  device_model)
 
