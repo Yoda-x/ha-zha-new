@@ -696,6 +696,8 @@ class Entity(entity.Entity):
         self._state = None
         self._device_state_attributes['lqi'] = endpoint.device.lqi
         self._device_state_attributes['rssi'] = endpoint.device.rssi
+        self._device_state_attributes['nwk'] = endpoint.device.nwk
+        self._device_state_attributes['path'] = 'direct'
 #        _LOGGER.debug("dir entity:%s",  dir(self))
 
     @property
