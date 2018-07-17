@@ -731,7 +731,7 @@ class Entity(entity.Entity):
         self._device_state_attributes['lqi'] = self._endpoint.device.lqi
         self._device_state_attributes['rssi'] = self._endpoint.device.rssi
         self._device_state_attributes['nwk'] = self._endpoint.device.nwk
-        self._device_state_attributes['path'] = "direct"
+        self._device_state_attributes['path'] = self._endpoint.device.path
         return self._device_state_attributes
 
 
