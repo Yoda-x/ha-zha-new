@@ -173,7 +173,7 @@ class PressureSensor(Sensor):
     @property
     def unit_of_measurement(self):
         """Return the unit of measuremnt of this entity."""
-        return "mbar"
+        return "hPa"
 
     @property
     def state(self):
@@ -193,7 +193,7 @@ class IlluminanceSensor(Sensor):
     @property
     def unit_of_measurement(self):
         """Return the unit of measuremnt of this entity."""
-        return "lux"
+        return "lx"
 
     @property
     def state(self):
