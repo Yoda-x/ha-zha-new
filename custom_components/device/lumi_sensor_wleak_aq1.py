@@ -59,7 +59,7 @@ def _parse_attribute(entity, attrib, value, *argv):
             101: "humidity",
             5: "X-attrib-5",
             6: "X-attrib-6",
-            10: "X-attrib-10"
+            10: "path"
         }
         result = {}
         _LOGGER.debug("Parse dict 0xff01: parsing")
@@ -90,5 +90,7 @@ def _parse_attribute(entity, attrib, value, *argv):
         result = value
     _LOGGER.debug("Parse Result: %s", result)
     attributes["Last seen"] = dt_util.now()
+    if "path" in attributes:
+        entity._endpoint._device.handle_RouteRecord(attributes["path"])
     entity._device_state_attributes.update(attributes)
     return(attrib, result)

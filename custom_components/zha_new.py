@@ -93,6 +93,9 @@ def populate_data():
         zll.DeviceType.EXTENDED_COLOR_LIGHT: 'light',
         zll.DeviceType.COLOR_TEMPERATURE_LIGHT: 'light',
         zll.DeviceType.COLOR_SCENE_CONTROLLER: 'binary_sensor',
+        zll.DeviceType.SCENE_CONTROLLER: 'binary_sensor',
+        zll.DeviceType.CONTROLLER: 'binary_sensor',
+        zll.DeviceType.COLOR_CONTROLLER: 'binary_sensor',
         zll.DeviceType.ON_OFF_SENSOR: 'binary_sensor',
         }
 
