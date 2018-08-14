@@ -382,6 +382,8 @@ class ApplicationListener:
                 device_model = model = node_config.get(CONF_TEMPLATE, "default")
                 if device_model not in self.custom_devices:
                     self.custom_devices[device_model] = custom_module = get_custom_device_info(device_model)
+                else:
+                    custom_module = self.custom_devices[device_model]
                 if '_custom_endpoint_init' in custom_module:
                     custom_module['_custom_endpoint_init'](endpoint, node_config,  device_model)
 
@@ -424,7 +426,7 @@ class ApplicationListener:
 
             _LOGGER.debug("[0x%04x:%s] node config for %s: %s",
                           device.nwk,
-                          endpoint_id,
+                          endpoint_id, 
                           device_key,
                           node_config)
 
@@ -445,6 +447,7 @@ class ApplicationListener:
             # Add allowed In_Clusters from config
             if CONF_IN_CLUSTER in node_config:
                 a = set(node_config.get(CONF_IN_CLUSTER))
+
 #                _LOGGER.debug('%s', type(profile_clusters))
                 profile_clusters[0] = a
             # Add allowed Out_Clusters from config
@@ -511,7 +514,9 @@ class ApplicationListener:
                 out_clusters = [endpoint.out_clusters[c]
                                 for c in profile_clusters[1]
                                 if c in endpoint.out_clusters]
+
                 if in_clusters != [] or out_clusters != []:
+
                     # create  discovery info
                     discovery_info = {
                         'endpoint': endpoint,
@@ -523,13 +528,7 @@ class ApplicationListener:
                         'discovery_key': device_key,
                         'new_join': join,
                         'application': self
-
                     }
-#                    _LOGGER.debug("[0x%04x:%s] Output clusters:%s",
-#                                  device.nwk,
-#                                  endpoint_id,
-#                                  list(c.cluster_id for c in out_clusters))
-                    # add 'manufacturer', 'model'  to discovery_info
 
                     discovery_info.update(discovered_info)
                     self._hass.data[DISCOVERY_KEY][device_key] = discovery_info
