@@ -245,7 +245,7 @@ class OccupancySensor(BinarySensor):
             self._state = value
             self.invalidate_after = dt_util.utcnow() + datetime.timedelta(
                 seconds=self.re_arm_sec)
-            self._device_state_attributes['last detection:'] \
+            self._device_state_attributes['last detection'] \
                 = self.invalidate_after
             async_track_point_in_time(
                 self.hass, _async_clear_state(self),
@@ -312,8 +312,8 @@ class Basic(Cluster_Server):
         self._entity.hass.bus.fire('click', event_data)
         _LOGGER.debug('click event [tsn:%s] %s', tsn, event_data)
         self._entity._device_state_attributes.update({
-                'Last seen': dt_util.now(),
-                'Last command': command
+                'last seen': dt_util.now(),
+                'last command': command
         })
         self._entity.schedule_update_ha_state()
 
@@ -396,9 +396,9 @@ class Server_LevelControl(Cluster_Server):
         self._entity.hass.bus.fire('click', event_data)
         _LOGGER.debug('click event [tsn:%s] %s', tsn, event_data)
         self._entity._device_state_attributes.update({
-                'Last seen': dt_util.now(),
+                'last seen': dt_util.now(),
                 self._identifier: self.value,
-                'Last command': command
+                'last command': command
         })
         self._entity.schedule_update_ha_state()
 
@@ -424,9 +424,9 @@ class Server_OnOff(Cluster_Server):
         self._entity.hass.bus.fire('click', event_data)
         _LOGGER.debug('click event [tsn:%s] %s', tsn, event_data)
         self._entity._device_state_attributes.update({
-                'Last seen': dt_util.now(),
+                'last seen': dt_util.now(),
                 self._identifier: self._value,
-                'Last command': command
+                'last command': command
         })
         self._entity.schedule_update_ha_state()
 
@@ -447,9 +447,9 @@ class Server_Scenes(Cluster_Server):
         self._entity.hass.bus.fire('click', event_data)
         _LOGGER.debug('click event [tsn:%s] %s', tsn, event_data)
         self._entity._device_state_attributes.update({
-                'Last seen': dt_util.now(),
+                'last seen': dt_util.now(),
                 self._identifier: args,
-                'Last command': command
+                'last command': command
         })
         self._entity.schedule_update_ha_state()
 
@@ -480,9 +480,9 @@ class RemoteSensor(BinarySensor):
 
     def cluster_command(self, tsn, command_id, args):
         update_attrib = {}
-        update_attrib['Last seen'] = dt_util.now()
+        update_attrib['last seen'] = dt_util.now()
         self._entity._device_state_attributes.update({
-                'Last seen': dt_util.now(),
+                'last seen': dt_util.now(),
                 self._identifier: self.value,
                 'channels': list(c.identifier for c in self.sub_listener_out.items())
         })

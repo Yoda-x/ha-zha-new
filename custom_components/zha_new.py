@@ -93,6 +93,9 @@ def populate_data():
         zll.DeviceType.EXTENDED_COLOR_LIGHT: 'light',
         zll.DeviceType.COLOR_TEMPERATURE_LIGHT: 'light',
         zll.DeviceType.COLOR_SCENE_CONTROLLER: 'binary_sensor',
+        zll.DeviceType.SCENE_CONTROLLER: 'binary_sensor',
+        zll.DeviceType.CONTROLLER: 'binary_sensor',
+        zll.DeviceType.COLOR_CONTROLLER: 'binary_sensor',
         zll.DeviceType.ON_OFF_SENSOR: 'binary_sensor',
         }
 
@@ -440,10 +443,11 @@ class ApplicationListener:
                 component = node_config[ha_const.CONF_TYPE]
             if component in COMPONENT_CLUSTERS:
                 profile_clusters = list(COMPONENT_CLUSTERS[component])
-            
+
             # Add allowed In_Clusters from config
             if CONF_IN_CLUSTER in node_config:
-                a= set(node_config.get(CONF_IN_CLUSTER))
+                a = set(node_config.get(CONF_IN_CLUSTER))
+
 #                _LOGGER.debug('%s', type(profile_clusters))
                 profile_clusters[0] = a
             # Add allowed Out_Clusters from config
@@ -458,14 +462,14 @@ class ApplicationListener:
                         int(report_max), report_change)
                     _LOGGER.debug("[0x%04x:%s] %s: set config report %s status: %s",
                                   device.nwk,
-                                  endpoint_id, 
+                                  endpoint_id,
                                   device_key,
                                   report_cls.cluster_id,
                                   v[0])
                 except:
                     _LOGGER.error("[0x%04x:%s] %s:set config report failed: %s",
                                   device.nwk,
-                                  endpoint_id, 
+                                  endpoint_id,
                                   device_key,
                                   report_cls.cluster_id)
 
@@ -491,16 +495,16 @@ class ApplicationListener:
 #                                report_max,
 #                                report_change)
             else:
-                _LOGGER.debug("[0x%04x:%s] config reports skipped, already joined %s", 
+                _LOGGER.debug("[0x%04x:%s] config reports skipped, already joined %s",
                               device.nwk,
-                              endpoint_id, 
+                              endpoint_id,
                               device._ieee)
 
             _LOGGER.debug("[0x%04x:%s] 2:profile %s, component: %s cluster:%s",
-                          device.nwk, 
-                          endpoint_id, 
-                          endpoint.profile_id, 
-                          component, 
+                          device.nwk,
+                          endpoint_id,
+                          endpoint.profile_id,
+                          component,
                           profile_clusters)
             if component:
                 # only discovered clusters that are in the profile or configuration listed
@@ -510,7 +514,9 @@ class ApplicationListener:
                 out_clusters = [endpoint.out_clusters[c]
                                 for c in profile_clusters[1]
                                 if c in endpoint.out_clusters]
-                if in_clusters !=  [] or out_clusters != []:
+
+                if in_clusters != [] or out_clusters != []:
+
                     # create  discovery info
                     discovery_info = {
                         'endpoint': endpoint,
@@ -522,14 +528,8 @@ class ApplicationListener:
                         'discovery_key': device_key,
                         'new_join': join,
                         'application': self
-    
                     }
-#                    _LOGGER.debug("[0x%04x:%s] Output clusters:%s",
-#                                  device.nwk,
-#                                  endpoint_id, 
-#                                  list(c.cluster_id for c in out_clusters))
-                    # add 'manufacturer', 'model'  to discovery_info
-    
+
                     discovery_info.update(discovered_info)
                     self._hass.data[DISCOVERY_KEY][device_key] = discovery_info
                     """ goto to the specific code for switch,
@@ -543,7 +543,7 @@ class ApplicationListener:
                     )
                     _LOGGER.debug("[0x%04x:%s] Return from component general entity:%s",
                                   device.nwk,
-                                  endpoint_id, 
+                                  endpoint_id,
                                   device._ieee)
 
             # initialize single clusters
@@ -697,8 +697,11 @@ class Entity(entity.Entity):
         self._out_clusters = out_clusters
         self._state = None
         self._device_state_attributes['lqi'] = endpoint.device.lqi
-        self._device_state_attributes['rssi'] = endpoint.device.rssi
-        _LOGGER.debug("dir entity:%s",  dir(self))
+        self._device_state_attributes['rssi'] = endpoint.device.rss
+        self._device_state_attributes['Last seen'] = None
+        self._device_state_attributes['nwk'] = endpoint.device.nwk
+        self._device_state_attributes['path'] = 'unknown'
+#        _LOGGER.debug("dir entity:%s",  dir(self))
 
     @property
     def unique_id(self):
@@ -730,6 +733,8 @@ class Entity(entity.Entity):
         """Return device specific state attributes."""
         self._device_state_attributes['lqi'] = self._endpoint.device.lqi
         self._device_state_attributes['rssi'] = self._endpoint.device.rssi
+        self._device_state_attributes['nwk'] = self._endpoint.device.nwk
+        self._device_state_attributes['path'] = self._endpoint.device.path
         return self._device_state_attributes
 
 
