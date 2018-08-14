@@ -28,6 +28,8 @@ def _custom_endpoint_init(self, node_config, *argv):
             "out_cluster": [], 
             "type": "sensor",
         }
+        self.add_input_cluster(0x0402)
+        self.add_input_cluster(0x0405)
     elif selector in ['lumi.weather', ] and self.endpoint_id == 1:
         config = {
             "config_report": [
@@ -126,7 +128,7 @@ def _parse_attribute(entity, attrib, value, *argv):
             102: "pressure",
             5: "X-attrib-5",
             6: "X-attrib-6",
-            10: "X-attrib-10"
+            10: "path" # was X-attrib-10
         }
         result = {}
 #        _LOGGER.debug("Parse dict 0xff01: parsing")
@@ -164,5 +166,7 @@ def _parse_attribute(entity, attrib, value, *argv):
             float(attributes["pressure"]) / 100, 0)
 
     attributes["Last seen"] = dt_util.now()
+    if "path" in attributes:
+        entity._endpoint._device.handle_RouteRecord(attributes["path"])
     entity._device_state_attributes.update(attributes)
     return(attrib, result)
