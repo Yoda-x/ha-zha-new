@@ -134,11 +134,13 @@ class Light(zha_new.Entity, light.Light):
             )
             self._state = 1
             self.async_schedule_update_ha_state()
+            self.async_update()
             return
 
         await self._endpoint.on_off.on()
         self._state = 1
         self.async_update_ha_state(force_refresh=True)
+        self.async_update()
 
     async def async_turn_off(self, **kwargs):
         """Turn the entity off."""
@@ -184,15 +186,16 @@ class Light(zha_new.Entity, light.Light):
 
         if self._groups is not None:
             result = await self._endpoint.groups.get_membership([])
-            if result[0] >= 1:
-                self._groups = result[1]
-                if self._device_state_attributes["Group_id"] != self._groups:
-                    self._device_state_attributes["Group_id"] = self._groups
-                    self._endpoint._device._application.listener_event(
-                        'subscribe_group',
-                        self._groups[0])
-        if not self._state:
-            return
+            if result:
+                if result[0] >= 1:
+                    self._groups = result[1]
+                    if self._device_state_attributes["Group_id"] != self._groups:
+                        self._device_state_attributes["Group_id"] = self._groups
+                        self._endpoint._device._application.listener_event(
+                            'subscribe_group',
+                            self._groups[0])
+            if not self._state:
+                return
 
         if self._supported_features & light.SUPPORT_BRIGHTNESS:
             result = await zha_new.safe_read(self._endpoint.level,
