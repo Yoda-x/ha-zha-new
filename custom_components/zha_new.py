@@ -242,7 +242,7 @@ async def async_setup(hass, config):
         _LOGGER.info("Permitting joins for %ss", duration)
         zha_controller._state = 'Permit'
         zha_controller.async_schedule_update_ha_state()
-        yield from APPLICATION_CONTROLLER.permit(duration)
+        await APPLICATION_CONTROLLER.permit(duration)
 
         async def _async_clear_state(entity):
             if entity._state == 'Permit':
