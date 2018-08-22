@@ -165,14 +165,12 @@ APPLICATION_CONTROLLER = None
 _LOGGER = logging.getLogger(__name__)
 
 # to be overwritten by DH
-
-
 def _custom_endpoint_init(self, node_config, *argv):
     pass
 
 
 class zha_state(entity.Entity):
-    def __init__(self, hass, stack,  name,   state='Init'):
+    def __init__(self, hass, stack, application, name, state='Init'):
         self._device_state_attributes = {}
         self._device_state_attributes['friendly_name'] = 'Controller'
         self.hass = hass
@@ -180,6 +178,7 @@ class zha_state(entity.Entity):
         self.entity_id = DOMAIN + '.' + name
         self.platform = DOMAIN
         self.stack = stack
+        self.application = application
 
     @property
     def state(self):
@@ -197,12 +196,14 @@ class zha_state(entity.Entity):
         self._device_state_attributes['neighborCount'] = result[0]
         entity_store = get_entity_store(self.hass)
         self._device_state_attributes['no_devices'] = len(entity_store)
-        result = await self.stack._command('getValue', 3)
-        _LOGGER.debug("buffer: %s", result[1])
+#        result = await self.stack._command('getValue', 3)
+#        _LOGGER.debug("buffer: %s", result[1])
         #        buffer = t.uint8_t(result[1])
 #        self._device_state_attributes['FreeBuffers'] =  buffer
 #        result = await self.stack._command('getSourceRouteTableFilledSize', [])
 #        self._device_state_attributes['getSourceRouteTableFilledSize'] = result[0]
+        result = await self.application.read_neighbor_table()
+        self._device_state_attributes['neighbors'] = result
 
 
 async def async_setup(hass, config):
@@ -222,8 +223,8 @@ async def async_setup(hass, config):
     APPLICATION_CONTROLLER.add_listener(listener)
     await APPLICATION_CONTROLLER.startup(auto_form=True)
 
-    component = EntityComponent(_LOGGER, DOMAIN, hass)
-    zha_controller = zha_state(hass,   ezsp_, 'controller',  'Init')
+    component = EntityComponent(_LOGGER, DOMAIN, hass, datetime.timedelta(minutes=1))
+    zha_controller = zha_state(hass, ezsp_, APPLICATION_CONTROLLER, 'controller', 'Init')
     listener.controller = zha_controller
     await component.async_add_entities([zha_controller])
     zha_controller.async_schedule_update_ha_state()
@@ -232,8 +233,7 @@ async def async_setup(hass, config):
         hass.async_add_job(listener.async_device_initialized(device, False))
         await asyncio.sleep(0.1)
 
-    @asyncio.coroutine
-    def permit(service):
+    async def permit(service):
         """Allow devices to join this network."""
         duration = service.data.get(ATTR_DURATION)
         _LOGGER.info("Permitting joins for %ss", duration)
