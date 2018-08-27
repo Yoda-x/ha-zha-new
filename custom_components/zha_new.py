@@ -207,6 +207,8 @@ class zha_state(entity.Entity):
 #        self._device_state_attributes['getSourceRouteTableFilledSize'] = result[0]
         result = await self.application.read_neighbor_table()
         self._device_state_attributes['neighbors'] = result
+        device = self.application.get_device(nwk=result[0])
+        result = device.ZDO.get_Mgmt.Lqi()
 
 
 async def async_setup(hass, config):
