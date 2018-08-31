@@ -205,10 +205,11 @@ class zha_state(entity.Entity):
 #        self._device_state_attributes['FreeBuffers'] =  buffer
 #        result = await self.stack._command('getSourceRouteTableFilledSize', [])
 #        self._device_state_attributes['getSourceRouteTableFilledSize'] = result[0]
-        result = await self.application.read_neighbor_table()
-        self._device_state_attributes['neighbors'] = result
-        device = self.application.get_device(nwk=result[0])
-        result = device.ZDO.get_Mgmt.Lqi()
+        neighbors = await self.application.read_neighbor_table()
+        self._device_state_attributes['neighbors'] = neighbors
+        for nwkid  in neighbors:
+            device = self.application.get_device(nwk=nwkid)
+            result = await device.zdo.get_Mgmt_Lqi()
 
 
 async def async_setup(hass, config):

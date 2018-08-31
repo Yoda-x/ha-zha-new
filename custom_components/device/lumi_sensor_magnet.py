@@ -76,7 +76,11 @@ def _custom_endpoint_init(self, node_config, *argv):
                 [65281, 0, 10, 1800, 1],
             ], 
         }
-
+    elif selector == 'lumi.vibration.aq1':
+        config = {
+            "type": "sensor",
+            "in_cluster": [0x0000, 0x0101]
+       }
     node_config.update(config)
 
 
