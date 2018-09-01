@@ -1,5 +1,6 @@
 """" custom py file for device."""
-import logging,  asyncio
+import logging
+import asyncio
 import homeassistant.util.dt as dt_util
 from custom_components import zha_new
 
@@ -15,7 +16,7 @@ def _custom_endpoint_init(self, node_config, *argv):
         _LOGGER.debug(" selector: %s", selector)
     if selector in ['lumi.sensor_magnet', 'lumi.sensor_magnet.aq2']:
         config = {
-            "in_cluster": [0x0000, 0x0006 ],
+            "in_cluster": [0x0000, 0x0006],
             "type": "binary_sensor",
         }
     elif selector in ['lumi.sensor_ht', ] and self.endpoint_id == 1:
@@ -25,12 +26,12 @@ def _custom_endpoint_init(self, node_config, *argv):
                 [0x0405, 0, 10, 600, 5],
             ],
             "in_cluster": [0x0000, 0x0402, ],
-            "out_cluster": [], 
+            "out_cluster": [],
             "type": "sensor",
         }
         self.add_input_cluster(0x0402)
         self.add_input_cluster(0x0405)
-        
+
     elif selector in ['lumi.weather', ] and self.endpoint_id == 1:
         config = {
             "config_report": [
@@ -39,7 +40,7 @@ def _custom_endpoint_init(self, node_config, *argv):
                 [0x0405, 0, 10, 120, 5],
             ],
             "in_cluster": [0x0000, 0x402],
-            "out_cluster": [], 
+            "out_cluster": [],
             "type": "sensor",
         }
         self.add_input_cluster(0x0402)
@@ -50,9 +51,9 @@ def _custom_endpoint_init(self, node_config, *argv):
             "config_report": [
                 [0x0406, 0, 10, 1800, 1],
             ],
-            "in_cluster": [0x0000, 0xffff, 0x0406 ],
-            "out_cluster": [], 
-            "type": "binary_sensor",    
+            "in_cluster": [0x0000, 0xffff, 0x0406],
+            "out_cluster": [],
+            "type": "binary_sensor",
         }
         self.add_input_cluster(0x0406)
     elif selector in ['lumi.sensor_motion.aq2', ]:
@@ -61,26 +62,26 @@ def _custom_endpoint_init(self, node_config, *argv):
                 [0x0406, 0, 10, 1800, 1],
                 [0x0400, 0, 10, 1800, 10],
             ],
-            "in_cluster": [0x0000,0x0406,  0xffff],
-            "out_cluster": [], 
-#            "type": "binary_sensor",
+            "in_cluster": [0x0000, 0x0406,  0xffff],
+            "out_cluster": [],
+            #            "type": "binary_sensor",
         }
         self.add_input_cluster(0x0406)
         self.add_input_cluster(0x0400)
     elif selector == 'lumi.sensor_wleak.aq1':
         config = {
             "in_cluster": [0x0000, 0xff01],
-            "out_cluster": [], 
+            "out_cluster": [],
             "type": "binary_sensor",
             "config_report": [
                 [65281, 0, 10, 1800, 1],
-            ], 
+            ],
         }
     elif selector == 'lumi.vibration.aq1':
         config = {
             "type": "sensor",
             "in_cluster": [0x0000, 0x0101]
-       }
+        }
         asyncio.ensure_future(zha_new.discover_cluster_values(0x0101))
     node_config.update(config)
 
@@ -134,7 +135,7 @@ def _parse_attribute(entity, attrib, value, *argv):
             102: "pressure",
             5: "X-attrib-5",
             6: "X-attrib-6",
-            10: "path" # was X-attrib-10
+            10: "path"  # was X-attrib-10
         }
         result = {}
 #        _LOGGER.debug("Parse dict 0xff01: parsing")
@@ -175,8 +176,8 @@ def _parse_attribute(entity, attrib, value, *argv):
     if "path" in attributes:
         entity._endpoint._device.handle_RouteRecord(attributes["path"])
     entity._device_state_attributes.update(attributes)
-    
-    if entity._model ==  'lumi.vibration.aq1':
+
+    if entity._model == 'lumi.vibration.aq1':
         if attrib == 85:
             event_data = {
                     'entity_id': entity.entity_id,
@@ -184,6 +185,5 @@ def _parse_attribute(entity, attrib, value, *argv):
                     'type': value,
                    }
             entity.hass.bus.fire('click', event_data)
-    
-    
+
     return(attrib, result)
