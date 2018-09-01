@@ -1,5 +1,5 @@
 """" custom py file for device."""
-import logging
+import logging,  asyncio
 import homeassistant.util.dt as dt_util
 from custom_components import zha_new
 
@@ -81,6 +81,7 @@ def _custom_endpoint_init(self, node_config, *argv):
             "type": "sensor",
             "in_cluster": [0x0000, 0x0101]
        }
+        asyncio.ensure_future(zha_new.discover_cluster_values(0x0101))
     node_config.update(config)
 
 
@@ -174,4 +175,15 @@ def _parse_attribute(entity, attrib, value, *argv):
     if "path" in attributes:
         entity._endpoint._device.handle_RouteRecord(attributes["path"])
     entity._device_state_attributes.update(attributes)
+    
+    if entity._model ==  'lumi.vibration.aq1':
+        if attrib == 85:
+            event_data = {
+                    'entity_id': entity.entity_id,
+                    'channel': "zha_alarm",
+                    'type': value,
+                   }
+            entity.hass.bus.fire('click', event_data)
+    
+    
     return(attrib, result)
