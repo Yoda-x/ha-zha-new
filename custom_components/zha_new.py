@@ -207,9 +207,7 @@ class zha_state(entity.Entity):
 #        self._device_state_attributes['getSourceRouteTableFilledSize'] = result[0]
         neighbors = await self.application.read_neighbor_table()
         self._device_state_attributes['neighbors'] = neighbors
-        for nwkid  in neighbors:
-            device = self.application.get_device(nwk=nwkid)
-            result = await device.zdo.get_Mgmt_Lqi()
+        await self.application.update_topology()
 
 
 async def async_setup(hass, config):
