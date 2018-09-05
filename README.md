@@ -1,5 +1,6 @@
 # Incompatible with mainstream zigpy/bellows
 quirks code in mainstream zigpy breaks compatiblilty with zha_new, please use my versions
+With the patch from estevez-dev my zigpy and bellows should be loaded automatic
 
 # ha-zha-new
 see wiki for tips
