@@ -14,7 +14,7 @@ from homeassistant.components.binary_sensor import DOMAIN, BinarySensorDevice
 from custom_components import zha_new
 from homeassistant.helpers.event import async_track_point_in_time
 from zigpy.zdo.types import Status
-
+import zigpy.types as t
 _LOGGER = logging.getLogger(__name__)
 """ changed to zha-new to use in home dir """
 DEPENDENCIES = ['zha_new']
@@ -98,12 +98,12 @@ async def _make_sensor(device_class, discovery_info):
     if endpoint.device_type in (0x0800, 0x0810, 0x0820, 0x0830, 0x0000, 0x0001, 0x0006):
         sensor = RemoteSensor('remote', **discovery_info)
     elif (OnOff.cluster_id in in_clusters
-              or OnOff.cluster_id in out_clusters):
+          or OnOff.cluster_id in out_clusters):
         sensor = OnOffSensor('opening',
                              **discovery_info,
                              cluster_key=OnOff.ep_attribute)
     elif (OccupancySensing.cluster_id in in_clusters
-              or OccupancySensing.cluster_id in out_clusters):
+          or OccupancySensing.cluster_id in out_clusters):
         sensor = OccupancySensor('motion',
                                  **discovery_info,
                                  cluster_key=OccupancySensing.ep_attribute)
@@ -153,14 +153,10 @@ async def _make_sensor(device_class, discovery_info):
     return sensor
 
 
-def _parse_attribute(attrib, value):
-    return(attrib, value)
-
-
 class BinarySensor(zha_new.Entity, BinarySensorDevice):
 
     """THe ZHA Binary Sensor."""
-    
+
     _domain = DOMAIN
     value_attribute = 0
 
@@ -170,6 +166,11 @@ class BinarySensor(zha_new.Entity, BinarySensorDevice):
         self._device_class = device_class
         from zigpy.zcl.clusters.security import IasZone
         self._ias_zone_cluster = self._in_clusters[IasZone.cluster_id]
+        if self._custom_module.get('_parse_attribute', None):
+            self._parse_attribute = self._custom_module['_parse_attribute']
+
+    def _parse_attribute(self, *args,  **kwargs):
+        return (args, kwargs)
 
     @property
     def is_on(self) -> bool:
@@ -192,22 +193,16 @@ class BinarySensor(zha_new.Entity, BinarySensorDevice):
             self.hass.add_job(self._ias_zone_cluster.enroll_response(0, 0))
 
     def attribute_updated(self, attribute, value):
-#        _LOGGER.debug('Binary sensor call _parse attribute: %s -- %s --%s',
-#                      self._custom_module,  attribute,  value)
-        if self._custom_module.get('_parse_attribute', None) is not None:
-            (attribute, value) = self._custom_module['_parse_attribute'](
+#        if self._custom_module.get('_parse_attribute', None) is not None:
+#            (attribute, value) = self._custom_module['_parse_attribute'](
+        (attribute, value) = self._parse_attribute(
                         self,
                         attribute,
                         value,
                         self._model)
-#        else:
-#            _LOGGER.debug('no call _parse attribute: %s', self._custom_module)
-
         if attribute == self.value_attribute:
             self._state = value
-
         self.schedule_update_ha_state()
-#        _LOGGER.debug("zha.binary_sensor update: %s = %s ", attribute, value)
 
 
 class OccupancySensor(BinarySensor):
@@ -296,6 +291,17 @@ class Cluster_Server(object):
                       args
                       )
 
+    def attribute_updated(self, attribute, value):
+        if self._entity._custom_module.get('_parse_attribute', None) is not None:
+            (attribute, value) = self._custom_module['_parse_attribute'](
+                        self,
+                        attribute,
+                        value,
+                        self._model)
+        if attribute == self._entity.value_attribute:
+            self._state = value
+        self._entity.schedule_update_ha_state()
+
 
 class Basic(Cluster_Server):
     def cluster_command(self, tsn, command_id, args):
@@ -318,8 +324,55 @@ class Basic(Cluster_Server):
         self._entity.schedule_update_ha_state()
 
 
+class Server_IASZone(Cluster_Server):
+
+    def __init__(self, entity,  cluster,  identifier):
+        self._ZoneStatus = t.bitmap16(0)
+        super().__init__(entity,  cluster,  identifier)
+
+    def cluster_command(self, tsn, command_id, args):
+        Status_Names = {
+            0: 'ALARM1',
+            1: 'ALARM2',
+            2: 'TAMPER',
+            3: 'BATTERY',
+            4: 'SUPERVISION_REPORTS',
+            5: 'RESTORE_REPORTS',
+            6: 'TROUBLE',
+            7: 'AC_MAINS',
+            8: 'TEST',
+            9: 'BATTERY_DEF',
+        }
+        if tsn == self._prev_tsn:
+            return
+        self._prev_tsn = tsn
+        if command_id == 0:
+            attributes = {
+                        'last seen': dt_util.now(),
+                        }
+            zone_change = self._ZoneStatus ^ args[0]
+            self._ZoneStatus = args[0]
+            for i in range(len(Status_Names)):
+                attributes[Status_Names[i]] = (self._ZoneStatus >> i) & 1
+                if (zone_change >> i) & 1:
+                    event_data = {
+                            'entity_id': self._entity.entity_id,
+                            'channel': self._identifier,
+                            'command':  Status_Names[i],
+                            'data': (self._ZoneStatus >> i) & 1,
+                           }
+                    self._entity.hass.bus.fire('alarm', event_data)
+                    _LOGGER.debug('alarm event [tsn:%s] %s', tsn, event_data)
+            self._entity._device_state_attributes.update(attributes)
+            self._entity.schedule_update_ha_state()
+        elif command_id == 1:
+            _LOGGER.debug("Enroll requested")
+            self._entity.hass.add_job(self._ias_zone_cluster.enroll_response(0, 0))
+
+
 class Server_LevelControl(Cluster_Server):
     def __init__(self, entity,  cluster,  identifier):
+
         self.start_time = None
         self.step = int()
         self.on_off = None
@@ -429,6 +482,7 @@ class Server_OnOff(Cluster_Server):
                 'last command': command
         })
         self._entity.schedule_update_ha_state()
+
 
 
 class Server_Scenes(Cluster_Server):
