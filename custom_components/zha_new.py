@@ -688,8 +688,8 @@ class Entity(entity.Entity):
             self._device_state_attributes['friendly_name'] += '_'
             self._device_state_attributes['friendly_name'] += kwargs['cluster_key']
 
-        for cluster in in_clusters.values():
-            cluster.add_listener(self)
+#        for cluster in in_clusters.values():
+#            cluster.add_listener(self)
 #        for cluster in out_clusters.values():
 #            cluster.add_listener(self)
 

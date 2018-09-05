@@ -15,6 +15,8 @@ from custom_components import zha_new
 from homeassistant.helpers.event import async_track_point_in_time
 from zigpy.zdo.types import Status
 import zigpy.types as t
+from zigpy.zcl.clusters.general import LevelControl, OnOff, Scenes
+from zigpy.zcl.clusters.security import IasZone
 _LOGGER = logging.getLogger(__name__)
 """ changed to zha-new to use in home dir """
 DEPENDENCIES = ['zha_new']
@@ -152,7 +154,7 @@ async def _make_sensor(device_class, discovery_info):
                   endpoint.endpoint_id)
     return sensor
 
-
+# Sensor Classes ########################################
 class BinarySensor(zha_new.Entity, BinarySensorDevice):
 
     """THe ZHA Binary Sensor."""
@@ -164,7 +166,7 @@ class BinarySensor(zha_new.Entity, BinarySensorDevice):
         """Initialize the ZHA binary sensor."""
         super().__init__(**kwargs)
         self._device_class = device_class
-        from zigpy.zcl.clusters.security import IasZone
+        self.sub_listener = dict()
         self._ias_zone_cluster = self._in_clusters[IasZone.cluster_id]
         if self._custom_module.get('_parse_attribute', None):
             self._parse_attribute = self._custom_module['_parse_attribute']
@@ -224,9 +226,7 @@ class OccupancySensor(BinarySensor):
         """ handle trigger events from motion sensor.
         clear state after re_arm_sec seconds."""
         _LOGGER.debug("Attribute updated: %s %s", attribute, value)
-        if self._custom_module.get('_parse_attribute', None) is not None:
-            (attribute, value) = self._custom_module[
-                        '_parse_attribute'](self, attribute, value, self._model)
+        (attribute, value) = self._parse_attribute(self, attribute, value, self._model)
 
         @asyncio.coroutine
         def _async_clear_state(entity):
@@ -253,13 +253,28 @@ class OnOffSensor(BinarySensor):
     """ ZHA On Off Sensor."""
 
     value_attribute = 0
-
+    cluster_default = 0x0006
     def __init__(self, device_class, **kwargs):
         super().__init__(device_class, **kwargs)
         endpoint = kwargs['endpoint']
+        clusters = {**endpoint.out_clusters, **endpoint.in_clusters}
+        for cluster in clusters.values():
+            if LevelControl.cluster_id == cluster.cluster_id:
+                self.sub_listener[cluster.cluster_id] = Server_LevelControl(
+                                self, cluster, 'Level')
+            elif OnOff.cluster_id == cluster.cluster_id:
+                self.sub_listener[cluster.cluster_id] = Server_OnOff(
+                                self, cluster, 'OnOff')
+            elif Scenes.cluster_id == cluster.cluster_id:
+                self.sub_listener[cluster.cluster_id] = Server_Scenes(
+                                self, cluster, "Scenes")
+            elif IasZone.cluster_id == cluster.cluster_id:
+                self.sub_listener[cluster.cluster_id] = Server_IasZone(
+                                self, cluster, "IasZone")                   
+            else:
+                self.sub_listener[cluster.cluster_id] = Cluster_Server(
+                                self, cluster, cluster.cluster_id)            
 
-        for cluster in endpoint.out_clusters.values():
-            cluster.add_listener(self)
 
 
 class MoistureSensor(BinarySensor):
@@ -280,26 +295,35 @@ class Cluster_Server(object):
         self._cluster = cluster
         self._entity = entity
         self._identifier = identifier
-        cluster.add_listener(self)
         self._value = int(0)
         self.value = int(0)
         self._prev_tsn = int()
+        cluster.add_listener(self)
+        # overwrite function with device specific function
+        if self._entity._custom_module.get('_parse_attribute', None):
+            self._parse_attribute = self.entity._custom_module['_parse_attribute']
+
+    def _parse_attribute(self, *args,  **kwargs):
+        return (args, kwargs)         
 
     def cluster_command(self, tsn, command_id, args):
-        _LOGGER.debug('cluster command receicved:[%s]:%s',
-                      command_id,
-                      args
+        _LOGGER.debug('cluster command receicved:[%s:%s]:%s',
+                        self._cluster.cluster_id, 
+                        command_id,
+                        args
                       )
 
     def attribute_updated(self, attribute, value):
-        if self._entity._custom_module.get('_parse_attribute', None) is not None:
-            (attribute, value) = self._custom_module['_parse_attribute'](
+#        if self._entity._custom_module.get('_parse_attribute', None) is not None:
+#            (attribute, value) = self._custom_module['_parse_attribute'](
+        (attribute, value) = self._parse_attribute(
                         self,
                         attribute,
                         value,
-                        self._model)
+                        self._model, 
+                        cluster_id = self._cluster.cluster_id)
         if attribute == self._entity.value_attribute:
-            self._state = value
+            self._entity._state = value
         self._entity.schedule_update_ha_state()
 
 
@@ -324,7 +348,7 @@ class Basic(Cluster_Server):
         self._entity.schedule_update_ha_state()
 
 
-class Server_IASZone(Cluster_Server):
+class Server_IasZone(Cluster_Server):
 
     def __init__(self, entity,  cluster,  identifier):
         self._ZoneStatus = t.bitmap16(0)

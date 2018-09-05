@@ -43,6 +43,8 @@ class Switch(zha_new.Entity, SwitchDevice):
         endpoint = kwargs['endpoint']
         for cluster in endpoint.out_clusters.values():
             cluster.add_listener(self)
+        for cluster in endpoint.in_clusters.values():
+            cluster.add_listener(self)
 
     @property
     def is_on(self) -> bool:
