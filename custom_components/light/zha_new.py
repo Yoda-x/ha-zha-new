@@ -184,16 +184,17 @@ class Light(zha_new.Entity, light.Light):
             self._available = False
             return
 
-        if self._groups is not None:
+        if self._groups:
             result = await self._endpoint.groups.get_membership([])
             if result:
                 if result[0] >= 1:
                     self._groups = result[1]
                     if self._device_state_attributes["Group_id"] != self._groups:
                         self._device_state_attributes["Group_id"] = self._groups
-                        self._endpoint._device._application.listener_event(
-                            'subscribe_group',
-                            self._groups[0])
+                        for groups in self._groups:
+                            self._endpoint._device._application.listener_event(
+                                'subscribe_group',
+                                self._groups[groups])
             if not self._state:
                 return
 
@@ -208,7 +209,7 @@ class Light(zha_new.Entity, light.Light):
                                              ['color_temperature'])
             if result:
                 self._color_temp = result.get('color_temperature',
-                                          self._color_temp)
+                                              self._color_temp)
 
         if self._supported_features & light.SUPPORT_COLOR:
             result = await zha_new.safe_read(self._endpoint.light_color,
