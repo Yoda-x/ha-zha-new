@@ -15,7 +15,7 @@ from custom_components import zha_new
 from homeassistant.helpers.event import async_track_point_in_time
 from zigpy.zdo.types import Status
 import zigpy.types as t
-from zigpy.zcl.clusters.general import LevelControl, OnOff, Scenes
+from zigpy.zcl.clusters.general import LevelControl, OnOff, Scenes,  Basic
 from zigpy.zcl.clusters.security import IasZone
 _LOGGER = logging.getLogger(__name__)
 """ changed to zha-new to use in home dir """
