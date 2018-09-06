@@ -265,7 +265,7 @@ class OnOffSensor(BinarySensor):
                 self.sub_listener[cluster.cluster_id] = Server_IasZone(
                                 self, cluster, "IasZone")        
             elif Basic.cluster_id == cluster.cluster_id:
-                self.sub_listener[cluster.cluster_id] = Basic(
+                self.sub_listener[cluster.cluster_id] = Server_Basic(
                                 self, cluster, "Basic")                   
             else:
                 self.sub_listener[cluster.cluster_id] = Cluster_Server(
@@ -325,7 +325,7 @@ class Cluster_Server(object):
         self._entity.schedule_update_ha_state()
 
 
-class Basic(Cluster_Server):
+class Server_Basic(Cluster_Server):
     def cluster_command(self, tsn, command_id, args):
         from zigpy.zcl.clusters.general import Basic
         if tsn == self._prev_tsn:
