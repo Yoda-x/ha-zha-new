@@ -12,7 +12,6 @@ from homeassistant.components.sensor import DOMAIN
 from homeassistant.const import TEMP_CELSIUS
 from homeassistant.util.temperature import convert as convert_temperature
 from custom_components import zha_new
-from importlib import import_module
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -105,11 +104,9 @@ class Sensor(zha_new.Entity):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        out_clusters = kwargs['out_clusters']
-        in_clusters = kwargs['in_clusters']
-        for cluster in out_clusters.values():
-            cluster.add_listener(self)
-        for cluster in in_clusters.values():
+        endpoint = kwargs['endpoint']
+        clusters = {**endpoint.out_clusters, **endpoint.in_clusters}
+        for cluster in clusters.values():
             cluster.add_listener(self)
 
     @property
@@ -120,9 +117,8 @@ class Sensor(zha_new.Entity):
         return self._state
 
     def attribute_updated(self, attribute, value):
-        if self._custom_module.get('_parse_attribute', None) is not None:
-            (attribute, value) = self._custom_module[
-                '_parse_attribute'](self, attribute, value, self._model)
+
+        (attribute, value)= self._parse_attribute(self, attribute, value, self._model)
         if attribute == self.value_attribute:
             self._state = value
         self.schedule_update_ha_state()

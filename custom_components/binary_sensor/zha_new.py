@@ -166,14 +166,8 @@ class BinarySensor(zha_new.Entity, BinarySensorDevice):
         """Initialize the ZHA binary sensor."""
         super().__init__(**kwargs)
         self._device_class = device_class
-        self.sub_listener = dict()
         self._ias_zone_cluster = self._in_clusters[IasZone.cluster_id]
-        if self._custom_module.get('_parse_attribute', None):
-            self._parse_attribute = self._custom_module['_parse_attribute']
-
-    def _parse_attribute(self, *args,  **kwargs):
-        return (args, kwargs)
-
+ 
     @property
     def is_on(self) -> bool:
         """Return True if entity is on."""
@@ -195,8 +189,6 @@ class BinarySensor(zha_new.Entity, BinarySensorDevice):
             self.hass.add_job(self._ias_zone_cluster.enroll_response(0, 0))
 
     def attribute_updated(self, attribute, value):
-#        if self._custom_module.get('_parse_attribute', None) is not None:
-#            (attribute, value) = self._custom_module['_parse_attribute'](
         (attribute, value) = self._parse_attribute(
                         self,
                         attribute,
@@ -219,11 +211,9 @@ class OccupancySensor(BinarySensor):
     def __init__(self, device_class, **kwargs):
         super().__init__(device_class, **kwargs)
         endpoint = kwargs['endpoint']
-        for cluster in endpoint.out_clusters.values():
+        clusters = {**endpoint.out_clusters, **endpoint.in_clusters}
+        for cluster in clusters.values():
             cluster.add_listener(self)
-        for cluster in endpoint.in_clusters.values():
-            cluster.add_listener(self)
-
 
     def attribute_updated(self, attribute, value):
         """ handle trigger events from motion sensor.
@@ -273,7 +263,10 @@ class OnOffSensor(BinarySensor):
                                 self, cluster, "Scenes")
             elif IasZone.cluster_id == cluster.cluster_id:
                 self.sub_listener[cluster.cluster_id] = Server_IasZone(
-                                self, cluster, "IasZone")                   
+                                self, cluster, "IasZone")        
+            elif Basic.cluster_id == cluster.cluster_id:
+                self.sub_listener[cluster.cluster_id] = Basic(
+                                self, cluster, "Basic")                   
             else:
                 self.sub_listener[cluster.cluster_id] = Cluster_Server(
                                 self, cluster, cluster.cluster_id)            
@@ -287,12 +280,12 @@ class MoistureSensor(BinarySensor):
     value_attribute = 0
 
     def __init__(self, device_class, **kwargs):
-        endpoint = kwargs['endpoint']
         super().__init__(device_class, **kwargs)
-        for cluster in endpoint.out_clusters.values():
+        endpoint = kwargs['endpoint']
+        clusters = {**endpoint.out_clusters, **endpoint.in_clusters}
+        for cluster in clusters.values():
             cluster.add_listener(self)
-        for cluster in endpoint.in_clusters.values():
-            cluster.add_listener(self)
+
 
 
 class Cluster_Server(object):
@@ -548,7 +541,6 @@ class RemoteSensor(BinarySensor):
         self._supported_features = 0
         endpoint = kwargs['endpoint']
         clusters = {**endpoint.out_clusters, **endpoint.in_clusters}
-#        self.sub_listener_out = {}
         for cluster in clusters.values():
             if LevelControl.cluster_id == cluster.cluster_id:
                 self.sub_listener[cluster.cluster_id] = Server_LevelControl(

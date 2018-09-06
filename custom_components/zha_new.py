@@ -642,6 +642,8 @@ class Entity(entity.Entity):
         """Init ZHA entity."""
         self._device_state_attributes = {}
         self.entity_connect = {}
+        self.sub_listener = dict()
+        
         ieeetail = ''.join([
             '%02x' % (o, ) for o in endpoint.device.ieee[-4:]
         ])
@@ -688,11 +690,6 @@ class Entity(entity.Entity):
             self._device_state_attributes['friendly_name'] += '_'
             self._device_state_attributes['friendly_name'] += kwargs['cluster_key']
 
-#        for cluster in in_clusters.values():
-#            cluster.add_listener(self)
-#        for cluster in out_clusters.values():
-#            cluster.add_listener(self)
-
         self._endpoint = endpoint
         self._in_clusters = in_clusters
         self._out_clusters = out_clusters
@@ -703,6 +700,12 @@ class Entity(entity.Entity):
         self._device_state_attributes['nwk'] = endpoint.device.nwk
         self._device_state_attributes['path'] = 'unknown'
 #        _LOGGER.debug("dir entity:%s",  dir(self))
+        if self._custom_module.get('_parse_attribute', None):
+            self._parse_attribute = self._custom_module['_parse_attribute']
+        if self._custom_module.get('_custom_cluster_command', None):
+            self._parse_attribute = self._custom_module['_custom_cluster_command']
+        if self._custom_module.get('_custom_endpoint_init', None):
+            self._parse_attribute = self._custom_module['_custom_endpoint_init']
 
     @property
     def unique_id(self):
@@ -719,16 +722,21 @@ class Entity(entity.Entity):
 
     def cluster_command(self,  tsn, command_id, args):
         """ handle incomming cluster commands."""
-        pass
+        _LOGGER.debug("Cluster received: \n entity - \n command_id: %s \n args: %s",
+                      self.entity_id, command_id, args)
 
     """dummy function; override from device handler"""
-    def _custom_cluster_command(self,  tsn, command_id, args):
-        pass
+    def _custom_cluster_command(self, *args, **kwargs):
+        return(args,  kwargs)
 
     """dummy function; override from device handler"""
-    def _parse_attribute(self, entity, attrib, value, *argv):
-        return(attrib, value)
-
+    def _parse_attribute(self, *args, **kwargs):
+        return(args,  kwargs)
+        
+    def _custom_endpoint_init(self, *args, **kwargs):
+        """dummy function; override from device handler."""
+        pass
+        
     @property
     def device_state_attributes(self):
         """Return device specific state attributes."""
