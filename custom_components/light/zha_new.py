@@ -194,7 +194,7 @@ class Light(zha_new.Entity, light.Light):
                         for groups in self._groups:
                             self._endpoint._device._application.listener_event(
                                 'subscribe_group',
-                                self._groups[groups])
+                                groups)
             if not self._state:
                 return
 
