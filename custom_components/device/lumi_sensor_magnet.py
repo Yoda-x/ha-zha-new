@@ -93,7 +93,7 @@ def _battery_percent(voltage):
     return (voltage - min_voltage) / (max_voltage - min_voltage) * 100
 
 
-def _parse_attribute(entity, attrib, value, *argv):
+def _parse_attribute(entity, attrib, value, *argv, **kwargs):
     """ parse non standard atrributes."""
     import zigpy.types as t
     from zigpy.zcl import foundation as f

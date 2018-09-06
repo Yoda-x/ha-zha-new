@@ -217,10 +217,13 @@ class OccupancySensor(BinarySensor):
     _state = 0
 
     def __init__(self, device_class, **kwargs):
-        endpoint = kwargs['endpoint']
         super().__init__(device_class, **kwargs)
+        endpoint = kwargs['endpoint']
         for cluster in endpoint.out_clusters.values():
             cluster.add_listener(self)
+        for cluster in endpoint.in_clusters.values():
+            cluster.add_listener(self)
+
 
     def attribute_updated(self, attribute, value):
         """ handle trigger events from motion sensor.
@@ -288,6 +291,8 @@ class MoistureSensor(BinarySensor):
         super().__init__(device_class, **kwargs)
         for cluster in endpoint.out_clusters.values():
             cluster.add_listener(self)
+        for cluster in endpoint.in_clusters.values():
+            cluster.add_listener(self)
 
 
 class Cluster_Server(object):
@@ -301,7 +306,7 @@ class Cluster_Server(object):
         cluster.add_listener(self)
         # overwrite function with device specific function
         if self._entity._custom_module.get('_parse_attribute', None):
-            self._parse_attribute = self.entity._custom_module['_parse_attribute']
+            self._parse_attribute = self._entity._custom_module['_parse_attribute']
 
     def _parse_attribute(self, *args,  **kwargs):
         return (args, kwargs)         
@@ -317,10 +322,10 @@ class Cluster_Server(object):
 #        if self._entity._custom_module.get('_parse_attribute', None) is not None:
 #            (attribute, value) = self._custom_module['_parse_attribute'](
         (attribute, value) = self._parse_attribute(
-                        self,
+                        self._entity,
                         attribute,
                         value,
-                        self._model, 
+                        self._entity._model,
                         cluster_id = self._cluster.cluster_id)
         if attribute == self._entity.value_attribute:
             self._entity._state = value
@@ -541,17 +546,18 @@ class RemoteSensor(BinarySensor):
         super().__init__(device_class, **kwargs)
         self._brightness = 0
         self._supported_features = 0
-        out_clusters = kwargs['out_clusters']
-        self.sub_listener_out = {}
-        for cluster in out_clusters.values():
+        endpoint = kwargs['endpoint']
+        clusters = {**endpoint.out_clusters, **endpoint.in_clusters}
+#        self.sub_listener_out = {}
+        for cluster in clusters.values():
             if LevelControl.cluster_id == cluster.cluster_id:
-                self.sub_listener_out[cluster.cluster_id] = Server_LevelControl(
+                self.sub_listener[cluster.cluster_id] = Server_LevelControl(
                                 self, cluster, 'Level')
             elif OnOff.cluster_id == cluster.cluster_id:
-                self.sub_listener_out[cluster.cluster_id] = Server_OnOff(
+                self.sub_listener[cluster.cluster_id] = Server_OnOff(
                                 self, cluster, 'OnOff')
             elif Scenes.cluster_id == cluster.cluster_id:
-                self.sub_listener_out[cluster.cluster_id] = Server_Scenes(
+                self.sub_listener[cluster.cluster_id] = Server_Scenes(
                                 self, cluster, "Scenes")
             else:
                 cluster.add_listener(self)
