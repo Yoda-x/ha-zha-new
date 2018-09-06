@@ -184,7 +184,7 @@ class Light(zha_new.Entity, light.Light):
             self._available = False
             return
 
-        if self._groups:
+        if hasattr(self,'_groups'):
             result = await self._endpoint.groups.get_membership([])
             _LOGGER.debug("%s get membership: %s", self.entity_id,  result)
             if result:
