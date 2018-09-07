@@ -218,8 +218,8 @@ class OccupancySensor(BinarySensor):
     def attribute_updated(self, attribute, value):
         """ handle trigger events from motion sensor.
         clear state after re_arm_sec seconds."""
-        _LOGGER.debug("Attribute updated: %s %s", attribute, value)
         (attribute, value) = self._parse_attribute(self, attribute, value, self._model)
+        _LOGGER.debug("Attribute updated: %s %s", attribute, value)
 
         @asyncio.coroutine
         def _async_clear_state(entity):
