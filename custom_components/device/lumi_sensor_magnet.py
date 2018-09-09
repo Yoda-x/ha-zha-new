@@ -71,10 +71,10 @@ def _custom_endpoint_init(self, node_config, *argv):
     elif selector == 'lumi.sensor_wleak.aq1':
         config = {
             "in_cluster": [0x0000, 0xff01],
-            "out_cluster": [],
+            "out_cluster": [0x0500],
             "type": "binary_sensor",
             "config_report": [
-                [65281, 0, 10, 1800, 1],
+                [0xff01, 0, 10, 1800, 1],
             ],
         }
     elif selector == 'lumi.vibration.aq1' and self.endpoint_id == 1:
@@ -82,7 +82,7 @@ def _custom_endpoint_init(self, node_config, *argv):
             "type": "sensor",
             "in_cluster": [0x0000, 0x0101]
         }
-        asyncio.ensure_future(zha_new.discover_cluster_values(self, self.in_clusters[0x0101]))
+#        asyncio.ensure_future(zha_new.discover_cluster_values(self, self.in_clusters[0x0101]))
     node_config.update(config)
 
 
@@ -97,7 +97,7 @@ def _parse_attribute(entity, attrib, value, *argv, **kwargs):
     """ parse non standard atrributes."""
     import zigpy.types as t
     from zigpy.zcl import foundation as f
-#    _LOGGER.debug('parse value type %s', type(value))
+    _LOGGER.debug('parse %s %s %a %s', attrib, value, argv, kwargs)
 #    if type(value) is str:
 #        result = bytearray()
 #        result.extend(map(ord, value))
@@ -138,7 +138,6 @@ def _parse_attribute(entity, attrib, value, *argv, **kwargs):
             10: "path"  # was X-attrib-10
         }
         result = {}
-#        _LOGGER.debug("Parse dict 0xff01: parsing")
         while value:
             skey = int(value[0])
             svalue, value = f.TypeValue.deserialize(value[1:])

@@ -104,8 +104,11 @@ class Sensor(zha_new.Entity):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+
         endpoint = kwargs['endpoint']
-        clusters = {**endpoint.out_clusters, **endpoint.in_clusters}
+        in_clusters = kwargs['in_clusters']
+        out_clusters = kwargs['out_clusters']
+        clusters = {**out_clusters, **in_clusters}
         for cluster in clusters.values():
             cluster.add_listener(self)
 

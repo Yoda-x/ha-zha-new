@@ -91,12 +91,13 @@ class Light(zha_new.Entity, light.Light):
         if zcl_clusters.general.Groups.cluster_id in self._in_clusters:
             self._groups = []
             self._device_state_attributes["Group_id"] = self._groups
-        
+
         endpoint = kwargs['endpoint']
-        clusters = {**endpoint.out_clusters, **endpoint.in_clusters}
+        in_clusters = kwargs['in_clusters']
+        out_clusters = kwargs['out_clusters']
+        clusters = {**out_clusters, **in_clusters}
         for cluster in clusters.values():
-            cluster.add_listener(self)    
-  
+            cluster.add_listener(self)
 
     @property
     def is_on(self) -> bool:
@@ -191,7 +192,10 @@ class Light(zha_new.Entity, light.Light):
             return
 
         if hasattr(self,'_groups'):
-            result = await zha_new.safe_read(self._endpoint.groups, ['get_membership', []])
+            try:
+                result = await self._endpoint.groups.get_membership([])
+            except:
+                result = None
             _LOGGER.debug("%s get membership: %s", self.entity_id,  result)
             if result:
                 if result[0] >= 1:
