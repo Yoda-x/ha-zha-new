@@ -703,9 +703,9 @@ class Entity(entity.Entity):
         if self._custom_module.get('_parse_attribute', None):
             self._parse_attribute = self._custom_module['_parse_attribute']
         if self._custom_module.get('_custom_cluster_command', None):
-            self._parse_attribute = self._custom_module['_custom_cluster_command']
+            self._custom_cluster_command = self._custom_module['_custom_cluster_command']
         if self._custom_module.get('_custom_endpoint_init', None):
-            self._parse_attribute = self._custom_module['_custom_endpoint_init']
+            self._custom_endpoint_init = self._custom_module['_custom_endpoint_init']
 
     @property
     def unique_id(self):
@@ -731,6 +731,7 @@ class Entity(entity.Entity):
 
     """dummy function; override from device handler"""
     def _parse_attribute(self, *args, **kwargs):
+        _LOGGER.debug(" dummy parse_attribute called with %s %s", args, kwargs)
         return(args,  kwargs)
         
     def _custom_endpoint_init(self, *args, **kwargs):
@@ -863,7 +864,7 @@ async def safe_read(cluster, attributes):
 
 
 def get_custom_device_info(_model):
-    custom_info = {}
+    custom_info = dict()
 
     try:
         dev_func = _model.lower().replace(".", "_").replace(" ", "_")
