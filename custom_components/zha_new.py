@@ -205,9 +205,9 @@ class zha_state(entity.Entity):
 #        self._device_state_attributes['FreeBuffers'] =  buffer
 #        result = await self.stack._command('getSourceRouteTableFilledSize', [])
 #        self._device_state_attributes['getSourceRouteTableFilledSize'] = result[0]
-        neighbors = await self.application.read_neighbor_table()
-        self._device_state_attributes['neighbors'] = neighbors
-        await self.application.update_topology()
+#        neighbors = await self.application.read_neighbor_table()
+#        self._device_state_attributes['neighbors'] = neighbors
+#        await self.application.update_topology()
 
 
 async def async_setup(hass, config):
