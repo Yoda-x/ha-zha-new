@@ -82,6 +82,7 @@ def populate_data():
         zha.DeviceType.LEVEL_CONTROL_SWITCH: 'binary_sensor',
         zha.DeviceType.REMOTE_CONTROL: 'binary_sensor',
         zha.DeviceType.OCCUPANCY_SENSOR: 'binary_sensor',
+        zha.DeviceType.IAS_ZONE: 'binary_sensor',
         }
 
     DEVICE_CLASS[zll.PROFILE_ID] = {

@@ -47,19 +47,25 @@ def _parse_attribute(entity, attrib, value, *argv, **kwargs):
                 _battery_percent(attributes["battery_voltage_mV"]))
     else:
         result = value
-    _LOGGER.debug("Parse Result: after else")
 
-    attributes["Last seen"] = dt_util.now()
-    if "path" in attributes:
-        self._entity._endpoint._device.handle_RouteRecord(attributes["path"])
+    attributes["Last detected"] = dt_util.now()
+#    if "path" in attributes:
+#        self._entity._endpoint._device.handle_RouteRecord(attributes["path"])
     entity._device_state_attributes.update(attributes)
-    if (kwargs['cluster_id'] == 6) and (attrib == 0) and (result == 1):
-        event_data = {
-        'entity_id': entity.entity_id,
-        'channel': "OnOff",
-        'type': 'toggle',
-        }
-        entity.hass.bus.fire('click', event_data)
-    entity_state = entity._state ^ 1
+    if (kwargs['cluster_id'] == 6) and (attrib == 0):
+        if result == 1:
+            event_data = {
+                'entity_id': entity.entity_id,
+                'channel': "OnOff",
+                'type': 'toggle',
+            }
+            entity.hass.bus.fire('click', event_data)
+
     return(attrib, result)
+
+def _battery_percent(voltage):
+    """calculate percentage."""
+    min_voltage = 2750
+    max_voltage = 3100
+    return (voltage - min_voltage) / (max_voltage - min_voltage) * 100
 
