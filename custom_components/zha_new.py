@@ -21,8 +21,8 @@ from homeassistant.util import slugify
 from importlib import import_module
 
 
-REQUIREMENTS = ['bellows', 'zigpy']
-
+#REQUIREMENTS = ['bellows', 'zigpy']
+REQUIREMENTS = ['https://github.com/Yoda-x/bellows/archive/preview.zip#bellows==0.7.2-Y-pre', 'https://github.com/Yoda-x/zigpy/archive/preview.zip#zigpy==0.1.3-Ypre']
 DOMAIN = 'zha_new'
 
 CONF_BAUDRATE = 'baudrate'

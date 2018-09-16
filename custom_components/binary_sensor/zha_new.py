@@ -62,6 +62,12 @@ async def async_setup_platform(hass, config, async_add_devices,
             _LOGGER.debug("write cie done")
         except:
             _LOGGER.debug("bind/write cie failed")
+        else:
+            try:
+                await asyncio.sleep(0.2)
+                await cluster.enroll_response(0, 0)
+            except:
+                _LOGGER.debug("send enroll_command failed") # not sure if this is possible
 
         try:
             _LOGGER.debug("try zone read")
