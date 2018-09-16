@@ -48,19 +48,30 @@ def _parse_attribute(entity, attrib, value, *argv, **kwargs):
     else:
         result = value
 
-    attributes["Last detected"] = dt_util.now()
 #    if "path" in attributes:
 #        self._entity._endpoint._device.handle_RouteRecord(attributes["path"])
-    entity._device_state_attributes.update(attributes)
-    if (kwargs['cluster_id'] == 6) and (attrib == 0):
-        if result == 1:
+    if (kwargs['cluster_id'] == 6):
+        if attrib == 0:
+            if result == 1:
+                event_data = {
+                    'entity_id': entity.entity_id,
+                    'channel': "OnOff",
+                    'type': 'toggle',
+                    'data': int(1),
+                }
+                entity.hass.bus.fire('click', event_data)
+        if attrib == 0x8000:
             event_data = {
                 'entity_id': entity.entity_id,
                 'channel': "OnOff",
                 'type': 'toggle',
-            }
+                'data': result,
+                }
             entity.hass.bus.fire('click', event_data)
-
+ 
+    attributes["last seen"] = dt_util.now()
+    entity._device_state_attributes.update(attributes)
+    _LOGGER.debug('updated Attributes:', attributes)
     return(attrib, result)
 
 def _battery_percent(voltage):

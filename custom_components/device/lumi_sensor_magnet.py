@@ -171,7 +171,7 @@ def _parse_attribute(entity, attrib, value, *argv, **kwargs):
         entity.entity_connect["pressure"]._state = round(
             float(attributes["pressure"]) / 100, 0)
 
-    attributes["Last seen"] = dt_util.now()
+    attributes["last seen"] = dt_util.now()
     if "path" in attributes:
         entity._endpoint._device.handle_RouteRecord(attributes["path"])
     entity._device_state_attributes.update(attributes)
@@ -180,9 +180,9 @@ def _parse_attribute(entity, attrib, value, *argv, **kwargs):
         if attrib == 85:
             event_data = {
                     'entity_id': entity.entity_id,
-                    'channel': "zha_alarm",
+                    'channel': "alarm",
                     'type': value,
                    }
-            entity.hass.bus.fire('click', event_data)
+            entity.hass.bus.fire('alarm', event_data)
 
     return(attrib, result)
