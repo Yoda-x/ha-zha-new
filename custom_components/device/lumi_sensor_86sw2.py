@@ -71,7 +71,7 @@ def _parse_attribute(entity, attrib, value, *argv, **kwargs):
  
     attributes["last seen"] = dt_util.now()
     entity._device_state_attributes.update(attributes)
-    _LOGGER.debug('updated Attributes:', attributes)
+    _LOGGER.debug('updated Attributes:%s', attributes)
     return(attrib, result)
 
 def _battery_percent(voltage):
