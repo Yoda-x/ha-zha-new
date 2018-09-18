@@ -46,36 +46,38 @@ async def async_setup_platform(hass, config, async_add_devices,
     endpoint = discovery_info['endpoint']
     device_class = None
 
-    """ create ias cluster if it not already exists"""
-    if IasZone.cluster_id not in in_clusters:
-        cluster = endpoint.add_input_cluster(IasZone.cluster_id)
-        in_clusters[IasZone.cluster_id] = cluster
-        endpoint.in_clusters[IasZone.cluster_id] = cluster
-    else:
-        cluster = in_clusters[IasZone.cluster_id]
-        await cluster.bind()
-
     if discovery_info['new_join']:
+        """ create ias cluster if it not already exists"""
+        if IasZone.cluster_id not in in_clusters:
+            cluster = endpoint.add_input_cluster(IasZone.cluster_id)
+            in_clusters[IasZone.cluster_id] = cluster
+            endpoint.in_clusters[IasZone.cluster_id] = cluster
+        else:
+            cluster = in_clusters[IasZone.cluster_id]
+            await cluster.bind()
+
         try:
             ieee = cluster.endpoint.device.application.ieee
-            await cluster.write_attributes({'cie_addr': ieee})
-            _LOGGER.debug("write cie done")
+            result = await cluster.write_attributes({'cie_addr': ieee})
+            _LOGGER.debug("write cie:%s", result)
         except:
             _LOGGER.debug("bind/write cie failed")
         else:
-            try:
-                await asyncio.sleep(0.2)
-                await cluster.enroll_response(0, 0)
-            except:
-                _LOGGER.debug("send enroll_command failed") # not sure if this is possible
+            if not result:
+                try:
+#                    await asyncio.sleep(0.2)
+                    await cluster.enroll_response(0, 0)
+                except:
+                    _LOGGER.debug("send enroll_command failed") # not sure if this is possible
 
-        try:
-            _LOGGER.debug("try zone read")
-            zone_type = await cluster['zone_type']
-            _LOGGER.debug("done zone read")
-            device_class = CLASS_MAPPING.get(zone_type, None)
-        except Exception:  # pylint: disable=broad-except
-            pass
+                try:
+                    _LOGGER.debug("try zone read")
+                    zone_type = await cluster['zone_type']
+                    _LOGGER.debug("done zone read")
+                    device_class = CLASS_MAPPING.get(zone_type, None)
+                except Exception:  # pylint: disable=broad-except
+                    _LOGGER.debug("zone read failed")
+
 
     entity = await _make_sensor(device_class, discovery_info)
     if hass.states.get(entity.entity_id):
@@ -130,7 +132,10 @@ async def _make_sensor(device_class, discovery_info):
 
     if discovery_info['new_join']:
         for cluster in in_clusters.values():
-            v = await cluster.bind()
+            try:
+                v = await cluster.bind()
+            except:
+                v=[Status.TIMEOUT]
             if v[0]:
                 _LOGGER.error("[0x%04x:%s] bind input-cluster failed %s",
                               endpoint._device.nwk, endpoint.endpoint_id,
@@ -141,18 +146,18 @@ async def _make_sensor(device_class, discovery_info):
                           endpoint.endpoint_id,
                           cluster.cluster_id,
                           v)
-        for cluster in out_clusters.values():
-            v = await cluster.bind()
-            if v[0]:
-                _LOGGER.error("[0x%04x:%s] bind output-cluster failed %s",
-                              endpoint._device.nwk, endpoint.endpoint_id,
-                              Status(v[0]).name
-                              )
-            _LOGGER.debug("[0x%04x:%s] bind output-cluster %s: %s",
-                          endpoint._device.nwk,
-                          endpoint.endpoint_id,
-                          cluster.cluster_id,
-                          v)
+#        for cluster in out_clusters.values():
+#            v = await cluster.bind()
+#            if v[0]:
+#                _LOGGER.error("[0x%04x:%s] bind output-cluster failed %s",
+#                              endpoint._device.nwk, endpoint.endpoint_id,
+#                              Status(v[0]).name
+#                              )
+#            _LOGGER.debug("[0x%04x:%s] bind output-cluster %s: %s",
+#                          endpoint._device.nwk,
+#                          endpoint.endpoint_id,
+#                          cluster.cluster_id,
+#                          v)
 
     _LOGGER.debug("[0x%04x:%s] exit make binary-sensor ",
                   endpoint._device.nwk,
@@ -172,7 +177,7 @@ class BinarySensor(zha_new.Entity, BinarySensorDevice):
         """Initialize the ZHA binary sensor."""
         super().__init__(**kwargs)
         self._device_class = device_class
-        self._ias_zone_cluster = self._in_clusters[IasZone.cluster_id]
+#        self._ias_zone_cluster = self._in_clusters[IasZone.cluster_id]
         endpoint = kwargs['endpoint']
         in_clusters = kwargs['in_clusters']
         out_clusters = kwargs['out_clusters']
@@ -216,15 +221,15 @@ class BinarySensor(zha_new.Entity, BinarySensorDevice):
         """Return the class of this device, from component DEVICE_CLASSES."""
         return self._device_class
 
-    def cluster_command(self, tsn, command_id, args):
-        """Handle commands received to this cluster."""
-        if command_id == 0:
-            self._state = args[0] & 3
-            _LOGGER.debug("Updated alarm state: %s", self._state)
-            self.schedule_update_ha_state()
-        elif command_id == 1:
-            _LOGGER.debug("Enroll requested")
-            self.hass.add_job(self._ias_zone_cluster.enroll_response(0, 0))
+#    def cluster_command(self, tsn, command_id, args):
+#        """Handle commands received to this cluster."""
+#        if command_id == 0:
+#            self._state = args[0] & 3
+#            _LOGGER.debug("Updated alarm state: %s", self._state)
+#            self.schedule_update_ha_state()
+#        elif command_id == 1:
+#            _LOGGER.debug("Enroll requested")
+#            self.hass.add_job(self._ias_zone_cluster.enroll_response(0, 0))
 
     def attribute_updated(self, attribute, value):
         _LOGGER.debug("Attribute received on entity: %s %s", attribute, value) 
@@ -395,7 +400,7 @@ class Server_IasZone(Cluster_Server):
             self._entity.schedule_update_ha_state()
         elif command_id == 1:
             _LOGGER.debug("Enroll requested")
-            self._entity.hass.add_job(self._ias_zone_cluster.enroll_response(0, 0))
+            self._entity.hass.add_job(self._cluster.enroll_response(0, 0))
 
 
 class Server_LevelControl(Cluster_Server):

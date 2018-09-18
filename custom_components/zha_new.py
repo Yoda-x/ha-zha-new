@@ -199,7 +199,8 @@ class zha_state(entity.Entity):
         result = await self.stack._command('neighborCount', [])
         self._device_state_attributes['neighborCount'] = result[0]
         entity_store = get_entity_store(self.hass)
-        self._device_state_attributes['no_devices'] = len(entity_store)
+        self._device_state_attributes['no_entities'] = len(entity_store)
+        self._device_state_attributes['no_devices'] = len(self.application.devices)
 #        result = await self.stack._command('getValue', 3)
 #        _LOGGER.debug("buffer: %s", result[1])
         #        buffer = t.uint8_t(result[1])
@@ -598,19 +599,19 @@ class ApplicationListener:
 #            _LOGGER.debug("[0x%04x:%s] Start bind clusters",
 #                          device.nwk,
 #                          endpoint_id)
-            if join:
-                for cluster in out_clusters:
-                    try:
-                        v = await cluster.bind()
-                        if v[0]:
-                            _LOGGER.error("[0x%04x:%s] bind output-cluster failed %s : %s",
-                                          device.nwk, endpoint_id,
-                                          cluster.cluster_id, Status(v[0]).name
-                                          )
-                    except Exception:
-                        _LOGGER.error("[0x%04x:%s] bind output-cluster exception %s ",
-                                      device.nwk, endpoint_id,
-                                      cluster.cluster_id)
+#            if join:
+#                for cluster in out_clusters:
+#                    try:
+#                        v = await cluster.bind()
+#                        if v[0]:
+#                            _LOGGER.error("[0x%04x:%s] bind output-cluster failed %s : %s",
+#                                          device.nwk, endpoint_id,
+#                                          cluster.cluster_id, Status(v[0]).name
+#                                          )
+#                    except Exception:
+#                        _LOGGER.error("[0x%04x:%s] bind output-cluster exception %s ",
+#                                      device.nwk, endpoint_id,
+#                                      cluster.cluster_id)
 #                    _LOGGER.debug("[0x%04x:%s] bind output-cluster %s: %s",
 #                                  device.nwk,
 #                                  endpoint_id,
@@ -624,7 +625,6 @@ class ApplicationListener:
 #                              )
         device._application.listener_event('device_updated', device)
         self.controller._state = 'Run'
-        self.controller._device_state_attributes['no_of_entities'] = len(self._entity_list)
         self.controller.async_schedule_update_ha_state()
         _LOGGER.debug("[0x%04x] Exit device init %s",
                       device.nwk,
@@ -766,17 +766,21 @@ async def _discover_endpoint_info(endpoint):
             allow_cache=True,
         )
         extra_info.update(result)
-
     try:
-        await read(['model'])
+        await read(['model','manufacturer'])
     except:
-        _LOGGER.debug("single read attribute failed: model")
+        _LOGGER.debug("read attribute failed: mode/manufacturer")
     else:
-        _LOGGER.debug("single read attribute model <%s>", list(extra_info.get('model')))
-    try:
-        await read(['manufacturer'])
-    except:
-        _LOGGER.debug("single read attribute failed: manufacturer, ")
+        try:
+            await read(['model'])
+        except:
+            _LOGGER.debug("single read attribute failed: model")
+        else:
+            _LOGGER.debug("single read attribute model <%s>", list(extra_info.get('model')))
+        try:
+            await read(['manufacturer'])
+        except:
+            _LOGGER.debug("single read attribute failed: manufacturer, ")
     for key, value in extra_info.items():
         if isinstance(value, bytes):
             try:
