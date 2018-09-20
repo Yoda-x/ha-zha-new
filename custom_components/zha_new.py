@@ -323,9 +323,13 @@ class ApplicationListener:
         if device._ieee in entity_store:
             for dev_ent in entity_store[device._ieee]:
                 _LOGGER.debug("remove entity %s", dev_ent.entity_id)
-                _LOGGER.debug("platform used: %s ", dir(dev_ent.platform))
+#                _LOGGER.debug("platform used: %s ", dir(dev_ent.platform))
                 self._hass.async_add_job(dev_ent.async_remove())
             entity_store.pop(device._ieee)
+		# cleanup Discovery_Key
+        for dev_ent in list(self._hass.data[DISCOVERY_KEY]):
+            if str(device._ieee) in dev_ent:
+                self._hass.data[DISCOVERY_KEY].pop(dev_ent)
 
     def device_joined(self, device):
         # Wait for device_initialized, instead
@@ -396,15 +400,13 @@ class ApplicationListener:
                 discovered_info[CONF_MODEL] = node_config[CONF_MODEL]
             elif 0 in endpoint.in_clusters:
                 # just get device_info if cluster 0 exists
-#                if join:
-#                    v = await discover_cluster_values(endpoint, endpoint.in_clusters[0])
-                discovered_info = await _discover_endpoint_info(endpoint)
+                discovered_info = await _discover_endpoint_info(endpoint, join)
             if model is not None and discovered_info[CONF_MODEL] is None:
                 discovered_info[CONF_MODEL] = model
 
             # when a model name is available and not the template already applied,
             # use it to do custom init
-            if (discovered_info[CONF_MODEL] is not None
+            if (discovered_info.get(CONF_MODEL, None) is not None
                 and CONF_TEMPLATE not in node_config):
                 device_model = model = discovered_info[CONF_MODEL]
                 if device_model not in self.custom_devices:
@@ -440,7 +442,6 @@ class ApplicationListener:
                     profile_clusters[1].update(profile.CLUSTERS[endpoint.device_type][1])
                     profile_info = DEVICE_CLASS[endpoint.profile_id]
                     component = profile_info[endpoint.device_type]
-#            _LOGGER.debug("profile for %s: %s", device_key, profile_info)
             # Override type (switch,light,sensor, binary_sensor,...) from config
             if ha_const.CONF_TYPE in node_config:
                 component = node_config[ha_const.CONF_TYPE]
@@ -457,12 +458,12 @@ class ApplicationListener:
             if CONF_OUT_CLUSTER in node_config:
                 profile_clusters[1] = set(node_config.get(CONF_OUT_CLUSTER))
 
-            async def req_conf_report(report_cls, report_attr, report_min, report_max, report_change):
+            async def req_conf_report(report_cls, report_attr, report_min, report_max, report_change,mfgCode=None):
                 try:
                     await report_cls.bind()
                     v = await report_cls.configure_reporting(
                         report_attr, int(report_min),
-                        int(report_max), report_change)
+                        int(report_max), report_change, manufacturer=mfgCode)
                     _LOGGER.debug("[0x%04x:%s] %s: set config report %s status: %s",
                                   device.nwk,
                                   endpoint_id,
@@ -480,7 +481,8 @@ class ApplicationListener:
             # then create cluster if needed and setup reporting
             if join and CONF_CONFIG_REPORT in node_config:
                 for report in node_config.get(CONF_CONFIG_REPORT):
-                    report_cls, report_attr, report_min, report_max, report_change = report
+                    report_cls, report_attr, report_min, report_max, report_change = report[0:4]
+                    mfgCode = None if not report[5:] else  report[5]
                     if report_cls in endpoint.in_clusters:
                         cluster = endpoint.in_clusters[report_cls]
                         await req_conf_report(
@@ -488,7 +490,7 @@ class ApplicationListener:
                             report_attr,
                             report_min,
                             report_max,
-                                report_change)
+                            report_change, mfgCode=MfgCode)
 #                        elif report_cls in endpoint.out_clusters:
 #                            cluster = endpoint.out_clusters[report_cls]
 #                            await req_conf_report(
@@ -749,7 +751,7 @@ class Entity(entity.Entity):
         return self._device_state_attributes
 
 
-async def _discover_endpoint_info(endpoint):
+async def _discover_endpoint_info(endpoint, join):
     import string
     """Find some basic information about an endpoint."""
     extra_info = {
@@ -763,20 +765,18 @@ async def _discover_endpoint_info(endpoint):
         """Read attributes and update extra_info convenience function."""
         result, _ = await endpoint.in_clusters[0].read_attributes(
             attributes,
-            allow_cache=True,
+            allow_cache=not join,
         )
         extra_info.update(result)
+
     try:
         await read(['model','manufacturer'])
     except:
         _LOGGER.debug("read attribute failed: mode/manufacturer")
-    else:
         try:
             await read(['model'])
         except:
             _LOGGER.debug("single read attribute failed: model")
-        else:
-            _LOGGER.debug("single read attribute model <%s>", list(extra_info.get('model')))
         try:
             await read(['manufacturer'])
         except:
@@ -790,7 +790,7 @@ async def _discover_endpoint_info(endpoint):
             except UnicodeDecodeError:
                 # Unsure what the best behaviour here is. Unset the key?
                 _LOGGER.debug("unicode decode error ")
-
+    _LOGGER.debug("discover_endpoint_info:", extra_info)
     return extra_info
 
 
