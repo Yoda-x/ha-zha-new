@@ -42,7 +42,7 @@ def _parse_attribute(entity, attrib, value, *argv, **kwargs):
             if hasattr(dev_ent, 'cluster_key'):
                 entity.entity_connect[dev_ent.cluster_key] = dev_ent
     if cluster_id == 0x0402:
-        if attrib = 0:
+        if attrib == 0:
            attributes['Temperature'] = value
     elif cluster_id == 0xfc02:
         if attrib == 0x0010:
