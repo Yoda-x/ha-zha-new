@@ -481,7 +481,7 @@ class ApplicationListener:
             # then create cluster if needed and setup reporting
             if join and CONF_CONFIG_REPORT in node_config:
                 for report in node_config.get(CONF_CONFIG_REPORT):
-                    report_cls, report_attr, report_min, report_max, report_change = report[0:4]
+                    report_cls, report_attr, report_min, report_max, report_change = report[0:5]
                     mfgCode = None if not report[5:] else  report[5]
                     if report_cls in endpoint.in_clusters:
                         cluster = endpoint.in_clusters[report_cls]
