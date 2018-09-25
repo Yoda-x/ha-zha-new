@@ -458,7 +458,7 @@ class ApplicationListener:
             if CONF_OUT_CLUSTER in node_config:
                 profile_clusters[1] = set(node_config.get(CONF_OUT_CLUSTER))
 
-            async def req_conf_report(report_cls, report_attr, report_min, report_max, report_change,mfgCode=None):
+            async def req_conf_report(report_cls, report_attr, report_min, report_max, report_change, mfgCode=None):
                 try:
                     await report_cls.bind()
                     v = await report_cls.configure_reporting(
@@ -481,7 +481,7 @@ class ApplicationListener:
             # then create cluster if needed and setup reporting
             if join and CONF_CONFIG_REPORT in node_config:
                 for report in node_config.get(CONF_CONFIG_REPORT):
-                    report_cls, report_attr, report_min, report_max, report_change = report[0:4]
+                    report_cls, report_attr, report_min, report_max, report_change = report[0:5]
                     mfgCode = None if not report[5:] else  report[5]
                     if report_cls in endpoint.in_clusters:
                         cluster = endpoint.in_clusters[report_cls]
@@ -490,7 +490,8 @@ class ApplicationListener:
                             report_attr,
                             report_min,
                             report_max,
-                            report_change, mfgCode=MfgCode)
+                            report_change,
+                            mfgCode=mfgCode)
 #                        elif report_cls in endpoint.out_clusters:
 #                            cluster = endpoint.out_clusters[report_cls]
 #                            await req_conf_report(
