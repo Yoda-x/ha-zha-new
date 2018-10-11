@@ -16,9 +16,9 @@ import custom_components.device as z_device
 from homeassistant.helpers.event import async_track_point_in_time
 from zigpy.zdo.types import Status
 import zigpy.types as t
-from zigpy.zcl.clusters.general import LevelControl, OnOff, Scenes,  Basic
+from zigpy.zcl.clusters.general import LevelControl, OnOff, Scenes,  Basic, PowerConfiguration
 from zigpy.zcl.clusters.security import IasZone
-from zigpy.zcl.clusters.measurement import OccupancySensing
+from zigpy.zcl.clusters.measurement import OccupancySensing, TemperatureMeasurement
 _LOGGER = logging.getLogger(__name__)
 """ changed to zha-new to use in home dir """
 DEPENDENCIES = ['zha_new']
@@ -68,7 +68,7 @@ async def async_setup_platform(hass, config, async_add_devices,
 #                    await asyncio.sleep(0.2)
                     await cluster.enroll_response(0, 0)
                 except:
-                    _LOGGER.debug("send enroll_command failed") # not sure if this is possible
+                    _LOGGER.debug("send enroll_command failed")  # not sure if this is possible
 
                 try:
                     _LOGGER.debug("try zone read")
@@ -77,7 +77,6 @@ async def async_setup_platform(hass, config, async_add_devices,
                     device_class = CLASS_MAPPING.get(zone_type, None)
                 except Exception:  # pylint: disable=broad-except
                     _LOGGER.debug("zone read failed")
-
 
     entity = await _make_sensor(device_class, discovery_info)
     if hass.states.get(entity.entity_id):
@@ -135,7 +134,7 @@ async def _make_sensor(device_class, discovery_info):
             try:
                 v = await cluster.bind()
             except:
-                v=[Status.TIMEOUT]
+                v = [Status.TIMEOUT]
             if v[0]:
                 _LOGGER.error("[0x%04x:%s] bind input-cluster failed %s",
                               endpoint._device.nwk, endpoint.endpoint_id,
@@ -166,6 +165,8 @@ async def _make_sensor(device_class, discovery_info):
 
 #########################################################
 # Binary Sensor Classes ########################################
+
+
 class BinarySensor(zha_new.Entity, BinarySensorDevice):
 
     """THe ZHA Binary Sensor."""
@@ -183,9 +184,9 @@ class BinarySensor(zha_new.Entity, BinarySensorDevice):
         out_clusters = kwargs['out_clusters']
         clusters = {**out_clusters, **in_clusters}
         _LOGGER.debug("[0x%04x:%s] initialize cluster listeners: %s ",
-                  endpoint._device.nwk,
-                  endpoint.endpoint_id,
-                  list(clusters.keys()))
+                      endpoint._device.nwk,
+                      endpoint.endpoint_id,
+                      list(clusters.keys()))
 
         for cluster in clusters.values():
             if LevelControl.cluster_id == cluster.cluster_id:
@@ -202,14 +203,19 @@ class BinarySensor(zha_new.Entity, BinarySensorDevice):
                                 self, cluster, "IasZone")
             elif Basic.cluster_id == cluster.cluster_id:
                 self.sub_listener[cluster.cluster_id] = Server_Basic(
-                                self, cluster, "Basic") 
+                                self, cluster, "Basic")
             elif OccupancySensing.cluster_id == cluster.cluster_id:
                 self.sub_listener[cluster.cluster_id] = Server_OccupancySensing(
                                 self, cluster, "OccupancySensing")
+            elif TemperatureMeasurement.cluster_id == cluster.cluster_id:
+                self.sub_listener[cluster.cluster_id] = Server_TemperatureMeasurement(
+                                self, cluster, "TemperatureMeasurement")
+            elif PowerConfiguration.cluster_id == cluster.cluster_id:
+                self.sub_listener[cluster.cluster_id] = Server_PowerConfiguration(
+                                self, cluster, "PowerConfiguration")
             else:
                 self.sub_listener[cluster.cluster_id] = Cluster_Server(
                                 self, cluster, cluster.cluster_id)
- 
 
     @property
     def is_on(self) -> bool:
@@ -232,13 +238,13 @@ class BinarySensor(zha_new.Entity, BinarySensorDevice):
 #            self.hass.add_job(self._ias_zone_cluster.enroll_response(0, 0))
 
     def attribute_updated(self, attribute, value):
-        _LOGGER.debug("Attribute received on entity: %s %s", attribute, value) 
+        _LOGGER.debug("Attribute received on entity: %s %s", attribute, value)
         (attribute, value) = self._parse_attribute(
                         self,
                         attribute,
                         value,
                         self._model,
-                        cluster_id = None)
+                        cluster_id=None)
         if attribute == self.value_attribute:
             self._state = value
         self.schedule_update_ha_state()
@@ -286,11 +292,33 @@ class OnOffSensor(BinarySensor):
     value_attribute = 0
     cluster_default = 0x0006
 
+
 class MoistureSensor(BinarySensor):
 
     """ ZHA Moisture Sensor."""
 
     value_attribute = 0
+
+
+class RemoteSensor(BinarySensor):
+
+    """Remote controllers."""
+
+    def __init__(self, device_class, **kwargs):
+        super().__init__(device_class, **kwargs)
+        self._brightness = 0
+        self._supported_features = 0
+
+    def cluster_command(self, tsn, command_id, args):
+        update_attrib = {}
+        update_attrib['last seen'] = dt_util.now()
+        self._entity._device_state_attributes.update({
+                'last seen': dt_util.now(),
+                self._identifier: self.value,
+                'channels': list(c.identifier for c in self.sub_listener_out.items())
+        })
+        self._entity.schedule_update_ha_state()
+        self.schedule_update_ha_state()
 
 
 class Cluster_Server(object):
@@ -311,16 +339,16 @@ class Cluster_Server(object):
 
     def cluster_command(self, tsn, command_id, args):
         _LOGGER.debug('cluster command received:[0x%04x:%s] %s',
-                        self._cluster.cluster_id, 
-                        command_id,
-                        args
+                      self._cluster.cluster_id,
+                      command_id,
+                      args
                       )
 
     def attribute_updated(self, attribute, value):
         _LOGGER.debug('Attribute report received on cluster [0x%04x:%s:]=%s',
-                        self._cluster.cluster_id, 
-                        attribute,
-                        value
+                      self._cluster.cluster_id,
+                      attribute,
+                      value
                       )
 
         (attribute, value) = self._parse_attribute(
@@ -328,7 +356,7 @@ class Cluster_Server(object):
                         attribute,
                         value,
                         self._entity._model,
-                        cluster_id = self._cluster.cluster_id)
+                        cluster_id=self._cluster.cluster_id)
         if attribute == self._entity.value_attribute:
             self._entity._state = value
         self._entity.schedule_update_ha_state()
@@ -396,7 +424,7 @@ class Server_IasZone(Cluster_Server):
                     _LOGGER.debug('alarm event [tsn:%s] %s', tsn, event_data)
             attributes['last detection'] = dt_util.now()
             self._entity._device_state_attributes.update(attributes)
-            self._entity._state = args[0] &3
+            self._entity._state = args[0] & 3
             self._entity.schedule_update_ha_state()
         elif command_id == 1:
             _LOGGER.debug("Enroll requested")
@@ -516,8 +544,6 @@ class Server_OnOff(Cluster_Server):
         })
         self._entity.schedule_update_ha_state()
 
-
-
 class Server_Scenes(Cluster_Server):
     def cluster_command(self, tsn, command_id, args):
         from zigpy.zcl.clusters.general import Scenes
@@ -538,9 +564,12 @@ class Server_Scenes(Cluster_Server):
                 self._identifier: args,
                 'last command': command
         })
+
         self._entity.schedule_update_ha_state()
 
 class Server_OccupancySensing(Cluster_Server):
+
+
     value_attribute = 0
     re_arm_sec = 20
     invalidate_after = None
@@ -550,7 +579,7 @@ class Server_OccupancySensing(Cluster_Server):
         """ handle trigger events from motion sensor.
         clear state after re_arm_sec seconds."""
         _LOGGER.debug("Attribute received: %s %s", attribute, value)
-        (attribute, value) = self._entity._parse_attribute(self._entity, attribute, value, self._entity._model, cluster_id = self._cluster.cluster_id)
+        (attribute, value) = self._entity._parse_attribute(self._entity, attribute, value, self._entity._model, cluster_id=self._cluster.cluster_id)
 
         @asyncio.coroutine
         def _async_clear_state(entity):
@@ -577,23 +606,27 @@ class Server_OccupancySensing(Cluster_Server):
 
         self._entity.schedule_update_ha_state()
 
-class RemoteSensor(BinarySensor):
+class Server_TemperatureMeasurement(Cluster_Server):
+    def attribute_updated(self, attribute, value):
 
-    """Remote controllers."""
 
-    def __init__(self, device_class, **kwargs):
-        from zigpy.zcl.clusters.general import LevelControl, OnOff, Scenes
-        super().__init__(device_class, **kwargs)
-        self._brightness = 0
-        self._supported_features = 0
-
-    def cluster_command(self, tsn, command_id, args):
         update_attrib = {}
+        if attribute == 0:
+            update_attrib['Temperature'] = round(float(value) / 100, 1)
         update_attrib['last seen'] = dt_util.now()
-        self._entity._device_state_attributes.update({
-                'last seen': dt_util.now(),
-                self._identifier: self.value,
-                'channels': list(c.identifier for c in self.sub_listener_out.items())
-        })
+        self._entity._device_state_attributes.update(update_attrib)
+
         self._entity.schedule_update_ha_state()
-        self.schedule_update_ha_state()
+
+class Server_PowerConfiguration(Cluster_Server):
+    def attribute_updated(self, attribute, value):
+        update_attrib = {}
+
+
+        if attribute == 20:
+            update_attrib['Battery_Voltage'] = round(float(value) / 100, 1)
+        elif attribute == 21:
+            update_attrib['battery_level'] = value
+        update_attrib['last seen'] = dt_util.now()
+        self._entity._device_state_attributes.update(update_attrib)
+        self._entity.schedule_update_ha_state()
