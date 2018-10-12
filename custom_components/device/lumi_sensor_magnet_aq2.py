@@ -1,1 +1,1 @@
-lumi_sensor_magnet.py
+from .lumi_sensor_magnet import *
