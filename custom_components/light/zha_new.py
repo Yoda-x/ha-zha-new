@@ -9,13 +9,13 @@ import logging
 
 from homeassistant.components import light
 from homeassistant.const import STATE_UNKNOWN
-from custom_components import zha_new
+import custom_components.zha_new as zha_new
 from importlib import import_module
 import homeassistant.util.color as color_util
 
 _LOGGER = logging.getLogger(__name__)
 """ change to ZHA-new for use in home-dir """
-DEPENDENCIES = ['zha_new']
+#DEPENDENCIES = ['zha_new']
 
 DEFAULT_DURATION = 0.5
 CAPABILITIES_COLOR_XY = 0x08
