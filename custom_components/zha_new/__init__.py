@@ -107,6 +107,7 @@ def populate_data():
         zcl.clusters.measurement.PressureMeasurement: 'sensor',
         zcl.clusters.measurement.IlluminanceMeasurement: 'sensor',
         zcl.clusters.measurement.OccupancySensing: 'binary_sensor',
+        zcl.clusters.homeautomation.ElectricalMeasurement: 'sensor', 
         })
 
     # A map of hass components to all Zigbee clusters it could use

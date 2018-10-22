@@ -68,6 +68,7 @@ def make_sensor(discovery_info):
     from zigpy.zcl.clusters.measurement import PressureMeasurement
     from zigpy.zcl.clusters.measurement import IlluminanceMeasurement
     from zigpy.zcl.clusters.smartenergy import Metering
+    from zigpy.zcl.clusters.homeautomation import ElectricalMeasurement
 
     in_clusters = discovery_info['in_clusters']
     endpoint = discovery_info['endpoint']
@@ -87,6 +88,9 @@ def make_sensor(discovery_info):
     elif IlluminanceMeasurement.cluster_id in in_clusters:
         sensor = IlluminanceSensor(**discovery_info,
                                    cluster_key=IlluminanceMeasurement.ep_attribute)
+    elif ElectricalMeasurement.cluster_id in in_clusters:
+        sensor = ElectricalMeasurementSensor(**discovery_info,
+                                   cluster_key=ElectricalMeasurement.ep_attribute)
     else:
         sensor = Sensor(**discovery_info)
 
@@ -204,7 +208,41 @@ class IlluminanceSensor(Sensor):
             return None
         return self._state
 
+class ElectricalMeasurementSensor(Sensor):
 
+    @property
+    def unit_of_measurement(self):
+        """Return the unit of measuremnt of this entity."""
+        return "kWh"
+
+    @property
+    def state(self):
+        """Return the state of the entity."""
+        if self._state is None:
+            return None
+        return round(float(self._state)/10000, 2)
+
+    @property
+    def force_update(self) -> bool:
+        """Force update this entity."""
+        return True
+
+    @property
+    def should_poll(self) -> bool:
+        """Poll state from device."""
+        return True
+
+    async def async_update(self):
+        """Retrieve latest state."""
+        _LOGGER.debug("%s async_update", self.entity_id)
+        result = await zha_new.safe_read(self._endpoint.electrical_measurement, ['active_power'])
+        try:
+            self._state = result['active_power']
+            self._available = True
+        except Exception:
+            self._available = False
+            return
+        
 class MeteringSensor(Sensor):
     value_attribute = 0
     """ZHA  smart engery metering."""
