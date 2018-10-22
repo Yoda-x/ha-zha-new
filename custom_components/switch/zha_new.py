@@ -3,13 +3,13 @@ import asyncio
 import logging
 
 from homeassistant.components.switch import DOMAIN, SwitchDevice
-from custom_components import zha_new
+import custom_components.zha_new as zha_new
 from importlib import import_module
 
 _LOGGER = logging.getLogger(__name__)
 
 """ change to zha-new for use in home dir """
-DEPENDENCIES = ['zha_new']
+#DEPENDENCIES = ['zha_new']
 
 
 def setup_platform(hass, config, add_devices, discovery_info=None):

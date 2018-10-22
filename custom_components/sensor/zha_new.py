@@ -11,11 +11,11 @@ import logging
 from homeassistant.components.sensor import DOMAIN
 from homeassistant.const import TEMP_CELSIUS
 from homeassistant.util.temperature import convert as convert_temperature
-from custom_components import zha_new
+import custom_components.zha_new as zha_new
 
 _LOGGER = logging.getLogger(__name__)
 
-DEPENDENCIES = ['zha_new']
+#DEPENDENCIES = ['zha_new']
 
 
 @asyncio.coroutine

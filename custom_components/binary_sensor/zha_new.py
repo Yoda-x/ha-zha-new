@@ -11,7 +11,7 @@ import logging
 import datetime
 import homeassistant.util.dt as dt_util
 from homeassistant.components.binary_sensor import DOMAIN, BinarySensorDevice
-from custom_components import zha_new
+import custom_components.zha_new as  zha_new
 import custom_components.device as z_device
 from homeassistant.helpers.event import async_track_point_in_time
 from zigpy.zdo.types import Status
@@ -21,7 +21,7 @@ from zigpy.zcl.clusters.security import IasZone
 from zigpy.zcl.clusters.measurement import OccupancySensing, TemperatureMeasurement
 _LOGGER = logging.getLogger(__name__)
 """ changed to zha-new to use in home dir """
-DEPENDENCIES = ['zha_new']
+#DEPENDENCIES = ['zha_new']
 
 # ZigBee Cluster Library Zone Type to Home Assistant device class
 CLASS_MAPPING = {
