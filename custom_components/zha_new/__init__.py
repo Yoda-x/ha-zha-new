@@ -19,7 +19,7 @@ from homeassistant.helpers import discovery, entity
 from homeassistant.helpers.entity_component import EntityComponent
 from homeassistant.util import slugify
 from importlib import import_module
-
+from . import cluster_handler as CH
 
 #REQUIREMENTS = ['bellows', 'zigpy']
 REQUIREMENTS = ['https://github.com/Yoda-x/bellows/archive/preview.zip#bellows==0.7.3-Y-pre', 'https://github.com/Yoda-x/zigpy/archive/preview.zip#zigpy==0.1.4-Ypre']
