@@ -3,13 +3,13 @@ import asyncio
 import logging
 
 from homeassistant.components.switch import DOMAIN, SwitchDevice
-from custom_components import zha_new
+import custom_components.zha_new as zha_new
 from importlib import import_module
 
 _LOGGER = logging.getLogger(__name__)
 
 """ change to zha-new for use in home dir """
-DEPENDENCIES = ['zha_new']
+#DEPENDENCIES = ['zha_new']
 
 
 def setup_platform(hass, config, add_devices, discovery_info=None):
@@ -41,9 +41,10 @@ class Switch(zha_new.Entity, SwitchDevice):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         endpoint = kwargs['endpoint']
-        for cluster in endpoint.out_clusters.values():
+        clusters = {**endpoint.out_clusters, **endpoint.in_clusters}
+        for cluster in clusters.values():
             cluster.add_listener(self)
-
+            
     @property
     def is_on(self) -> bool:
         """Return if the switch is on based on the statemachine."""

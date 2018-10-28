@@ -9,13 +9,13 @@ import logging
 
 from homeassistant.components import light
 from homeassistant.const import STATE_UNKNOWN
-from custom_components import zha_new
+import custom_components.zha_new as zha_new
 from importlib import import_module
 import homeassistant.util.color as color_util
 
 _LOGGER = logging.getLogger(__name__)
 """ change to ZHA-new for use in home-dir """
-DEPENDENCIES = ['zha_new']
+#DEPENDENCIES = ['zha_new']
 
 DEFAULT_DURATION = 0.5
 CAPABILITIES_COLOR_XY = 0x08
@@ -91,6 +91,13 @@ class Light(zha_new.Entity, light.Light):
         if zcl_clusters.general.Groups.cluster_id in self._in_clusters:
             self._groups = []
             self._device_state_attributes["Group_id"] = self._groups
+
+        endpoint = kwargs['endpoint']
+        in_clusters = kwargs['in_clusters']
+        out_clusters = kwargs['out_clusters']
+        clusters = {**out_clusters, **in_clusters}
+        for cluster in clusters.values():
+            cluster.add_listener(self)
 
     @property
     def is_on(self) -> bool:
@@ -184,16 +191,21 @@ class Light(zha_new.Entity, light.Light):
             self._available = False
             return
 
-        if self._groups is not None:
-            result = await self._endpoint.groups.get_membership([])
+        if hasattr(self,'_groups'):
+            try:
+                result = await self._endpoint.groups.get_membership([])
+            except:
+                result = None
+            _LOGGER.debug("%s get membership: %s", self.entity_id,  result)
             if result:
                 if result[0] >= 1:
                     self._groups = result[1]
                     if self._device_state_attributes["Group_id"] != self._groups:
                         self._device_state_attributes["Group_id"] = self._groups
-                        self._endpoint._device._application.listener_event(
-                            'subscribe_group',
-                            self._groups[0])
+                        for groups in self._groups:
+                            self._endpoint._device._application.listener_event(
+                                'subscribe_group',
+                                groups)
             if not self._state:
                 return
 
@@ -208,7 +220,7 @@ class Light(zha_new.Entity, light.Light):
                                              ['color_temperature'])
             if result:
                 self._color_temp = result.get('color_temperature',
-                                          self._color_temp)
+                                              self._color_temp)
 
         if self._supported_features & light.SUPPORT_COLOR:
             result = await zha_new.safe_read(self._endpoint.light_color,

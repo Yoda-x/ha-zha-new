@@ -1,5 +1,6 @@
 """" custom py file for device."""
 import logging
+import asyncio
 import homeassistant.util.dt as dt_util
 from custom_components import zha_new
 
@@ -15,7 +16,7 @@ def _custom_endpoint_init(self, node_config, *argv):
         _LOGGER.debug(" selector: %s", selector)
     if selector in ['lumi.sensor_magnet', 'lumi.sensor_magnet.aq2']:
         config = {
-            "in_cluster": [0x0000, 0x0006 ],
+            "in_cluster": [0x0000, 0x0006],
             "type": "binary_sensor",
         }
     elif selector in ['lumi.sensor_ht', ] and self.endpoint_id == 1:
@@ -25,12 +26,12 @@ def _custom_endpoint_init(self, node_config, *argv):
                 [0x0405, 0, 10, 600, 5],
             ],
             "in_cluster": [0x0000, 0x0402, ],
-            "out_cluster": [], 
+            "out_cluster": [],
             "type": "sensor",
         }
         self.add_input_cluster(0x0402)
         self.add_input_cluster(0x0405)
-        
+
     elif selector in ['lumi.weather', ] and self.endpoint_id == 1:
         config = {
             "config_report": [
@@ -39,7 +40,7 @@ def _custom_endpoint_init(self, node_config, *argv):
                 [0x0405, 0, 10, 120, 5],
             ],
             "in_cluster": [0x0000, 0x402],
-            "out_cluster": [], 
+            "out_cluster": [],
             "type": "sensor",
         }
         self.add_input_cluster(0x0402)
@@ -50,9 +51,9 @@ def _custom_endpoint_init(self, node_config, *argv):
             "config_report": [
                 [0x0406, 0, 10, 1800, 1],
             ],
-            "in_cluster": [0x0000, 0xffff, 0x0406 ],
-            "out_cluster": [], 
-            "type": "binary_sensor",    
+            "in_cluster": [0x0000, 0xffff, 0x0406],
+            "out_cluster": [],
+            "type": "binary_sensor",
         }
         self.add_input_cluster(0x0406)
     elif selector in ['lumi.sensor_motion.aq2', ]:
@@ -61,22 +62,27 @@ def _custom_endpoint_init(self, node_config, *argv):
                 [0x0406, 0, 10, 1800, 1],
                 [0x0400, 0, 10, 1800, 10],
             ],
-            "in_cluster": [0x0000,0x0406,  0xffff],
-            "out_cluster": [], 
-#            "type": "binary_sensor",
+            "in_cluster": [0x0000, 0x0406,  0xffff],
+            "out_cluster": [],
+            #            "type": "binary_sensor",
         }
         self.add_input_cluster(0x0406)
         self.add_input_cluster(0x0400)
     elif selector == 'lumi.sensor_wleak.aq1':
         config = {
             "in_cluster": [0x0000, 0xff01],
-            "out_cluster": [], 
+            "out_cluster": [0x0500],
             "type": "binary_sensor",
             "config_report": [
-                [65281, 0, 10, 1800, 1],
-            ], 
+                [0xff01, 0, 10, 1800, 1],
+            ],
         }
-
+    elif selector == 'lumi.vibration.aq1' and self.endpoint_id == 1:
+        config = {
+            "type": "sensor",
+            "in_cluster": [0x0000, 0x0101]
+        }
+#        asyncio.ensure_future(zha_new.discover_cluster_values(self, self.in_clusters[0x0101]))
     node_config.update(config)
 
 
@@ -87,11 +93,11 @@ def _battery_percent(voltage):
     return (voltage - min_voltage) / (max_voltage - min_voltage) * 100
 
 
-def _parse_attribute(entity, attrib, value, *argv):
+def _parse_attribute(entity, attrib, value, *argv, **kwargs):
     """ parse non standard atrributes."""
     import zigpy.types as t
     from zigpy.zcl import foundation as f
-#    _LOGGER.debug('parse value type %s', type(value))
+    _LOGGER.debug('parse %s %s %a %s', attrib, value, argv, kwargs)
 #    if type(value) is str:
 #        result = bytearray()
 #        result.extend(map(ord, value))
@@ -129,10 +135,9 @@ def _parse_attribute(entity, attrib, value, *argv):
             102: "pressure",
             5: "X-attrib-5",
             6: "X-attrib-6",
-            10: "path" # was X-attrib-10
+            10: "path"  # was X-attrib-10
         }
         result = {}
-#        _LOGGER.debug("Parse dict 0xff01: parsing")
         while value:
             skey = int(value[0])
             svalue, value = f.TypeValue.deserialize(value[1:])
@@ -166,8 +171,18 @@ def _parse_attribute(entity, attrib, value, *argv):
         entity.entity_connect["pressure"]._state = round(
             float(attributes["pressure"]) / 100, 0)
 
-    attributes["Last seen"] = dt_util.now()
+    attributes["last seen"] = dt_util.now()
     if "path" in attributes:
         entity._endpoint._device.handle_RouteRecord(attributes["path"])
     entity._device_state_attributes.update(attributes)
+
+    if entity._model == 'lumi.vibration.aq1':
+        if attrib == 85:
+            event_data = {
+                    'entity_id': entity.entity_id,
+                    'channel': "alarm",
+                    'type': value,
+                   }
+            entity.hass.bus.fire('alarm', event_data)
+
     return(attrib, result)
