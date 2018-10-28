@@ -194,6 +194,13 @@ class zha_state(entity.Entity):
         """Return device specific state attributes."""
         return self._device_state_attributes
 
+    @property
+    def icon(self):
+        if self._state == "Failed":
+            return "mdi:skull-crossbones"
+        else:
+            return "mdi:emoticon-happy"
+ 
     async def async_update(self):
 #        from zigpy.zcl import foundation as f
         result = await self.stack._command('neighborCount', [])
@@ -210,6 +217,12 @@ class zha_state(entity.Entity):
 #        neighbors = await self.application.read_neighbor_table()
 #        self._device_state_attributes['neighbors'] = neighbors
 #        await self.application.update_topology()
+        status = self.application.status()
+        self._device_state_attributes['status'] = status
+        if (sum(status[0]) + sum(status[1]) > 0):
+           self._state = "Failed"
+        else:
+           self._state = "Run"
 
 
 async def async_setup(hass, config):
