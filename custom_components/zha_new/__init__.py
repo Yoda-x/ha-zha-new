@@ -19,10 +19,10 @@ from homeassistant.helpers import discovery, entity
 from homeassistant.helpers.entity_component import EntityComponent
 from homeassistant.util import slugify
 from importlib import import_module
-from . import cluster_handler as CH
 
 #REQUIREMENTS = ['bellows', 'zigpy']
-REQUIREMENTS = ['https://github.com/Yoda-x/bellows/archive/preview.zip#bellows==0.7.3-Y-pre', 'https://github.com/Yoda-x/zigpy/archive/preview.zip#zigpy==0.1.4-Ypre']
+REQUIREMENTS = ['https://github.com/Yoda-x/bellows/archive/master.zip#bellows==0.7.4', 
+                'https://github.com/Yoda-x/zigpy/archive/master.zip#zigpy==0.1.4-Y']
 DOMAIN = 'zha_new'
 
 CONF_BAUDRATE = 'baudrate'
@@ -200,7 +200,7 @@ class zha_state(entity.Entity):
             return "mdi:skull-crossbones"
         else:
             return "mdi:emoticon-happy"
- 
+
     async def async_update(self):
 #        from zigpy.zcl import foundation as f
         result = await self.stack._command('neighborCount', [])
@@ -217,13 +217,13 @@ class zha_state(entity.Entity):
 #        neighbors = await self.application.read_neighbor_table()
 #        self._device_state_attributes['neighbors'] = neighbors
 #        await self.application.update_topology()
+
         status = self.application.status()
         self._device_state_attributes['status'] = status
         if (sum(status[0]) + sum(status[1]) > 0):
            self._state = "Failed"
         else:
            self._state = "Run"
-
 
 async def async_setup(hass, config):
 

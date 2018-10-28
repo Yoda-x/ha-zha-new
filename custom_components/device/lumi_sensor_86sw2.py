@@ -66,8 +66,23 @@ def _parse_attribute(entity, attrib, value, *argv, **kwargs):
                 'data': result,
                 }
             entity.hass.bus.fire('click', event_data)
- 
-    attributes["last seen"] = dt_util.now()
+    elif (kwargs['cluster_id'] == 0x0012) and attrib == 0x0055:
+        event_data = {
+            'entity_id': entity.entity_id,
+            'channel': "MultiStateInput",
+        }
+        if result == 0:
+            event_data['data']='hold'
+        elif result == 255:
+            event_data['data']='release'
+        elif result == 1:
+            event_data['data']='single'
+        elif result == 2:
+            event_data['data']='double'
+        entity.hass.bus.fire('click', event_data)
+
+
+        attributes["last seen"] = dt_util.now()
     entity._device_state_attributes.update(attributes)
     _LOGGER.debug('updated Attributes:%s', attributes)
     return(attrib, result)
