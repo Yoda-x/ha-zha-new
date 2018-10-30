@@ -19,8 +19,7 @@ from homeassistant.helpers import discovery, entity
 from homeassistant.helpers.entity_component import EntityComponent
 from homeassistant.util import slugify
 from importlib import import_module
-
-REQUIREMENTS = ['bellows', 'zigpy']REQUIREMENTS = ['https://github.com/Yoda-x/bellows/archive/master.zip#bellows==0.7.4', 
+REQUIREMENTS = ['https://github.com/Yoda-x/bellows/archive/master.zip#bellows==0.7.4', 
                 'https://github.com/Yoda-x/zigpy/archive/master.zip#zigpy==0.1.4-Y']
 DOMAIN = 'zha_new'
 
