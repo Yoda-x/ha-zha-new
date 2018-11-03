@@ -21,11 +21,11 @@ def _custom_endpoint_init(self, node_config, *argv):
         }
     elif selector in ['lumi.sensor_ht', ] and self.endpoint_id == 1:
         config = {
-            "config_report": [
-                [0x0402, 0, 10, 600, 5],
-                [0x0405, 0, 10, 600, 5],
-            ],
-            "in_cluster": [0x0000, 0x0402, ],
+#            "config_report": [
+#                [0x0402, 0, 10, 600, 5],
+#                [0x0405, 0, 10, 600, 5],
+#            ],
+            "in_cluster": [0x0000, 0x0402,], #just use one sensor as main
             "out_cluster": [],
             "type": "sensor",
         }
@@ -39,13 +39,13 @@ def _custom_endpoint_init(self, node_config, *argv):
                 [0x0403, 0, 10, 120, 5],
                 [0x0405, 0, 10, 120, 5],
             ],
-            "in_cluster": [0x0000, 0x402],
+            "in_cluster": [0x0000, 0x0402], #just use one sensor as main
             "out_cluster": [],
             "type": "sensor",
         }
-        self.add_input_cluster(0x0402)
+#        self.add_input_cluster(0x0402)
+        self.add_input_cluster(0x0403)
         self.add_input_cluster(0x0405)
-        self.add_input_cluster(0x0406)
     elif selector in ['lumi.sensor_motion', ]:
         config = {
             "config_report": [

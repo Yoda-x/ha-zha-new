@@ -20,7 +20,7 @@ from homeassistant.helpers.entity_component import EntityComponent
 from homeassistant.util import slugify
 from importlib import import_module
 
-REQUIREMENTS = ['bellows', 'zigpy']REQUIREMENTS = ['https://github.com/Yoda-x/bellows/archive/master.zip#bellows==0.7.4', 
+REQUIREMENTS = ['https://github.com/Yoda-x/bellows/archive/master.zip#bellows==0.7.4',
                 'https://github.com/Yoda-x/zigpy/archive/master.zip#zigpy==0.1.4-Y']
 DOMAIN = 'zha_new'
 
@@ -168,6 +168,8 @@ APPLICATION_CONTROLLER = None
 _LOGGER = logging.getLogger(__name__)
 
 # to be overwritten by DH
+
+
 def _custom_endpoint_init(self, node_config, *argv):
     pass
 
@@ -220,9 +222,10 @@ class zha_state(entity.Entity):
         status = self.application.status()
         self._device_state_attributes['status'] = status
         if (sum(status[0]) + sum(status[1]) > 0):
-           self._state = "Failed"
-        else:
-           self._state = "Run"
+            self._state = "Failed"
+        elif self._state == "Failed":
+            self._state = "Run"
+
 
 async def async_setup(hass, config):
 
@@ -338,7 +341,7 @@ class ApplicationListener:
 #                _LOGGER.debug("platform used: %s ", dir(dev_ent.platform))
                 self._hass.async_add_job(dev_ent.async_remove())
             entity_store.pop(device._ieee)
-		# cleanup Discovery_Key
+                # cleanup Discovery_Key
         for dev_ent in list(self._hass.data[DISCOVERY_KEY]):
             if str(device._ieee) in dev_ent:
                 self._hass.data[DISCOVERY_KEY].pop(dev_ent)
@@ -379,9 +382,21 @@ class ApplicationListener:
         populate_data()
         discovered_info = {}
         out_clusters = []
-        model = None
         # loop over endpoints
-        _LOGGER.debug("[0x%04x] device init for %s -> Endpoints: %s", device.nwk,  device.ieee, list(device.endpoints.keys()))
+        _LOGGER.debug("[0x%04x] device init for %s(%s)(%s) -> Endpoints: %s, %s ", 
+                device.nwk,  type(device.model),  device.model,  device.ieee, list(device.endpoints.keys()), 
+                "new join" if join else "already joined")
+        if join:
+            for endpoint_id, endpoint in device.endpoints.items():
+                if endpoint_id == 0:  # ZDO
+                    continue
+
+                if 0 in endpoint.in_clusters:
+                    discovered_info = await _discover_endpoint_info(endpoint)
+                    if not device.model:
+                        device.model = discovered_info.get(CONF_MODEL, None)
+                    if not device.manufacturer:
+                        device.manufacturer = discovered_info.get(CONF_MANUFACTURER, None)
         for endpoint_id, endpoint in device.endpoints.items():
             _LOGGER.debug("[0x%04x:%s] endpoint init", device.nwk, endpoint_id, )
             if endpoint_id == 0:  # ZDO
@@ -398,33 +413,31 @@ class ApplicationListener:
                           node_config)
 
             if CONF_TEMPLATE in node_config:
-                device_model = model = node_config.get(CONF_TEMPLATE, "default")
-                if device_model not in self.custom_devices:
-                    self.custom_devices[device_model] = custom_module = get_custom_device_info(device_model)
+                device.model = node_config.get(CONF_TEMPLATE, "default")
+                if device.model not in self.custom_devices:
+                    self.custom_devices[device.model] = custom_module = get_custom_device_info(device.model)
                 else:
-                    custom_module = self.custom_devices[device_model]
+                    custom_module = self.custom_devices[device.model]
                 if '_custom_endpoint_init' in custom_module:
-                    custom_module['_custom_endpoint_init'](endpoint, node_config,  device_model)
+                    custom_module['_custom_endpoint_init'](endpoint, node_config,  device.model)
 
+            discovered_info = {CONF_MODEL: device.model,
+                                CONF_MANUFACTURER: device.manufacturer}
             if CONF_MANUFACTURER in node_config:
-                discovered_info[CONF_MANUFACTURER] = node_config[CONF_MANUFACTURER]
+                discovered_info[CONF_MANUFACTURER] = device.manufacturer = node_config[CONF_MANUFACTURER]
             if CONF_MODEL in node_config:
-                discovered_info[CONF_MODEL] = node_config[CONF_MODEL]
-            elif 0 in endpoint.in_clusters:
-                # just get device_info if cluster 0 exists
-                discovered_info = await _discover_endpoint_info(endpoint, join)
-            if model is not None and discovered_info[CONF_MODEL] is None:
-                discovered_info[CONF_MODEL] = model
+                discovered_info[CONF_MODEL] = device.model = node_config[CONF_MODEL]
+
+ #           if model is not None and discovered_info[CONF_MODEL] is None:
+ #               discovered_info[CONF_MODEL] = model
 
             # when a model name is available and not the template already applied,
             # use it to do custom init
-            if (discovered_info.get(CONF_MODEL, None) is not None
-                and CONF_TEMPLATE not in node_config):
-                device_model = model = discovered_info[CONF_MODEL]
-                if device_model not in self.custom_devices:
-                    self.custom_devices[device_model] = custom_module = get_custom_device_info(device_model)
+            if (device.model and CONF_TEMPLATE not in node_config):
+                if device.model not in self.custom_devices:
+                    self.custom_devices[device.model] = custom_module = get_custom_device_info(device.model)
                 else:
-                    custom_module = self.custom_devices[device_model]
+                    custom_module = self.custom_devices[device.model]
                 _LOGGER.debug('[0x%04x:%s] pre call _custom_endpoint_init: %s',
                               device.nwk, endpoint_id,
                               custom_module)
@@ -433,17 +446,17 @@ class ApplicationListener:
                     _LOGGER.debug('[0x%04x:%s] call _custom_endpoint_init: %s',
                                   device.nwk,
                                   endpoint_id,
-                                  device_model)
-                    custom_module['_custom_endpoint_init'](endpoint, node_config, device_model)
+                                  device.model)
+                    custom_module['_custom_endpoint_init'](endpoint, node_config, device.model)
                 else:
                     _LOGGER.debug('[0x%04x:%s] no call _custom_endpoint_init: %s',
                                   device.nwk,
                                   endpoint_id,
-                                  device_model)
+                                  device.model)
 
             _LOGGER.debug("[0x%04x:%s] node config for %s: %s",
                           device.nwk,
-                          endpoint_id, 
+                          endpoint_id,
                           device_key,
                           node_config)
 
@@ -472,7 +485,22 @@ class ApplicationListener:
 
             async def req_conf_report(report_cls, report_attr, report_min, report_max, report_change, mfgCode=None):
                 try:
-                    await report_cls.bind()
+                    v = await report_cls.bind()
+                    if v[0] > 0:
+                        _LOGGER.debug("[0x%04x:%s] %s: bind failed: %s",
+                                      device.nwk,
+                                      endpoint_id,
+                                      device_key,
+                                      report_cls.cluster_id,
+                                      Status(v[0]).name)
+                except Exception as e:
+                    _LOGGER.debug("[0x%04x:%s] %s: : bind exceptional failed %s",
+                                  device.nwk,
+                                  endpoint_id,
+                                  device_key,
+                                  report_cls.cluster_id,
+                                  e)
+                try:
                     v = await report_cls.configure_reporting(
                         report_attr, int(report_min),
                         int(report_max), report_change, manufacturer=mfgCode)
@@ -481,20 +509,21 @@ class ApplicationListener:
                                   endpoint_id,
                                   device_key,
                                   report_cls.cluster_id,
-                                  v[0])
-                except:
-                    _LOGGER.error("[0x%04x:%s] %s:set config report failed: %s",
+                                  Status(v[0]))
+                except Exception as e:
+                    _LOGGER.error("[0x%04x:%s] %s:set config report %s failed: %s",
                                   device.nwk,
                                   endpoint_id,
                                   device_key,
-                                  report_cls.cluster_id)
+                                  report_cls.cluster_id,
+                                  e)
 
             # if reporting is configured in yaml,
             # then create cluster if needed and setup reporting
             if join and CONF_CONFIG_REPORT in node_config:
                 for report in node_config.get(CONF_CONFIG_REPORT):
                     report_cls, report_attr, report_min, report_max, report_change = report[0:5]
-                    mfgCode = None if not report[5:] else  report[5]
+                    mfgCode = None if not report[5:] else report[5]
                     if report_cls in endpoint.in_clusters:
                         cluster = endpoint.in_clusters[report_cls]
                         await req_conf_report(
@@ -504,19 +533,12 @@ class ApplicationListener:
                             report_max,
                             report_change,
                             mfgCode=mfgCode)
-#                        elif report_cls in endpoint.out_clusters:
-#                            cluster = endpoint.out_clusters[report_cls]
-#                            await req_conf_report(
-#                                cluster,
-#                                report_attr,
-#                                report_min,
-#                                report_max,
-#                                report_change)
             else:
-                _LOGGER.debug("[0x%04x:%s] config reports skipped, already joined %s",
+                _LOGGER.debug("[0x%04x:%s] config reports skipped for %s, %s ", "no reports configured" if join else "already joined" ,
                               device.nwk,
                               endpoint_id,
-                              device._ieee)
+                              device._ieee, 
+                              join)
 
             _LOGGER.debug("[0x%04x:%s] 2:profile %s, component: %s cluster:%s",
                           device.nwk,
@@ -545,10 +567,12 @@ class ApplicationListener:
                         'domain': DOMAIN,
                         'discovery_key': device_key,
                         'new_join': join,
-                        'application': self
+                        'application': self,
+                        'model': device.model,
+                        'manufacturer': device.manufacturer,
                     }
 
-                    discovery_info.update(discovered_info)
+#                    discovery_info.update(discovered_info)
                     self._hass.data[DISCOVERY_KEY][device_key] = discovery_info
                     """ goto to the specific code for switch,
                     light sensor or binary_sensor """
@@ -606,38 +630,7 @@ class ApplicationListener:
                     {'discovery_key': cluster_key},
                     self._config,
                 )
-#                in_clusters.append(cluster)
-#                _LOGGER.debug("[0x%04x] Return from single-cluster entity:%s",
-#                              device.nwk,
-#                              discovery_info)
 
-#            _LOGGER.debug("[0x%04x:%s] Start bind clusters",
-#                          device.nwk,
-#                          endpoint_id)
-#            if join:
-#                for cluster in out_clusters:
-#                    try:
-#                        v = await cluster.bind()
-#                        if v[0]:
-#                            _LOGGER.error("[0x%04x:%s] bind output-cluster failed %s : %s",
-#                                          device.nwk, endpoint_id,
-#                                          cluster.cluster_id, Status(v[0]).name
-#                                          )
-#                    except Exception:
-#                        _LOGGER.error("[0x%04x:%s] bind output-cluster exception %s ",
-#                                      device.nwk, endpoint_id,
-#                                      cluster.cluster_id)
-#                    _LOGGER.debug("[0x%04x:%s] bind output-cluster %s: %s",
-#                                  device.nwk,
-#                                  endpoint_id,
-#                                  cluster.cluster_id,
-#                                  v)
-
-#                _LOGGER.debug("[0x%04x] Exit endpoint init: Input:%s Output:%s",
-#                              device.nwk,
-#                              list(endpoint.in_clusters.keys()),
-#                              list(endpoint.out_clusters.keys())
-#                              )
         device._application.listener_event('device_updated', device)
         self.controller._state = 'Run'
         self.controller.async_schedule_update_ha_state()
@@ -659,7 +652,8 @@ class Entity(entity.Entity):
         self._device_state_attributes = {}
         self.entity_connect = {}
         self.sub_listener = dict()
-        
+        self._device_class = None
+
         ieeetail = ''.join([
             '%02x' % (o, ) for o in endpoint.device.ieee[-4:]
         ])
@@ -724,6 +718,11 @@ class Entity(entity.Entity):
             self._custom_endpoint_init = self._custom_module['_custom_endpoint_init']
 
     @property
+    def device_class(self) -> str:
+        """Return the class of this device, from component DEVICE_CLASSES."""
+        return str(self._device_class)
+
+    @property
     def unique_id(self):
         return self.uid
 
@@ -749,11 +748,11 @@ class Entity(entity.Entity):
     def _parse_attribute(self, *args, **kwargs):
         _LOGGER.debug(" dummy parse_attribute called with %s %s", args, kwargs)
         return(args,  kwargs)
-        
+
     def _custom_endpoint_init(self, *args, **kwargs):
         """dummy function; override from device handler."""
         pass
-        
+
     @property
     def device_state_attributes(self):
         """Return device specific state attributes."""
@@ -764,37 +763,37 @@ class Entity(entity.Entity):
         return self._device_state_attributes
 
 
-async def _discover_endpoint_info(endpoint, join):
+async def _discover_endpoint_info(endpoint):
     import string
     """Find some basic information about an endpoint."""
     extra_info = {
         'manufacturer': None,
         'model': None,
-    }
-    if 0 not in endpoint.in_clusters:
-        return extra_info
+        }
 
     async def read(attributes):
         """Read attributes and update extra_info convenience function."""
         result, _ = await endpoint.in_clusters[0].read_attributes(
             attributes,
-            allow_cache=not join,
+            allow_cache=False,
         )
         extra_info.update(result)
+        _LOGGER.debug("read attribute: %s", result )
 
+#    try:
+#        await read(['model','manufacturer'])
+#    except:
+#        _LOGGER.debug("read attribute failed: mode/manufacturer")
     try:
-        await read(['model','manufacturer'])
+        await read(['model'])
     except:
-        _LOGGER.debug("read attribute failed: mode/manufacturer")
-        try:
-            await read(['model'])
-        except:
-            _LOGGER.debug("single read attribute failed: model")
-        try:
-            await read(['manufacturer'])
-        except:
-            _LOGGER.debug("single read attribute failed: manufacturer, ")
+        _LOGGER.debug("single read attribute failed: model")
+    try:
+        await read(['manufacturer'])
+    except:
+        _LOGGER.debug("single read attribute failed: manufacturer, ")
     for key, value in extra_info.items():
+        _LOGGER.debug("%s: type(%s) %s", key, type(value), value)
         if isinstance(value, bytes):
             try:
                 value = value.decode('ascii').strip()
@@ -885,7 +884,7 @@ def get_custom_device_info(_model):
     custom_info = dict()
 
     try:
-        dev_func = _model.lower().replace(".", "_").replace(" ", "_")
+        dev_func = str(_model).lower().replace(".", "_").replace(" ", "_")
         device_module = import_module("custom_components.device." + dev_func)
         _LOGGER.debug("Import DH %s success", _model)
     except ImportError as e:

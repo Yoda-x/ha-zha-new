@@ -6,10 +6,21 @@ _LOGGER = logging.getLogger(__name__)
 
 
 def _custom_endpoint_init(self, node_config, *argv):
-    config = {
-         "in_cluster": [0x0000, 0x0006, 0x0012],
-        "type": "binary_sensor",
-        }
+    selector = node_config.get('template', None)
+    if not selector:
+        selector = argv[0]
+        _LOGGER.debug(" selector: %s", selector)
+    if selector in ['lumi.sensor_86sw2', 'lumi.sensor_86sw2un']:
+        config = {
+            'in_cluster': [0x0000, 0x0006],
+            'type': 'binary_sensor',
+            }
+        self.add_input_cluster(0x0006) 
+    else:
+        config = {
+            "in_cluster": [0x0000, 0x0006, 0x0012],
+            "type": "binary_sensor",
+            }
     node_config.update(config)
 
 def _parse_attribute(entity, attrib, value, *argv, **kwargs):

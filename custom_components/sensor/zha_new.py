@@ -132,6 +132,10 @@ class TemperatureSensor(Sensor):
     """ZHA temperature sensor."""
 
     min_reportable_change = 20
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self._device_class = 'temperature'
+
 
     @property
     def unit_of_measurement(self):
@@ -152,6 +156,10 @@ class HumiditySensor(Sensor):
 
     """ZHA  humidity sensor."""
 
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self._device_class = 'humidity'
+
     @property
     def unit_of_measurement(self):
         """Return the unit of measuremnt of this entity."""
@@ -169,6 +177,10 @@ class HumiditySensor(Sensor):
 class PressureSensor(Sensor):
 
     """ZHA  pressure sensor."""
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self._device_class = 'pressure'
 
     min_reportable_change = 50
 
@@ -191,6 +203,9 @@ class IlluminanceSensor(Sensor):
     """ZHA  pressure sensor."""
 
     min_reportable_change = 5
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self._device_class = 'illuminance'
 
     @property
     def unit_of_measurement(self):
