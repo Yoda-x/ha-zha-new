@@ -79,7 +79,7 @@ def _custom_endpoint_init(self, node_config, *argv):
         }
     elif selector == 'lumi.vibration.aq1' and self.endpoint_id == 1:
         config = {
-            "type": "sensor",
+            "type": "binary_sensor",
             "in_cluster": [0x0000, 0x0101]
         }
 #        asyncio.ensure_future(zha_new.discover_cluster_values(self, self.in_clusters[0x0101]))
@@ -174,15 +174,33 @@ def _parse_attribute(entity, attrib, value, *argv, **kwargs):
     attributes["last seen"] = dt_util.now()
     if "path" in attributes:
         entity._endpoint._device.handle_RouteRecord(attributes["path"])
-    entity._device_state_attributes.update(attributes)
 
     if entity._model == 'lumi.vibration.aq1':
         if attrib == 85:
             event_data = {
                     'entity_id': entity.entity_id,
-                    'channel': "alarm",
-                    'type': value,
+                    'channel':  "alarm",
+                    'type':  "vibration" if value == 1 else ("tilt" if value == 2 else "drop")
                    }
             entity.hass.bus.fire('alarm', event_data)
-
+            attributes['alarm'] = event_data['type']
+        elif attrib == 1283:
+            _LOGGER.debug("Rotation: %s",  value)
+            attributes['rotation'] = value
+        elif attrib == 1288:
+            angle_z = value & 0x0fff
+            if angle_z > 2048:
+                angle_z -= 4096
+            angle_y = (value >> 16) & 0x0fff
+            if angle_y > 2048:
+                angle_y -= 4096 
+            angle_x = (value >> 32) & 0x0fff
+            if angle_x > 2048:
+                angle_x -= 4096 
+            _LOGGER.debug("Attrib 0x%04x: 0x%04x : %s %s %s",  attrib,  value,  angle_x,  angle_y,  angle_z)
+            attributes['angle_x'] = angle_x
+            attributes['angle_y'] = angle_y
+            attributes['angle_z'] = angle_z
+        
+    entity._device_state_attributes.update(attributes)
     return(attrib, result)

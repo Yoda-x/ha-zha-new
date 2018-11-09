@@ -17,6 +17,7 @@ import homeassistant.helpers.config_validation as cv
 from homeassistant import const as ha_const
 from homeassistant.helpers import discovery, entity
 from homeassistant.helpers.entity_component import EntityComponent
+import homeassistant.helpers.entity_registry as entity_registry
 from homeassistant.util import slugify
 from importlib import import_module
 
@@ -43,6 +44,10 @@ CONF_CONFIG_REPORT = 'config_report'
 CONF_MANUFACTURER = 'manufacturer'
 CONF_MODEL = 'model'
 CONF_TEMPLATE = 'template'
+ATTR_DURATION = 'duration'
+ATTR_IEEE = 'ieee'
+ATTR_COMMAND = 'command'
+ATTR_ENTITY_ID = 'entity_id'
 
 
 def set_entity_store(hass, entity_store):
@@ -141,11 +146,9 @@ CONFIG_SCHEMA = vol.Schema({
     })
     }, extra=vol.ALLOW_EXTRA)
 
-ATTR_DURATION = 'duration'
-ATTR_IEEE = 'ieee'
-
 SERVICE_PERMIT = 'permit'
 SERVICE_REMOVE = 'remove'
+SERVICE_COMMAND = 'command'
 
 SERVICE_SCHEMAS = {
     SERVICE_PERMIT: vol.Schema({
@@ -155,6 +158,13 @@ SERVICE_SCHEMAS = {
     SERVICE_REMOVE: vol.Schema({
         vol.Optional(ATTR_IEEE, default=''): cv.string
     }),
+    SERVICE_COMMAND: vol.Schema({
+        ATTR_ENTITY_ID: cv.string, 
+        ATTR_COMMAND: cv.string, 
+        vol.Optional('cluster'): cv.positive_int, 
+        vol.Optional('attribute'): cv.positive_int, 
+        vol.Optional('value'): cv.positive_int, 
+    }), 
     }
 
 
@@ -198,9 +208,9 @@ class zha_state(entity.Entity):
     @property
     def icon(self):
         if self._state == "Failed":
-            return "mdi:skull-crossbones"
+            return 'mdi:skull-crossbones'
         else:
-            return "mdi:emoticon-happy"
+            return 'mdi:emoticon-happy'
 
     async def async_update(self):
 #        from zigpy.zcl import foundation as f
@@ -247,6 +257,7 @@ async def async_setup(hass, config):
     component = EntityComponent(_LOGGER, DOMAIN, hass, datetime.timedelta(minutes=1))
     zha_controller = zha_state(hass, ezsp_, APPLICATION_CONTROLLER, 'controller', 'Init')
     listener.controller = zha_controller
+    listener.registry =  await hass.helpers.device_registry.async_get_registry()
     await component.async_add_entities([zha_controller])
     zha_controller.async_schedule_update_ha_state()
 
@@ -290,7 +301,14 @@ async def async_setup(hass, config):
 
     hass.services.async_register(DOMAIN, SERVICE_REMOVE, remove,
                                  schema=SERVICE_SCHEMAS[SERVICE_REMOVE])
-
+    
+    async def command(service):
+        listener.command(service.data)
+            
+    hass.services.async_register(DOMAIN, SERVICE_COMMAND, command,
+                                 schema=SERVICE_SCHEMAS[SERVICE_COMMAND])
+        
+    
     zha_controller._state = "Run"
     zha_controller.async_schedule_update_ha_state()
     return True
@@ -304,12 +322,13 @@ class ApplicationListener:
         """Initialize the listener."""
         self._hass = hass
         self._config = config
+        self.registry = None
         hass.data[DISCOVERY_KEY] = hass.data.get(DISCOVERY_KEY, {})
         hass.data[DISCOVERY_KEY][ENTITY_STORE] = hass.data[DISCOVERY_KEY].get(
             ENTITY_STORE,
             {})
         self.controller = None
-        self._entity_list = []
+        self._entity_list = dict()
         self.device_store = []
         self.mc_subscribers = {}
         self.custom_devices = {}
@@ -339,6 +358,7 @@ class ApplicationListener:
             for dev_ent in entity_store[device._ieee]:
                 _LOGGER.debug("remove entity %s", dev_ent.entity_id)
 #                _LOGGER.debug("platform used: %s ", dir(dev_ent.platform))
+                self.entity_list.pop(dev_ent.entity_id)
                 self._hass.async_add_job(dev_ent.async_remove())
             entity_store.pop(device._ieee)
                 # cleanup Discovery_Key
@@ -639,6 +659,28 @@ class ApplicationListener:
                       device.ieee,
                       )
 
+    async def command(self, service_data):
+        command = service_data.get(ATTR_COMMAND)
+        entity_id =   service_data.get(ATTR_ENTITY_ID)
+        entity= self._entity_list.get(entity_id, None)
+        if not entity:
+            _LOGGER.warn("entity %s unknown", entity_id)
+            return
+        if command == 'write_attribute':
+            try:
+                # expect cluster, attribute + value as minimal input
+                cluster =  service_data.get('cluster')
+                attribute =  service_data.get('attribute')
+                value =  service_data.get('value')
+                mgfid = service_data.get('mfgid',)
+            except KeyError:
+                pass
+               
+                # Todo
+                # find  entity for entity_id 
+                # get endpoint for entity
+                #write attribute to endpoint
+        
 
 class Entity(entity.Entity):
 
@@ -662,8 +704,6 @@ class Entity(entity.Entity):
             self.cluster_key = kwargs['cluster_key']
             self.uid += '_'
             self.uid += self.cluster_key
-        if 'application' in kwargs:
-            self._application = kwargs['application']
         if model in self._application.custom_devices:
             self._custom_module = self._application.custom_devices[model]
         else:
@@ -672,7 +712,7 @@ class Entity(entity.Entity):
             manufacturer = 'unknown'
         if model is None:
             model = 'unknown'
-
+ 
         self.entity_id = '%s.%s_%s_%s_%s' % (
             self._domain,
             slugify(manufacturer),
@@ -680,6 +720,10 @@ class Entity(entity.Entity):
             ieeetail,
             endpoint.endpoint_id,
         )
+        if 'application' in kwargs:
+            self._application = kwargs['application']
+            self._application._entity_list[self.entity_id] = self 
+
         self._device_state_attributes['friendly_name'] = '%s %s' % (
             manufacturer,
             model,

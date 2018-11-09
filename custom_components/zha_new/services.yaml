@@ -14,3 +14,20 @@ remove:
       description: ieee or parts of it
       example: 00:15:8d:00:01:f4:66:c1
 
+command:
+  description: send a zigbee command to an entity, command write_attribute, tbd
+  fields:
+    entity_id:
+      description: entity_id
+    command:
+      description: write_attribute
+      example:  valid commands write_attribute
+    cluster:
+      description: cluster
+    attribute:
+      description: attribute
+    value: 
+      description: value
+    mfgid:
+      description: optional manufacturer ID
+      
