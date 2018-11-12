@@ -6,16 +6,14 @@ at https://home-assistant.io/components/light.zha/
 
 """
 import logging
-
+from asyncio import ensure_future
 from homeassistant.components import light
 from homeassistant.const import STATE_UNKNOWN
 import custom_components.zha_new as zha_new
 from importlib import import_module
 import homeassistant.util.color as color_util
-
+from zigpy.zcl.foundation import Status
 _LOGGER = logging.getLogger(__name__)
-""" change to ZHA-new for use in home-dir """
-#DEPENDENCIES = ['zha_new']
 
 DEFAULT_DURATION = 0.5
 CAPABILITIES_COLOR_XY = 0x08
@@ -31,6 +29,7 @@ async def async_setup_platform(hass, config,
         return
 
     endpoint = discovery_info['endpoint']
+    in_clusters = discovery_info['in_clusters']
     try:
         discovery_info['color_capabilities'] \
             = await endpoint.light_color['color_capabilities']
@@ -52,9 +51,9 @@ async def async_setup_platform(hass, config,
     if endpoint.device._ieee not in entity_store:
         entity_store[endpoint.device._ieee] = []
     entity_store[endpoint.device._ieee].append(entity)
+    await auto_set_attribute_report(endpoint,  in_clusters)
     endpoint._device._application.listener_event('device_updated',
                                                  endpoint._device)
-
 
 class Light(zha_new.Entity, light.Light):
 
@@ -67,6 +66,7 @@ class Light(zha_new.Entity, light.Light):
         super().__init__(**kwargs)
 
         self._available = True
+        self._assumed = False
         self._groups = None
         self._grp_name = None
         self._supported_features = 0
@@ -92,12 +92,13 @@ class Light(zha_new.Entity, light.Light):
             self._groups = []
             self._device_state_attributes["Group_id"] = self._groups
 
-        endpoint = kwargs['endpoint']
         in_clusters = kwargs['in_clusters']
         out_clusters = kwargs['out_clusters']
-        clusters = {**out_clusters, **in_clusters}
-        for cluster in clusters.values():
+        clusters = list(out_clusters.items()) +  list(in_clusters.items())
+        for (key, cluster) in clusters:
             cluster.add_listener(self)
+        endpoint = kwargs['endpoint']
+        endpoint._device.zdo.add_listener(self)
 
     @property
     def is_on(self) -> bool:
@@ -106,9 +107,14 @@ class Light(zha_new.Entity, light.Light):
             return False
         return bool(self._state)
 
+#    @property
+#    def available(self) -> bool:
+#       return bool(self._available)
+
     @property
-    def available(self) -> bool:
-        return bool(self._available)
+    def assumed_state(self):
+        """Return True if unable to access real state of the entity."""
+        return bool(self._assumed) 
 
     async def async_turn_on(self, **kwargs):
         """Turn the entity on."""
@@ -186,9 +192,9 @@ class Light(zha_new.Entity, light.Light):
             return
         try:
             self._state = result['on_off']
-            self._available = True
+            self._assumed = False
         except Exception:
-            self._available = False
+            self._assumed = True
             return
 
         if hasattr(self,'_groups'):
@@ -248,3 +254,48 @@ class Light(zha_new.Entity, light.Light):
             _LOGGER.debug("Import DH %s failed: %s", dev_func, e.args)
         except Exception as e:
             _LOGGER.info("Excecution of DH %s failed: %s", dev_func, e.args)
+
+    def device_announce(self, *args,  **kwargs):
+        ensure_future(auto_set_attribute_report(self._endpoint,  self._in_clusters))
+        ensure_future(self.async_update())
+
+async def auto_set_attribute_report(endpoint, in_clusters):
+    async def req_conf_report(report_cls, report_attr, report_min, report_max, report_change, mfgCode=None):
+        try:
+            v = await report_cls.bind()
+            if v[0] > 0:
+                _LOGGER.debug("[0x%04x:%s:0x%04x]: bind failed: %s",
+                              endpoint._device.nwk,
+                              endpoint.endpoint_id,
+                              report_cls.cluster_id,
+                              Status(v[0]).name)
+        except Exception as e:
+            _LOGGER.debug("[0x%04x:%s:0x%04x]: : bind exceptional failed %s",
+                          endpoint._device.nwk,
+                          endpoint.endpoint_id,
+                          report_cls.cluster_id,
+                          e)
+        try:
+            v = await report_cls.configure_reporting(
+                report_attr, int(report_min),
+                int(report_max), report_change, manufacturer=mfgCode)
+            _LOGGER.debug("[0x%04x:%s:0x%04x] set config report status: %s",
+                          endpoint._device.nwk,
+                          endpoint._endpoint_id,
+                          report_cls.cluster_id,
+                          v)
+        except Exception as e:
+            _LOGGER.error("[0x%04x:%s:0x%04x] set config report exeptional failed: %s",
+                          endpoint._device.nwk,
+                          endpoint.endpoint_id,
+                          report_cls.cluster_id,
+                          e)
+    if 0x0006 in in_clusters:
+        await req_conf_report(endpoint.in_clusters[0x0006],  0,  1,  60, 1)
+    if 0x0008 in in_clusters:
+        await req_conf_report(endpoint.in_clusters[0x0008],  0,  1,  60, 1)
+    if 0x0300 in in_clusters:
+        await req_conf_report(endpoint.in_clusters[0x0300],  3,  0,  60, 1)
+        await req_conf_report(endpoint.in_clusters[0x0006],  4,  0,  60, 1)
+        await req_conf_report(endpoint.in_clusters[0x0006],  7,  0,  60, 1)
+        
