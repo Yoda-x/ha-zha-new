@@ -20,8 +20,9 @@ from homeassistant.helpers.entity_component import EntityComponent
 import homeassistant.helpers.entity_registry as entity_registry
 from homeassistant.util import slugify
 from importlib import import_module
+from homeassistant.helpers.restore_state import async_get_last_state
 
-REQUIREMENTS = ['https://github.com/Yoda-x/bellows/archive/master.zip#bellows==0.7.4',
+REQUIREMENTS = ['https://github.com/Yoda-x/bellows/archive/master.zip#bellows==0.7.4.1',
                 'https://github.com/Yoda-x/zigpy/archive/master.zip#zigpy==0.1.4-Y']
 DOMAIN = 'zha_new'
 
@@ -159,12 +160,12 @@ SERVICE_SCHEMAS = {
         vol.Optional(ATTR_IEEE, default=''): cv.string
     }),
     SERVICE_COMMAND: vol.Schema({
-        ATTR_ENTITY_ID: cv.string, 
-        ATTR_COMMAND: cv.string, 
-        vol.Optional('cluster'): cv.positive_int, 
-        vol.Optional('attribute'): cv.positive_int, 
-        vol.Optional('value'): cv.positive_int, 
-    }), 
+        ATTR_ENTITY_ID: cv.string,
+        ATTR_COMMAND: cv.string,
+        vol.Optional('cluster'): cv.positive_int,
+        vol.Optional('attribute'): cv.positive_int,
+        vol.Optional('value'): cv.positive_int,
+    }),
     }
 
 
@@ -257,7 +258,7 @@ async def async_setup(hass, config):
     component = EntityComponent(_LOGGER, DOMAIN, hass, datetime.timedelta(minutes=1))
     zha_controller = zha_state(hass, ezsp_, APPLICATION_CONTROLLER, 'controller', 'Init')
     listener.controller = zha_controller
-    listener.registry =  await hass.helpers.device_registry.async_get_registry()
+    listener.registry = await hass.helpers.device_registry.async_get_registry()
     await component.async_add_entities([zha_controller])
     zha_controller.async_schedule_update_ha_state()
 
@@ -301,14 +302,13 @@ async def async_setup(hass, config):
 
     hass.services.async_register(DOMAIN, SERVICE_REMOVE, remove,
                                  schema=SERVICE_SCHEMAS[SERVICE_REMOVE])
-    
+
     async def command(service):
         listener.command(service.data)
-            
+
     hass.services.async_register(DOMAIN, SERVICE_COMMAND, command,
                                  schema=SERVICE_SCHEMAS[SERVICE_COMMAND])
-        
-    
+
     zha_controller._state = "Run"
     zha_controller.async_schedule_update_ha_state()
     return True
@@ -403,9 +403,9 @@ class ApplicationListener:
         discovered_info = {}
         out_clusters = []
         # loop over endpoints
-        _LOGGER.debug("[0x%04x] device init for %s(%s)(%s) -> Endpoints: %s, %s ", 
-                device.nwk,  type(device.model),  device.model,  device.ieee, list(device.endpoints.keys()), 
-                "new join" if join else "already joined")
+        _LOGGER.debug("[0x%04x] device init for %s(%s)(%s) -> Endpoints: %s, %s ",
+                      device.nwk,  type(device.model),  device.model,  device.ieee, list(device.endpoints.keys()),
+                      "new join" if join else "already joined")
         if join:
             for endpoint_id, endpoint in device.endpoints.items():
                 if endpoint_id == 0:  # ZDO
@@ -442,7 +442,7 @@ class ApplicationListener:
                     custom_module['_custom_endpoint_init'](endpoint, node_config,  device.model)
 
             discovered_info = {CONF_MODEL: device.model,
-                                CONF_MANUFACTURER: device.manufacturer}
+                               CONF_MANUFACTURER: device.manufacturer}
             if CONF_MANUFACTURER in node_config:
                 discovered_info[CONF_MANUFACTURER] = device.manufacturer = node_config[CONF_MANUFACTURER]
             if CONF_MODEL in node_config:
@@ -514,7 +514,7 @@ class ApplicationListener:
                                       report_cls.cluster_id,
                                       Status(v[0]).name)
                 except Exception as e:
-                    _LOGGER.debug("[0x%04x:%s] %s: : bind exceptional failed %s",
+                    _LOGGER.debug("[0x%04x:%s] %s: : %s bind exceptional failed %s",
                                   device.nwk,
                                   endpoint_id,
                                   device_key,
@@ -529,12 +529,11 @@ class ApplicationListener:
                                   endpoint_id,
                                   device_key,
                                   report_cls.cluster_id,
-                                  Status(v[0]))
+                                  v)
                 except Exception as e:
-                    _LOGGER.error("[0x%04x:%s] %s:set config report %s failed: %s",
+                    _LOGGER.error("[0x%04x:%s:0x%04x] set config report failed: %s",
                                   device.nwk,
                                   endpoint_id,
-                                  device_key,
                                   report_cls.cluster_id,
                                   e)
 
@@ -554,10 +553,10 @@ class ApplicationListener:
                             report_change,
                             mfgCode=mfgCode)
             else:
-                _LOGGER.debug("[0x%04x:%s] config reports skipped for %s, %s ", "no reports configured" if join else "already joined" ,
+                _LOGGER.debug("[0x%04x:%s] config reports skipped for %s, %s ", "no reports configured" if join else "already joined",
                               device.nwk,
                               endpoint_id,
-                              device._ieee, 
+                              device._ieee,
                               join)
 
             _LOGGER.debug("[0x%04x:%s] 2:profile %s, component: %s cluster:%s",
@@ -661,26 +660,26 @@ class ApplicationListener:
 
     async def command(self, service_data):
         command = service_data.get(ATTR_COMMAND)
-        entity_id =   service_data.get(ATTR_ENTITY_ID)
-        entity= self._entity_list.get(entity_id, None)
+        entity_id = service_data.get(ATTR_ENTITY_ID)
+        entity = self._entity_list.get(entity_id, None)
         if not entity:
             _LOGGER.warn("entity %s unknown", entity_id)
             return
         if command == 'write_attribute':
             try:
                 # expect cluster, attribute + value as minimal input
-                cluster =  service_data.get('cluster')
-                attribute =  service_data.get('attribute')
-                value =  service_data.get('value')
+                cluster = service_data.get('cluster')
+                attribute = service_data.get('attribute')
+                value = service_data.get('value')
                 mgfid = service_data.get('mfgid',)
             except KeyError:
                 pass
-               
+
                 # Todo
-                # find  entity for entity_id 
+                # find  entity for entity_id
                 # get endpoint for entity
                 #write attribute to endpoint
-        
+
 
 class Entity(entity.Entity):
 
@@ -704,6 +703,10 @@ class Entity(entity.Entity):
             self.cluster_key = kwargs['cluster_key']
             self.uid += '_'
             self.uid += self.cluster_key
+        if 'application' in kwargs:
+            self._application = kwargs['application']
+            self._application._entity_list[self.entity_id] = self
+
         if model in self._application.custom_devices:
             self._custom_module = self._application.custom_devices[model]
         else:
@@ -712,7 +715,7 @@ class Entity(entity.Entity):
             manufacturer = 'unknown'
         if model is None:
             model = 'unknown'
- 
+
         self.entity_id = '%s.%s_%s_%s_%s' % (
             self._domain,
             slugify(manufacturer),
@@ -720,9 +723,6 @@ class Entity(entity.Entity):
             ieeetail,
             endpoint.endpoint_id,
         )
-        if 'application' in kwargs:
-            self._application = kwargs['application']
-            self._application._entity_list[self.entity_id] = self 
 
         self._device_state_attributes['friendly_name'] = '%s %s' % (
             manufacturer,
@@ -806,6 +806,19 @@ class Entity(entity.Entity):
         self._device_state_attributes['path'] = self._endpoint.device.path
         return self._device_state_attributes
 
+    async def async_added_to_hass(self):
+        """Call when entity about to be added to hass."""
+        state = await async_get_last_state(self.hass, self.entity_id)
+        if state:
+            self._state = state.state
+            if self._state == '-':
+                self._state = None
+
+    @property
+    def assumed_state(self):
+        """Return True if unable to access real state of the entity."""
+        return False
+
 
 async def _discover_endpoint_info(endpoint):
     import string
@@ -822,7 +835,7 @@ async def _discover_endpoint_info(endpoint):
             allow_cache=False,
         )
         extra_info.update(result)
-        _LOGGER.debug("read attribute: %s", result )
+        _LOGGER.debug("read attribute: %s", result)
 
 #    try:
 #        await read(['model','manufacturer'])
