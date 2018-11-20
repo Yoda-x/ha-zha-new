@@ -17,7 +17,7 @@ import homeassistant.helpers.config_validation as cv
 from homeassistant import const as ha_const
 from homeassistant.helpers import discovery, entity
 from homeassistant.helpers.entity_component import EntityComponent
-import homeassistant.helpers.entity_registry as entity_registry
+#import homeassistant.helpers.entity_registry as entity_registry
 from homeassistant.util import slugify
 from importlib import import_module
 from homeassistant.helpers.restore_state import async_get_last_state
@@ -358,7 +358,7 @@ class ApplicationListener:
             for dev_ent in entity_store[device._ieee]:
                 _LOGGER.debug("remove entity %s", dev_ent.entity_id)
 #                _LOGGER.debug("platform used: %s ", dir(dev_ent.platform))
-                self.entity_list.pop(dev_ent.entity_id)
+                self._entity_list.pop(dev_ent.entity_id)
                 self._hass.async_add_job(dev_ent.async_remove())
             entity_store.pop(device._ieee)
                 # cleanup Discovery_Key
