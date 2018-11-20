@@ -15,13 +15,14 @@ def _custom_endpoint_init(self, node_config, *argv):
             'in_cluster': [0x0000, 0x0006],
             'type': 'binary_sensor',
             }
-        self.add_input_cluster(0x0006) 
+        self.add_input_cluster(0x0006)
     else:
         config = {
             "in_cluster": [0x0000, 0x0006, 0x0012],
             "type": "binary_sensor",
             }
     node_config.update(config)
+
 
 def _parse_attribute(entity, attrib, value, *argv, **kwargs):
     """ parse non standard atrributes."""
@@ -83,13 +84,13 @@ def _parse_attribute(entity, attrib, value, *argv, **kwargs):
             'channel': "MultiStateInput",
         }
         if result == 0:
-            event_data['data']='hold'
+            event_data['data'] = 'hold'
         elif result == 255:
-            event_data['data']='release'
+            event_data['data'] = 'release'
         elif result == 1:
-            event_data['data']='single'
+            event_data['data'] = 'single'
         elif result == 2:
-            event_data['data']='double'
+            event_data['data'] = 'double'
         entity.hass.bus.fire('click', event_data)
 
 
@@ -98,9 +99,10 @@ def _parse_attribute(entity, attrib, value, *argv, **kwargs):
     _LOGGER.debug('updated Attributes:%s', attributes)
     return(attrib, result)
 
+
+
 def _battery_percent(voltage):
     """calculate percentage."""
     min_voltage = 2750
     max_voltage = 3100
     return (voltage - min_voltage) / (max_voltage - min_voltage) * 100
-
