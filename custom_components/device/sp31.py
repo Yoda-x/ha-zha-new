@@ -17,8 +17,8 @@ def _custom_endpoint_init(self, node_config, *argv):
         node_config.update(config)
     if self._endpoint_id == 1:
         config = {
-            "in_cluster": [0x0000,0x0006],
-            "out_cluster": [], 
+            "in_cluster": [0x0000, 0x0006],
+            "out_cluster": [],
             "config_report": [
                 [0x0006, 0, 1, 180, 1],
             ],
