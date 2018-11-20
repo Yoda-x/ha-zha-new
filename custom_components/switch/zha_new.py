@@ -44,7 +44,7 @@ class Switch(zha_new.Entity, SwitchDevice):
         clusters = {**endpoint.out_clusters, **endpoint.in_clusters}
         for cluster in clusters.values():
             cluster.add_listener(self)
-            
+
     @property
     def is_on(self) -> bool:
         """Return if the switch is on based on the statemachine."""
