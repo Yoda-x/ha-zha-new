@@ -21,11 +21,11 @@ def _custom_endpoint_init(self, node_config, *argv):
         }
     elif selector in ['lumi.sensor_ht', ] and self.endpoint_id == 1:
         config = {
-#            "config_report": [
-#                [0x0402, 0, 10, 600, 5],
-#                [0x0405, 0, 10, 600, 5],
-#            ],
-            "in_cluster": [0x0000, 0x0402,], #just use one sensor as main
+            #            "config_report": [
+            #                [0x0402, 0, 10, 600, 5],
+            #                [0x0405, 0, 10, 600, 5],
+            #            ],
+            "in_cluster": [0x0000, 0x0402, ],  # just use one sensor as main
             "out_cluster": [],
             "type": "sensor",
         }
@@ -39,7 +39,7 @@ def _custom_endpoint_init(self, node_config, *argv):
                 [0x0403, 0, 10, 120, 5],
                 [0x0405, 0, 10, 120, 5],
             ],
-            "in_cluster": [0x0000, 0x0402], #just use one sensor as main
+            "in_cluster": [0x0000, 0x0402],  # just use one sensor as main
             "out_cluster": [],
             "type": "sensor",
         }
@@ -193,14 +193,14 @@ def _parse_attribute(entity, attrib, value, *argv, **kwargs):
                 angle_z -= 4096
             angle_y = (value >> 16) & 0x0fff
             if angle_y > 2048:
-                angle_y -= 4096 
+                angle_y -= 4096
             angle_x = (value >> 32) & 0x0fff
             if angle_x > 2048:
-                angle_x -= 4096 
+                angle_x -= 4096
             _LOGGER.debug("Attrib 0x%04x: 0x%04x : %s %s %s",  attrib,  value,  angle_x,  angle_y,  angle_z)
             attributes['angle_x'] = angle_x
             attributes['angle_y'] = angle_y
             attributes['angle_z'] = angle_z
-        
+
     entity._device_state_attributes.update(attributes)
     return(attrib, result)
