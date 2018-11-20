@@ -121,7 +121,7 @@ class Sensor(zha_new.Entity):
 
     def attribute_updated(self, attribute, value):
 
-        (attribute, value)= self._parse_attribute(self, attribute, value, self._model)
+        (attribute, value) = self._parse_attribute(self, attribute, value, self._model)
         if attribute == self.value_attribute:
             self._state = value
         self.schedule_update_ha_state()
@@ -132,10 +132,10 @@ class TemperatureSensor(Sensor):
     """ZHA temperature sensor."""
 
     min_reportable_change = 20
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self._device_class = 'temperature'
-
 
     @property
     def unit_of_measurement(self):
@@ -203,6 +203,7 @@ class IlluminanceSensor(Sensor):
     """ZHA  pressure sensor."""
 
     min_reportable_change = 5
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self._device_class = 'illuminance'
