@@ -191,7 +191,7 @@ class Light(zha_new.Entity, light.Light):
         if self._brightness is not None:
             brightness = kwargs.get(
                 light.ATTR_BRIGHTNESS, self._brightness or 255)
-            self._brightness = brightness
+            self._brightness = brightness if brightness != 0 else 255
             # Move to level with on/off:
 
             await self._endpoint.level.move_to_level_with_on_off(
@@ -325,7 +325,7 @@ class Light(zha_new.Entity, light.Light):
 
     @property
     def min_mireds(self):
-        return self._color_temp_physical_min if  self._color_temp_physical_min else 153
+        return self._color_temp_physical_min if self._color_temp_physical_min else 153
 
     async def get_range_mired(self):
         result = await zha_new.safe_read(self._endpoint.light_color,
@@ -337,6 +337,7 @@ class Light(zha_new.Entity, light.Light):
 
 async def auto_set_attribute_report(endpoint, in_clusters):
     _LOGGER.debug("[0x%04x:%s] called to set reports",  endpoint._device.nwk,  endpoint.endpoint_id)
+
     async def req_conf_report(report_cls, report_attr, report_min, report_max, report_change, mfgCode=None):
         try:
             v = await report_cls.bind()
