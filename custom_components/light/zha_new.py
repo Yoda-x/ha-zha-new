@@ -43,6 +43,8 @@ async def async_setup_platform(hass, config,
             if result.get('color_temperature') is not UNSUPPORTED_ATTRIBUTE:   
                 discovery_info['color_capabilities'] |= CAPABILITIES_COLOR_TEMP
 
+    entity = Light(**discovery_info)                         
+                
     if hass.states.get(entity.entity_id):
         _LOGGER.debug("entity exist,remove it: %s",
                       dir(hass.states.get(entity.entity_id)))
