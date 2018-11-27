@@ -77,7 +77,7 @@ class LightAttributeReports(Cluster_Server):
             return
         if self._cluster.cluster_id == OnOff.cluster_id:
             if attribute == 0:
-                self._entity._state = True if value is True else False
+                self._entity._state = True if value else False
                 self._entity.schedule_update_ha_state()
         if self._entity.is_on:
             if self._cluster.cluster_id == LevelControl.cluster_id:
@@ -317,6 +317,7 @@ class Light(zha_new.Entity, light.Light):
     def device_announce(self, *args,  **kwargs):
         ensure_future(auto_set_attribute_report(self._endpoint,  self._in_clusters))
         ensure_future(self.async_update())
+        self._assumed=False
         _LOGGER.debug("0x%04x device announce for light received",  self._endpoint._device.nwk)
 
     @property
