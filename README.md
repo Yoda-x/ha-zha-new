@@ -1,6 +1,19 @@
 # Incompatible with mainstream zigpy/bellows
 quirks code in mainstream zigpy breaks compatiblilty with zha_new, please use my versions
 
+# News 10/29/18 - new master branch update,
+- zigpy/bellows gets updated to my versions during start(thanks estevez-dev), first load takes some time for the updates.
+- topology map -> see wiki
+- new devices
+- uses events for switches and alarms ->see wiki for details
+- new state(Failed) for zha_new.controller entity, you can restart hass or send a message, when the usb stick goees south
+- improved error handling for the EM357 (bellows), when usb stick go to failed mode
+- moved code to own directory
+- changed device files, no symlinks anymore, can be used now on windows or downloaded frmm github
+- improved support for ias devices
+- creates an endpoint on cluster for better compatability
+- and others I forgot
+
 # ha-zha-new
 see wiki for tips
 ## Breaking update

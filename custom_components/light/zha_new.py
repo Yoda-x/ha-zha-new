@@ -203,16 +203,9 @@ class Light(zha_new.Entity, light.Light):
                 duration
             )
             self._state = True
-#            self.async_schedule_update_ha_state()
-#            self.async_update()
-#            await asyncio.sleep(duration/10)
-#            self._call_ongoing = False
-#            return
         else:
             await self._endpoint.on_off.on()
             self._state = True
-#        self.async_update_ha_state(force_refresh=True)
-#        self.async_update()
         await asyncio.sleep(duration/10)
         self._call_ongoing = False
 
@@ -220,7 +213,6 @@ class Light(zha_new.Entity, light.Light):
         """Turn the entity off."""
         await self._endpoint.on_off.off()
         self._state = False
-#        self.async_schedule_update_ha_state()
 
     @property
     def brightness(self):
