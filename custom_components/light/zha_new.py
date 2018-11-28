@@ -190,28 +190,31 @@ class Light(zha_new.Entity, light.Light):
 
         if self._brightness is not None:
             brightness = kwargs.get(
-                light.ATTR_BRIGHTNESS, self._brightness or 255)
-            self._brightness = brightness if brightness != 0 else 255
+                light.ATTR_BRIGHTNESS, self._brightness)
+            self._brightness = 2 if (brightness < 2 and self._state == False) else brightness
             # Move to level with on/off:
+            _LOGGER.debug("[0x%04x:%s] move_to_level_w_onoff: %s ",
+                      self._endpoint._device.nwk,
+                      self._endpoint.endpoint_id,
+                      self._brightness)
 
             await self._endpoint.level.move_to_level_with_on_off(
-                brightness,
+                self._brightness,
                 duration
             )
             self._state = True
 #            self.async_schedule_update_ha_state()
 #            self.async_update()
-            await asyncio.sleep(duration/10)
-            self._call_ongoing = False
-            return
-
-        await self._endpoint.on_off.on()
-        self._state = True
+#            await asyncio.sleep(duration/10)
+#            self._call_ongoing = False
+#            return
+        else:
+            await self._endpoint.on_off.on()
+            self._state = True
 #        self.async_update_ha_state(force_refresh=True)
 #        self.async_update()
         await asyncio.sleep(duration/10)
         self._call_ongoing = False
-        return
 
     async def async_turn_off(self, **kwargs):
         """Turn the entity off."""
