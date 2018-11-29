@@ -191,7 +191,8 @@ class Light(zha_new.Entity, light.Light):
         if self._brightness is not None:
             brightness = kwargs.get(
                 light.ATTR_BRIGHTNESS, self._brightness)
-            self._brightness = 2 if (brightness < 2 and self._state == False) else brightness
+            self._brightness = 2 if (brightness < 2) else brightness
+#            self._brightness = 2 if (brightness < 2 and self._state == False) else brightness
             # Move to level with on/off:
             _LOGGER.debug("[0x%04x:%s] move_to_level_w_onoff: %s ",
                       self._endpoint._device.nwk,
