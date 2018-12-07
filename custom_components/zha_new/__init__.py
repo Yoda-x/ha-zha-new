@@ -23,9 +23,10 @@ from importlib import import_module
 from homeassistant.helpers.restore_state import async_get_last_state
 
 REQUIREMENTS = [
-                'https://github.com/Yoda-x/bellows/archive/master.zip#bellows==0.7.4.3',
-                'https://github.com/Yoda-x/zigpy/archive/ng.zip'
-#                'https://github.com/Yoda-x/zigpy/archive/master.zip#zigpy==0.1.4-Y'
+                'https://github.com/Yoda-x/bellows/archive/ng.zip#bellows==100.7.4.3.dev*',
+#               'https://github.com/Yoda-x/bellows/archive/master.zip#bellows>=0.7.4.3',
+                'https://github.com/Yoda-x/zigpy/archive/ng.zip#zigpy==100.1.4.1.dev*',
+#                'https://github.com/Yoda-x/zigpy/archive/master.zip#zigpy==0.1.4-Y',
                 ]
 DOMAIN = 'zha_new'
 
@@ -35,8 +36,6 @@ CONF_DEVICE_CONFIG = 'device_config'
 CONF_USB_PATH = 'usb_path'
 DATA_DEVICE_CONFIG = 'zha_device_config'
 ENTITY_STORE = "entity_store"
-
-
 """All constants related to the ZHA component."""
 
 DEVICE_CLASS = {}
