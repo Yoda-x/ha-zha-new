@@ -91,8 +91,13 @@ def _parse_attribute(entity, attrib, value, *argv, **kwargs):
             event_data['data'] = 'single'
         elif result == 2:
             event_data['data'] = 'double'
+        elif result == 16:
+            event_data['data'] = 'hold'
+        elif result == 17:
+            event_data['data'] = 'long_released'
+        elif result == 18:
+            event_data['data'] = 'shake'
         entity.hass.bus.fire('click', event_data)
-
 
         attributes["last seen"] = dt_util.now()
     entity._device_state_attributes.update(attributes)
