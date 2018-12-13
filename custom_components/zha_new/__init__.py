@@ -20,7 +20,7 @@ from homeassistant.helpers.entity_component import EntityComponent
 #import homeassistant.helpers.entity_registry as entity_registry
 from homeassistant.util import slugify
 from importlib import import_module
-from homeassistant.helpers.restore_state import async_get_last_state
+from homeassistant.helpers.restore_state import RestoreEntity
 
 REQUIREMENTS = [
                 'https://github.com/Yoda-x/bellows/archive/ng.zip#bellows==100.7.4.3.dev*',
@@ -555,11 +555,11 @@ class ApplicationListener:
                             report_change,
                             mfgCode=mfgCode)
             else:
-                _LOGGER.debug("[0x%04x:%s] config reports skipped for %s, %s ", "no reports configured" if join else "already joined",
+                _LOGGER.debug("[0x%04x:%s] config reports skipped for %s, %s ",
                               device.nwk,
                               endpoint_id,
                               device._ieee,
-                              join)
+                               "no reports configured" if join else "already joined")
 
             _LOGGER.debug("[0x%04x:%s] 2:profile %s, component: %s cluster:%s",
                           device.nwk,
@@ -683,7 +683,7 @@ class ApplicationListener:
                 #write attribute to endpoint
 
 
-class Entity(entity.Entity):
+class Entity(RestoreEntity):
 
     """A base class for ZHA entities."""
 
@@ -810,7 +810,7 @@ class Entity(entity.Entity):
 
     async def async_added_to_hass(self):
         """Call when entity about to be added to hass."""
-        state = await async_get_last_state(self.hass, self.entity_id)
+        state = await self.async_get_last_state()
         if state:
             self._state = state.state
             if self._state == '-':
