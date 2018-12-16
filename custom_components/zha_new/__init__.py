@@ -360,7 +360,7 @@ class ApplicationListener:
             for dev_ent in entity_store[device._ieee]:
                 _LOGGER.debug("remove entity %s", dev_ent.entity_id)
 #                _LOGGER.debug("platform used: %s ", dir(dev_ent.platform))
-                self._entity_list.pop(dev_ent.entity_id)
+                self._entity_list.pop(dev_ent.entity_id,  None)
                 self._hass.async_add_job(dev_ent.async_remove())
             entity_store.pop(device._ieee)
                 # cleanup Discovery_Key
@@ -725,7 +725,9 @@ class Entity(RestoreEntity):
             ieeetail,
             endpoint.endpoint_id,
         )
-
+        if 'application' in kwargs:
+            self._application._entity_list[self.entity_id] = self   
+        
         self._device_state_attributes['friendly_name'] = '%s %s' % (
             manufacturer,
             model,
@@ -762,7 +764,7 @@ class Entity(RestoreEntity):
             self._custom_cluster_command = self._custom_module['_custom_cluster_command']
         if self._custom_module.get('_custom_endpoint_init', None):
             self._custom_endpoint_init = self._custom_module['_custom_endpoint_init']
-
+            
     @property
     def device_class(self) -> str:
         """Return the class of this device, from component DEVICE_CLASSES."""
@@ -810,6 +812,7 @@ class Entity(RestoreEntity):
 
     async def async_added_to_hass(self):
         """Call when entity about to be added to hass."""
+        await super().async_added_to_hass()
         state = await self.async_get_last_state()
         if state:
             self._state = state.state
