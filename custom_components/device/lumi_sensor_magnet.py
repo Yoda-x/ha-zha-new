@@ -21,10 +21,10 @@ def _custom_endpoint_init(self, node_config, *argv):
         }
     elif selector in ['lumi.sensor_ht', ] and self.endpoint_id == 1:
         config = {
-            #            "config_report": [
-            #                [0x0402, 0, 10, 600, 5],
-            #                [0x0405, 0, 10, 600, 5],
-            #            ],
+            "config_report": [
+                [0x0402, 0, 10, 600, 5],
+                [0x0405, 0, 10, 600, 5],
+            ],
             "in_cluster": [0x0000, 0x0402, ],  # just use one sensor as main
             "out_cluster": [],
             "type": "sensor",
@@ -43,7 +43,7 @@ def _custom_endpoint_init(self, node_config, *argv):
             "out_cluster": [],
             "type": "sensor",
         }
-#        self.add_input_cluster(0x0402)
+        self.add_input_cluster(0x0402)
         self.add_input_cluster(0x0403)
         self.add_input_cluster(0x0405)
     elif selector in ['lumi.sensor_motion', ]:
@@ -70,13 +70,14 @@ def _custom_endpoint_init(self, node_config, *argv):
         self.add_input_cluster(0x0400)
     elif selector == 'lumi.sensor_wleak.aq1':
         config = {
-            "in_cluster": [0x0000, 0xff01],
+            "in_cluster": [0x0000, 0xff01, 0x0500],
             "out_cluster": [0x0500],
             "type": "binary_sensor",
             "config_report": [
                 [0xff01, 0, 10, 1800, 1],
             ],
         }
+        self.add_input_cluster(0x0500)
     elif selector == 'lumi.vibration.aq1' and self.endpoint_id == 1:
         config = {
             "type": "binary_sensor",
