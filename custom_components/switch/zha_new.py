@@ -1,10 +1,11 @@
 """Switches on Zigbee Home Automation networks."""
 import asyncio
 import logging
-
+from asyncio import ensure_future
 from homeassistant.components.switch import DOMAIN, SwitchDevice
 import custom_components.zha_new as zha_new
 from importlib import import_module
+from zigpy.zcl.foundation import Status
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -44,6 +45,8 @@ class Switch(zha_new.Entity, SwitchDevice):
         clusters = {**endpoint.out_clusters, **endpoint.in_clusters}
         for cluster in clusters.values():
             cluster.add_listener(self)
+        
+        endpoint._device.zdo.add_listener(self)
 
     @property
     def is_on(self) -> bool:
@@ -111,3 +114,15 @@ class Switch(zha_new.Entity, SwitchDevice):
             _LOGGER.debug("Import DH %s failed: %s", dev_func, e.args)
         except Exception as e:
             _LOGGER.info("Excecution of DH %s failed: %s", dev_func, e.args)
+
+    def device_announce(self, *args,  **kwargs):
+        ensure_future(auto_set_attribute_report(self._endpoint,  self._in_clusters))
+        ensure_future(self.async_update())
+        self._assumed=False
+        _LOGGER.debug("0x%04x device announce for switch received",  self._endpoint._device.nwk)
+
+async def auto_set_attribute_report(endpoint, in_clusters):
+    _LOGGER.debug("[0x%04x:%s] called to set reports",  endpoint._device.nwk,  endpoint.endpoint_id)
+
+    if 0x0006 in in_clusters:
+        await zha_new.req_conf_report(endpoint.in_clusters[0x0006],  0,  1,  600, 1)

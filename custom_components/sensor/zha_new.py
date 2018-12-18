@@ -9,9 +9,10 @@ import asyncio
 import logging
 
 from homeassistant.components.sensor import DOMAIN
-from homeassistant.const import TEMP_CELSIUS, STATE_UNKNOWN
-from homeassistant.util.temperature import convert as convert_temperature
+#from homeassistant.const import TEMP_CELSIUS, STATE_UNKNOWN
+#from homeassistant.util.temperature import convert as convert_temperature
 import custom_components.zha_new as zha_new
+from asyncio import ensure_future
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -110,9 +111,15 @@ class Sensor(zha_new.Entity):
         endpoint = kwargs['endpoint']
         in_clusters = kwargs['in_clusters']
         out_clusters = kwargs['out_clusters']
-        clusters = {**out_clusters, **in_clusters}
-        for cluster in clusters.values():
+        clusters = list(out_clusters.items()) + list(in_clusters.items())
+        _LOGGER.debug("[0x%04x:%s] initialize cluster listeners: (%s/%s) ",
+                      endpoint._device.nwk,
+                      endpoint.endpoint_id,
+                      list(in_clusters.keys()), list(out_clusters.keys()))
+        for (key, cluster) in clusters:
             cluster.add_listener(self)
+        
+        endpoint._device.zdo.add_listener(self)
 
     def attribute_updated(self, attribute, value):
 
@@ -284,3 +291,16 @@ class MeteringSensor(Sensor):
     def cluster_command(self, tsn, command_id, args):
         """Handle commands received to this cluster."""
         _LOGGER.debug("sensor cluster_command %s", command_id)
+
+
+    def device_announce(self, *args,  **kwargs):
+        ensure_future(auto_set_attribute_report(self._endpoint,  self._in_clusters))
+        ensure_future(self.async_update())
+        self._assumed=False
+        _LOGGER.debug("0x%04x device announce for sensor received",  self._endpoint._device.nwk)
+
+async def auto_set_attribute_report(endpoint, in_clusters):
+    _LOGGER.debug("[0x%04x:%s] called to set reports",  endpoint._device.nwk,  endpoint.endpoint_id)
+
+    if 0x0702 in in_clusters:
+        await zha_new.req_conf_report(endpoint.in_clusters[0x0702],  0,  1,  600, 1)

@@ -21,6 +21,7 @@ from homeassistant.helpers.entity_component import EntityComponent
 from homeassistant.util import slugify
 from importlib import import_module
 from homeassistant.helpers.restore_state import RestoreEntity
+from zigpy.zcl.foundation import Status
 
 REQUIREMENTS = [
                 'https://github.com/Yoda-x/bellows/archive/ng.zip#bellows==100.7.4.3.dev*',
@@ -216,7 +217,6 @@ class zha_state(entity.Entity):
             return 'mdi:emoticon-happy'
 
     async def async_update(self):
-#        from zigpy.zcl import foundation as f
         result = await self.stack._command('neighborCount', [])
         self._device_state_attributes['neighborCount'] = result[0]
         entity_store = get_entity_store(self.hass)
@@ -505,39 +505,39 @@ class ApplicationListener:
             if CONF_OUT_CLUSTER in node_config:
                 profile_clusters[1] = set(node_config.get(CONF_OUT_CLUSTER))
 
-            async def req_conf_report(report_cls, report_attr, report_min, report_max, report_change, mfgCode=None):
-                try:
-                    v = await report_cls.bind()
-                    if v[0] > 0:
-                        _LOGGER.debug("[0x%04x:%s] %s: bind failed: %s",
-                                      device.nwk,
-                                      endpoint_id,
-                                      device_key,
-                                      report_cls.cluster_id,
-                                      Status(v[0]).name)
-                except Exception as e:
-                    _LOGGER.debug("[0x%04x:%s] %s: : %s bind exceptional failed %s",
-                                  device.nwk,
-                                  endpoint_id,
-                                  device_key,
-                                  report_cls.cluster_id,
-                                  e)
-                try:
-                    v = await report_cls.configure_reporting(
-                        report_attr, int(report_min),
-                        int(report_max), report_change, manufacturer=mfgCode)
-                    _LOGGER.debug("[0x%04x:%s] %s: set config report %s status: %s",
-                                  device.nwk,
-                                  endpoint_id,
-                                  device_key,
-                                  report_cls.cluster_id,
-                                  v)
-                except Exception as e:
-                    _LOGGER.error("[0x%04x:%s:0x%04x] set config report failed: %s",
-                                  device.nwk,
-                                  endpoint_id,
-                                  report_cls.cluster_id,
-                                  e)
+#            async def req_conf_report(report_cls, report_attr, report_min, report_max, report_change, mfgCode=None):
+#                try:
+#                    v = await report_cls.bind()
+#                    if v[0] > 0:
+#                        _LOGGER.debug("[0x%04x:%s] %s: bind failed: %s",
+#                                      device.nwk,
+#                                      endpoint_id,
+#                                      device_key,
+#                                      report_cls.cluster_id,
+#                                      Status(v[0]).name)
+#                except Exception as e:
+#                    _LOGGER.debug("[0x%04x:%s] %s: : %s bind exceptional failed %s",
+#                                  device.nwk,
+#                                  endpoint_id,
+#                                  device_key,
+#                                  report_cls.cluster_id,
+#                                  e)
+#                try:
+#                    v = await report_cls.configure_reporting(
+#                        report_attr, int(report_min),
+#                        int(report_max), report_change, manufacturer=mfgCode)
+#                    _LOGGER.debug("[0x%04x:%s] %s: set config report %s status: %s",
+#                                  device.nwk,
+#                                  endpoint_id,
+#                                  device_key,
+#                                  report_cls.cluster_id,
+#                                  v)
+#                except Exception as e:
+#                    _LOGGER.error("[0x%04x:%s:0x%04x] set config report failed: %s",
+#                                  device.nwk,
+#                                  endpoint_id,
+#                                  report_cls.cluster_id,
+#                                  e)
 
             # if reporting is configured in yaml,
             # then create cluster if needed and setup reporting
@@ -727,7 +727,7 @@ class Entity(RestoreEntity):
         )
         if 'application' in kwargs:
             self._application._entity_list[self.entity_id] = self   
-        
+
         self._device_state_attributes['friendly_name'] = '%s %s' % (
             manufacturer,
             model,
@@ -764,7 +764,7 @@ class Entity(RestoreEntity):
             self._custom_cluster_command = self._custom_module['_custom_cluster_command']
         if self._custom_module.get('_custom_endpoint_init', None):
             self._custom_endpoint_init = self._custom_module['_custom_endpoint_init']
-            
+
     @property
     def device_class(self) -> str:
         """Return the class of this device, from component DEVICE_CLASSES."""
@@ -814,14 +814,17 @@ class Entity(RestoreEntity):
         """Call when entity about to be added to hass."""
         await super().async_added_to_hass()
         data = await self.async_get_last_state()
-        _LOGGER.debug("Restore state for %s: %s",  self.entity_id,  data.state)
-        if data.state:
-            if hasattr(self,  'state_div'):
-                self._state = float(data.state) * self.state_div
-            else:
-                self._state = data.state
-            if (self._state == '-') or (self._state == ha_const.STATE_UNKNOWN):
-                self._state = None
+        try:
+            _LOGGER.debug("Restore state for %s: %s",  self.entity_id,  data.state )
+            if data.state:
+                if hasattr(self,  'state_div'):
+                    self._state = float(data.state) * self.state_div
+                else:
+                    self._state = 1 if data.state == ha_const.STATE_ON else 0
+                if (data.state == '-') or (data.state == ha_const.STATE_UNKNOWN):
+                    self._state = None
+        except AttributeError as e:
+            _LOGGER.debug('Restore failed for %s: %s', self.entity_id, e )
 
     @property
     def assumed_state(self):
@@ -852,12 +855,12 @@ async def _discover_endpoint_info(endpoint):
 #        _LOGGER.debug("read attribute failed: mode/manufacturer")
     try:
         await read(['model'])
-    except:
-        _LOGGER.debug("single read attribute failed: model")
+    except Exception as e:
+        _LOGGER.debug("single read attribute failed: model, %s" , e)
     try:
         await read(['manufacturer'])
-    except:
-        _LOGGER.debug("single read attribute failed: manufacturer, ")
+    except Exception as e:
+        _LOGGER.debug("single read attribute failed: manufacturer, %s", e)
     for key, value in extra_info.items():
         _LOGGER.debug("%s: type(%s) %s", key, type(value), value)
         if isinstance(value, bytes):
@@ -865,9 +868,9 @@ async def _discover_endpoint_info(endpoint):
                 value = value.decode('ascii').strip()
                 extra_info[key] = ''.join([x for x in value if x in string.printable])
 
-            except UnicodeDecodeError:
+            except UnicodeDecodeError as e:
                 # Unsure what the best behaviour here is. Unset the key?
-                _LOGGER.debug("unicode decode error ")
+                _LOGGER.debug("unicode decode error, %s",  e)
     _LOGGER.debug("discover_endpoint_info:", extra_info)
     return extra_info
 
@@ -990,3 +993,35 @@ def call_func(_model, function, *args):
         _LOGGER.debug("Import DH %s failed: %s", function, e.args)
     except Exception as e:
             _LOGGER.info("Excecution of DH %s failed: %s", dev_func, e.args)
+
+async def req_conf_report( report_cls, report_attr, report_min, report_max, report_change, mfgCode=None):
+        endpoint=report_cls._endpoint
+        try:
+            v = await report_cls.bind()
+            if v[0] > 0:
+                _LOGGER.debug("[0x%04x:%s:0x%04x]: bind failed: %s",
+                              endpoint._device.nwk,
+                              endpoint.endpoint_id,
+                              report_cls.cluster_id,
+                              Status(v[0]).name)
+        except Exception as e:
+            _LOGGER.debug("[0x%04x:%s:0x%04x]: : bind exceptional failed %s",
+                          endpoint._device.nwk,
+                          endpoint.endpoint_id,
+                          report_cls.cluster_id,
+                          e)
+        try:
+            v = await report_cls.configure_reporting(
+                report_attr, int(report_min),
+                int(report_max), report_change, manufacturer=mfgCode)
+            _LOGGER.debug("[0x%04x:%s:0x%04x] set config report status: %s",
+                          endpoint._device.nwk,
+                          endpoint._endpoint_id,
+                          report_cls.cluster_id,
+                          v)
+        except Exception as e:
+            _LOGGER.error("[0x%04x:%s:0x%04x] set config report exeptional failed: %s",
+                          endpoint._device.nwk,
+                          endpoint.endpoint_id,
+                          report_cls.cluster_id,
+                          e)
