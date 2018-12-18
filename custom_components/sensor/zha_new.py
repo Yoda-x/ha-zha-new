@@ -9,7 +9,7 @@ import asyncio
 import logging
 
 from homeassistant.components.sensor import DOMAIN
-from homeassistant.const import TEMP_CELSIUS
+from homeassistant.const import TEMP_CELSIUS, STATE_UNKNOWN
 from homeassistant.util.temperature import convert as convert_temperature
 import custom_components.zha_new as zha_new
 
@@ -101,6 +101,8 @@ class Sensor(zha_new.Entity):
     _domain = DOMAIN
     value_attribute = 0
     min_reportable_change = 1
+    state_div = 1
+    state_prec = 1
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -112,13 +114,6 @@ class Sensor(zha_new.Entity):
         for cluster in clusters.values():
             cluster.add_listener(self)
 
-    @property
-    def state(self) -> str:
-        """Return the state of the entity."""
-        if isinstance(self._state, float):
-            return str(round(self._state, 2))
-        return self._state
-
     def attribute_updated(self, attribute, value):
 
         (attribute, value) = self._parse_attribute(self, attribute, value, self._model)
@@ -126,12 +121,20 @@ class Sensor(zha_new.Entity):
             self._state = value
         self.schedule_update_ha_state()
 
+    @property
+    def state(self):
+        """Return the state of the entity."""
+        if self._state is None:
+            return STATE_UNKNOWN
+        value = round(float(self._state) / self.state_div, self.state_prec)
+        return value
 
 class TemperatureSensor(Sensor):
 
     """ZHA temperature sensor."""
 
     min_reportable_change = 20
+    state_div = 100
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -142,19 +145,20 @@ class TemperatureSensor(Sensor):
         """Return the unit of measurement of this entity."""
         return self.hass.config.units.temperature_unit
 
-    @property
-    def state(self):
-        """Return the state of the entity."""
-        if self._state is None:
-            return '-'
-        celsius = round(float(self._state) / 100, 1)
-        return convert_temperature(
-            celsius, TEMP_CELSIUS, self.unit_of_measurement)
+#    @property
+#    def state(self):
+#        """Return the state of the entity."""
+#        if self._state is None:
+#            return '-'
+#        celsius = round(float(self._state) / self.state_div, self.state_prec)
+#        return convert_temperature(
+#            celsius, TEMP_CELSIUS, self.unit_of_measurement)
 
 
 class HumiditySensor(Sensor):
 
     """ZHA  humidity sensor."""
+    state_div = 100
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -165,19 +169,19 @@ class HumiditySensor(Sensor):
         """Return the unit of measuremnt of this entity."""
         return "%"
 
-    @property
-    def state(self):
-        """Return the state of the entity."""
-        if self._state is None:
-            return '-'
-        percent = round(float(self._state) / 100, 1)
-        return percent
+#    @property
+#    def state(self):
+#        """Return the state of the entity."""
+#        if self._state is None:
+#            return '-'
+#        percent = round(float(self._state) / 100, 1)
+#        return percent
 
 
 class PressureSensor(Sensor):
 
     """ZHA  pressure sensor."""
-
+    
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self._device_class = 'pressure'
@@ -189,13 +193,12 @@ class PressureSensor(Sensor):
         """Return the unit of measuremnt of this entity."""
         return "hPa"
 
-    @property
-    def state(self):
-        """Return the state of the entity."""
-        if self._state is None:
-            return '-'
-
-        return self._state
+#    @property
+#    def state(self):
+#        """Return the state of the entity."""
+#        if self._state is None:
+#            return '-'
+#        return self._state
 
 
 class IlluminanceSensor(Sensor):
@@ -213,17 +216,21 @@ class IlluminanceSensor(Sensor):
         """Return the unit of measuremnt of this entity."""
         return "lx"
 
-    @property
-    def state(self):
-        """Return the state of the entity."""
-        if self._state is None:
-            return None
-        return self._state
+#    @property
+#    def state(self):
+#        """Return the state of the entity."""
+#        if self._state is None:
+#            return None
+#        return self._state
 
 
 class MeteringSensor(Sensor):
-    value_attribute = 0
     """ZHA  smart engery metering."""
+    
+    value_attribute = 0
+    state_div = 100
+    state_prec = 2
+    
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.meter_cls = self._endpoint.in_clusters[0x0702]
@@ -233,13 +240,13 @@ class MeteringSensor(Sensor):
         """Return the unit of measuremnt of this entity."""
         return "kWh"
 
-    @property
-    def state(self):
-        """Return the state of the entity."""
-        if self._state is None:
-            return "-"
-        kwh = round(float(self._state) / 100, 2)
-        return kwh
+#    @property
+#    def state(self):
+#        """Return the state of the entity."""
+#        if self._state is None:
+#            return "-"
+#        kwh = round(float(self._state) / 100, 2)
+#        return kwh
 
     @property
     def should_poll(self) -> bool:

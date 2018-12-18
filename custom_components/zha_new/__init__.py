@@ -816,8 +816,11 @@ class Entity(RestoreEntity):
         data = await self.async_get_last_state()
         _LOGGER.debug("Restore state for %s: %s",  self.entity_id,  data.state)
         if data.state:
-            self._state = data.state
-            if self._state == '-':
+            if hasattr(self,  'state_div'):
+                self._state = float(data.state) * self.state_div
+            else:
+                self._state = data.state
+            if (self._state == '-') or (self._state == ha_const.STATE_UNKNOWN):
                 self._state = None
 
     @property
