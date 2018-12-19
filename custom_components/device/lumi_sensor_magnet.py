@@ -1,6 +1,5 @@
 """" custom py file for device."""
 import logging
-import asyncio
 import homeassistant.util.dt as dt_util
 from custom_components import zha_new
 
