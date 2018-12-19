@@ -183,10 +183,10 @@ class BinarySensor(zha_new.Entity, BinarySensorDevice):
         in_clusters = kwargs['in_clusters']
         out_clusters = kwargs['out_clusters']
         clusters = list(out_clusters.items()) + list(in_clusters.items())
-        _LOGGER.debug("[0x%04x:%s] initialize cluster listeners: (%s/%s) ",
+        _LOGGER.debug("[0x%04x:%s] initialize cluster listeners: -%s- ",
                       endpoint._device.nwk,
                       endpoint.endpoint_id,
-                      in_clusters.keys(), out_clusters.keys())
+                      clusters)
 
         for (key, cluster) in clusters:
             if LevelControl.cluster_id == cluster.cluster_id:
