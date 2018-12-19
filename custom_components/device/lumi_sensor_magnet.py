@@ -201,6 +201,9 @@ def _parse_attribute(entity, attrib, value, *argv, **kwargs):
             attributes['angle_x'] = angle_x
             attributes['angle_y'] = angle_y
             attributes['angle_z'] = angle_z
+    elif entity._model in ['lumi.sensor_magnet.aq2', 'lumi.sensor_wleak.aq1']:
+        if "temperature" in attributes:
+            entity._state = attributes["temperature"]
 
     entity._device_state_attributes.update(attributes)
     return(attrib, result)
