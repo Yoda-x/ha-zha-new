@@ -11,7 +11,7 @@ import logging
 import datetime
 import homeassistant.util.dt as dt_util
 from homeassistant.components.binary_sensor import DOMAIN, BinarySensorDevice
-import custom_components.zha_new as  zha_new
+import custom_components.zha_new as zha_new
 import custom_components.device as z_device
 from homeassistant.helpers.event import async_track_point_in_time
 from zigpy.zdo.types import Status
@@ -182,13 +182,13 @@ class BinarySensor(zha_new.Entity, BinarySensorDevice):
         endpoint = kwargs['endpoint']
         in_clusters = kwargs['in_clusters']
         out_clusters = kwargs['out_clusters']
-        clusters = {**out_clusters, **in_clusters}
-        _LOGGER.debug("[0x%04x:%s] initialize cluster listeners: %s ",
+        clusters = list(out_clusters.items()) + list(in_clusters.items())
+        _LOGGER.debug("[0x%04x:%s] initialize cluster listeners: -%s- ",
                       endpoint._device.nwk,
                       endpoint.endpoint_id,
-                      list(clusters.keys()))
+                      clusters)
 
-        for cluster in clusters.values():
+        for (key, cluster) in clusters:
             if LevelControl.cluster_id == cluster.cluster_id:
                 self.sub_listener[cluster.cluster_id] = Server_LevelControl(
                                 self, cluster, 'Level')
@@ -544,6 +544,7 @@ class Server_OnOff(Cluster_Server):
         })
         self._entity.schedule_update_ha_state()
 
+
 class Server_Scenes(Cluster_Server):
     def cluster_command(self, tsn, command_id, args):
         from zigpy.zcl.clusters.general import Scenes
@@ -567,8 +568,8 @@ class Server_Scenes(Cluster_Server):
 
         self._entity.schedule_update_ha_state()
 
-class Server_OccupancySensing(Cluster_Server):
 
+class Server_OccupancySensing(Cluster_Server):
 
     value_attribute = 0
     re_arm_sec = 20
@@ -606,9 +607,9 @@ class Server_OccupancySensing(Cluster_Server):
 
         self._entity.schedule_update_ha_state()
 
+
 class Server_TemperatureMeasurement(Cluster_Server):
     def attribute_updated(self, attribute, value):
-
 
         update_attrib = {}
         if attribute == 0:
@@ -618,10 +619,10 @@ class Server_TemperatureMeasurement(Cluster_Server):
 
         self._entity.schedule_update_ha_state()
 
+
 class Server_PowerConfiguration(Cluster_Server):
     def attribute_updated(self, attribute, value):
         update_attrib = {}
-
 
         if attribute == 20:
             update_attrib['Battery_Voltage'] = round(float(value) / 100, 1)
