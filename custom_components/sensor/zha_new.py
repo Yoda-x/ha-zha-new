@@ -9,7 +9,7 @@ import asyncio
 import logging
 
 from homeassistant.components.sensor import DOMAIN
-#from homeassistant.const import TEMP_CELSIUS, STATE_UNKNOWN
+from homeassistant.const import TEMP_CELSIUS, STATE_UNKNOWN
 #from homeassistant.util.temperature import convert as convert_temperature
 import custom_components.zha_new as zha_new
 from asyncio import ensure_future
