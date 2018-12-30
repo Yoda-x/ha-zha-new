@@ -24,7 +24,7 @@ from homeassistant.helpers.restore_state import RestoreEntity
 from zigpy.zcl.foundation import Status
 
 REQUIREMENTS = [
-                'https://github.com/Yoda-x/bellows/archive/ng.zip#bellows==100.7.4.3.dev*',
+                'https://github.com/Yoda-x/bellows/archive/ng2.zip#bellows==100.7.4.3.dev*',
 #               'https://github.com/Yoda-x/bellows/archive/master.zip#bellows>=0.7.4.3',
                 'https://github.com/Yoda-x/zigpy/archive/ng.zip#zigpy==100.1.4.1.dev*',
 #                'https://github.com/Yoda-x/zigpy/archive/master.zip#zigpy==0.1.4-Y',
@@ -231,7 +231,9 @@ class zha_state(entity.Entity):
 #        neighbors = await self.application.read_neighbor_table()
 #        self._device_state_attributes['neighbors'] = neighbors
 #        await self.application.update_topology()
-
+        stats= self.application.stats()
+        for key,  value in stats.items():
+            self._device_state_attributes[key] = value
         status = self.application.status()
         self._device_state_attributes['status'] = status
         if (sum(status[0]) + sum(status[1]) > 0):
