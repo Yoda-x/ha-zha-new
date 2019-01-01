@@ -343,36 +343,6 @@ class Light(zha_new.Entity, light.Light):
 async def auto_set_attribute_report(endpoint, in_clusters):
     _LOGGER.debug("[0x%04x:%s] called to set reports",  endpoint._device.nwk,  endpoint.endpoint_id)
 
-#    async def req_conf_report(report_cls, report_attr, report_min, report_max, report_change, mfgCode=None):
-#        try:
-#            v = await report_cls.bind()
-#            if v[0] > 0:
-#                _LOGGER.debug("[0x%04x:%s:0x%04x]: bind failed: %s",
-#                              endpoint._device.nwk,
-#                              endpoint.endpoint_id,
-#                              report_cls.cluster_id,
-#                              Status(v[0]).name)
-#        except Exception as e:
-#            _LOGGER.debug("[0x%04x:%s:0x%04x]: : bind exceptional failed %s",
-#                          endpoint._device.nwk,
-#                          endpoint.endpoint_id,
-#                          report_cls.cluster_id,
-#                          e)
-#        try:
-#            v = await report_cls.configure_reporting(
-#                report_attr, int(report_min),
-#                int(report_max), report_change, manufacturer=mfgCode)
-#            _LOGGER.debug("[0x%04x:%s:0x%04x] set config report status: %s",
-#                          endpoint._device.nwk,
-#                          endpoint._endpoint_id,
-#                          report_cls.cluster_id,
-#                          v)
-#        except Exception as e:
-#            _LOGGER.error("[0x%04x:%s:0x%04x] set config report exeptional failed: %s",
-#                          endpoint._device.nwk,
-#                          endpoint.endpoint_id,
-#                          report_cls.cluster_id,
-#                          e)
     if 0x0006 in in_clusters:
         await zha_new.req_conf_report(endpoint.in_clusters[0x0006],  0,  1,  600, 1)
     if 0x0008 in in_clusters:
@@ -381,3 +351,4 @@ async def auto_set_attribute_report(endpoint, in_clusters):
         await zha_new.req_conf_report(endpoint.in_clusters[0x0300],  3,  1,  600, 1)
         await zha_new.req_conf_report(endpoint.in_clusters[0x0300],  4,  1,  600, 1)
         await zha_new.req_conf_report(endpoint.in_clusters[0x0300],  7,  1,  600, 1)
+

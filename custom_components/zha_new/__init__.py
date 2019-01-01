@@ -5,6 +5,13 @@ For more details about this component, please refer to the documentation at
 https://home-assistant.io/components/zha/
 
 """
+REQUIREMENTS = [
+                'https://github.com/Yoda-x/bellows/archive/ng.zip#bellows==100.7.4.3.dev*',
+#               'https://github.com/Yoda-x/bellows/archive/master.zip#bellows>=0.7.4.3',
+                'https://github.com/Yoda-x/zigpy/archive/ng.zip#zigpy==100.1.4.1.dev*',
+#                'https://github.com/Yoda-x/zigpy/archive/master.zip#zigpy==0.1.4-Y',
+                ]
+
 
 import asyncio
 import logging
@@ -20,8 +27,8 @@ from homeassistant.helpers.entity_component import EntityComponent
 #import homeassistant.helpers.entity_registry as entity_registry
 from homeassistant.util import slugify
 from importlib import import_module
+
 from homeassistant.helpers.restore_state import RestoreEntity
-from zigpy.zcl.foundation import Status
 
 REQUIREMENTS = [
                 'https://github.com/Yoda-x/bellows/archive/ng2.zip#bellows==100.7.4.3.dev*',
@@ -115,6 +122,7 @@ def populate_data():
         zcl.clusters.measurement.PressureMeasurement: 'sensor',
         zcl.clusters.measurement.IlluminanceMeasurement: 'sensor',
         zcl.clusters.measurement.OccupancySensing: 'binary_sensor',
+        zcl.clusters.homeautomation.ElectricalMeasurement: 'sensor', 
         })
 
     # A map of hass components to all Zigbee clusters it could use
@@ -997,6 +1005,8 @@ def call_func(_model, function, *args):
             _LOGGER.info("Excecution of DH %s failed: %s", dev_func, e.args)
 
 async def req_conf_report( report_cls, report_attr, report_min, report_max, report_change, mfgCode=None):
+        from zigpy.zcl.foundation import Status
+
         endpoint=report_cls._endpoint
         try:
             v = await report_cls.bind()

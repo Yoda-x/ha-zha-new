@@ -1,3 +1,4 @@
+
 # Incompatible with mainstream zigpy/bellows
 quirks code in mainstream zigpy breaks compatiblilty with zha_new, please use my versions
 With the patch from estevez-dev my zigpy and bellows should be loaded automatic
@@ -90,3 +91,4 @@ tradfri bulbs and dimmer need  to use the template definition, xiaome sensors ge
 - if a device leaves, the device gets removed from the database. Thus, you can unpair and pair a device now, without need to clear the database
 - see the zha.yaml file for configuration
 - it will create a base entity and a entity for each sensor(motion, temp, humidity, on/off)
+
