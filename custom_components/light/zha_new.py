@@ -31,17 +31,20 @@ async def async_setup_platform(hass, config,
         return
 
     endpoint = discovery_info['endpoint']
-    try:
-        discovery_info['color_capabilities'] \
-            = await endpoint.light_color['color_capabilities']
-    except AttributeError as e:
-        _LOGGER.debug("No color cluster: %s", e.args)
-    except KeyError as e:
-        _LOGGER.debug("Request for color_capabilities failed: %s", e.args)
-    except Exception as e:
-        _LOGGER.debug("Request for color_capabilities other error: %s", e.args)
-    entity = Light(**discovery_info)
 
+    if hasattr(endpoint, 'light_color'):                                       
+        caps = await zha_new.safe_read(                                        
+            endpoint.light_color, ['color_capabilities'])                      
+        discovery_info['color_capabilities'] = caps.get('color_capabilities')  
+        if discovery_info['color_capabilities'] is None:                       
+            discovery_info['color_capabilities'] = CAPABILITIES_COLOR_XY       
+            result = await zha_new.safe_read(                                  
+                endpoint.light_color, ['color_temperature'])                   
+            if result.get('color_temperature') is not UNSUPPORTED_ATTRIBUTE:   
+                discovery_info['color_capabilities'] |= CAPABILITIES_COLOR_TEMP
+
+    entity = Light(**discovery_info)                         
+                
     if hass.states.get(entity.entity_id):
         _LOGGER.debug("entity exist,remove it: %s",
                       dir(hass.states.get(entity.entity_id)))
