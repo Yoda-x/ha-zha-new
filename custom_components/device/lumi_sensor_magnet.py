@@ -18,6 +18,8 @@ def _custom_endpoint_init(self, node_config, *argv):
             "in_cluster": [0x0000, 0x0006],
             "type": "binary_sensor",
         }
+        self.add_input_cluster(0x0006)
+
     elif selector in ['lumi.sensor_ht', ] and self.endpoint_id == 1:
         config = {
             "config_report": [
