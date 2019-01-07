@@ -7,9 +7,9 @@ https://home-assistant.io/components/zha/
 """
 REQUIREMENTS = [
 #                'https://github.com/Yoda-x/bellows/archive/ng.zip#bellows==100.7.4.3.dev*',
-               'https://github.com/Yoda-x/bellows/archive/master.zip#bellows>=100.7.4.5',
+               'https://github.com/Yoda-x/bellows/archive/master.zip#bellows==100.7.4.5',
 #                'https://github.com/Yoda-x/zigpy/archive/ng.zip#zigpy==100.1.4.1.dev*',
-                'https://github.com/Yoda-x/zigpy/archive/master.zip#zigpy>=100.1.4.2',
+                'https://github.com/Yoda-x/zigpy/archive/master.zip#zigpy==100.1.4.2',
                 ]
 
 
@@ -30,12 +30,6 @@ from importlib import import_module
 
 from homeassistant.helpers.restore_state import RestoreEntity
 
-REQUIREMENTS = [
-                'https://github.com/Yoda-x/bellows/archive/ng2.zip#bellows==100.7.4.3.dev*',
-#               'https://github.com/Yoda-x/bellows/archive/master.zip#bellows>=0.7.4.3',
-                'https://github.com/Yoda-x/zigpy/archive/ng.zip#zigpy==100.1.4.1.dev*',
-#                'https://github.com/Yoda-x/zigpy/archive/master.zip#zigpy==0.1.4-Y',
-                ]
 DOMAIN = 'zha_new'
 
 CONF_BAUDRATE = 'baudrate'
