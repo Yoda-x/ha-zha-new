@@ -6,10 +6,10 @@ https://home-assistant.io/components/zha/
 
 """
 REQUIREMENTS = [
-                'https://github.com/Yoda-x/bellows/archive/ng.zip#bellows==100.7.4.3.dev*',
-#               'https://github.com/Yoda-x/bellows/archive/master.zip#bellows>=0.7.4.3',
-                'https://github.com/Yoda-x/zigpy/archive/ng.zip#zigpy==100.1.4.1.dev*',
-#                'https://github.com/Yoda-x/zigpy/archive/master.zip#zigpy==0.1.4-Y',
+#                'https://github.com/Yoda-x/bellows/archive/ng.zip#bellows==100.7.4.3.dev*',
+               'https://github.com/Yoda-x/bellows/archive/master.zip#bellows>=100.7.4.5',
+#                'https://github.com/Yoda-x/zigpy/archive/ng.zip#zigpy==100.1.4.1.dev*',
+                'https://github.com/Yoda-x/zigpy/archive/master.zip#zigpy>=100.1.4.2',
                 ]
 
 
@@ -318,8 +318,8 @@ async def async_setup(hass, config):
     async def command(service):
         listener.command(service.data)
 
-    hass.services.async_register(DOMAIN, SERVICE_COMMAND, command,
-                                 schema=SERVICE_SCHEMAS[SERVICE_COMMAND])
+#    hass.services.async_register(DOMAIN, SERVICE_COMMAND, command,
+#                                 schema=SERVICE_SCHEMAS[SERVICE_COMMAND])
 
     zha_controller._state = "Run"
     zha_controller.async_schedule_update_ha_state()
