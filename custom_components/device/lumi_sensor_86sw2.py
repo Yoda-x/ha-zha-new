@@ -10,7 +10,7 @@ def _custom_endpoint_init(self, node_config, *argv):
     if not selector:
         selector = argv[0]
         _LOGGER.debug(" selector: %s", selector)
-    if selector in ['lumi.sensor_86sw2', 'lumi.sensor_86sw2un']:
+    if selector in ['lumi.sensor_86sw2', 'lumi.sensor_86sw2Un',]:
         config = {
             'in_cluster': [0x0000, 0x0006],
             'type': 'binary_sensor',
@@ -99,7 +99,7 @@ def _parse_attribute(entity, attrib, value, *argv, **kwargs):
             event_data['data'] = 'shake'
         entity.hass.bus.fire('click', event_data)
 
-        attributes["last seen"] = dt_util.now()
+    attributes["last seen"] = dt_util.now()
     entity._device_state_attributes.update(attributes)
     _LOGGER.debug('updated Attributes:%s', attributes)
     return(attrib, result)

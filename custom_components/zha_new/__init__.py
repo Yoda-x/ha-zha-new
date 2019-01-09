@@ -409,20 +409,18 @@ class ApplicationListener:
         discovered_info = {}
         out_clusters = []
         # loop over endpoints
-        _LOGGER.debug("[0x%04x] device init for %s(%s)(%s) -> Endpoints: %s, %s ",
-                      device.nwk,  type(device.model),  device.model,  device.ieee, list(device.endpoints.keys()),
-                      "new join" if join else "already joined")
+        
         if join:
             for endpoint_id, endpoint in device.endpoints.items():
                 if endpoint_id == 0:  # ZDO
                     continue
-
                 if 0 in endpoint.in_clusters:
                     discovered_info = await _discover_endpoint_info(endpoint)
-                    if not device.model:
-                        device.model = discovered_info.get(CONF_MODEL, None)
-                    if not device.manufacturer:
-                        device.manufacturer = discovered_info.get(CONF_MANUFACTURER, None)
+                    device.model = discovered_info.get(CONF_MODEL, device.model)
+                    device.manufacturer = discovered_info.get(CONF_MANUFACTURER, device.manufacturer)
+        _LOGGER.debug("[0x%04x] device init for %s(%s)(%s) -> Endpoints: %s, %s ",
+                      device.nwk,  type(device.model),  device.model,  device.ieee, list(device.endpoints.keys()),
+                      "new join" if join else "already joined")
         for endpoint_id, endpoint in device.endpoints.items():
             _LOGGER.debug("[0x%04x:%s] endpoint init", device.nwk, endpoint_id, )
             if endpoint_id == 0:  # ZDO
@@ -871,11 +869,11 @@ async def _discover_endpoint_info(endpoint):
             try:
                 value = value.decode('ascii').strip()
                 extra_info[key] = ''.join([x for x in value if x in string.printable])
-
+                _LOGGER.debug("%s: type(%s) %s", key, type(extra_info[key] ), extra_info[key] )
             except UnicodeDecodeError as e:
                 # Unsure what the best behaviour here is. Unset the key?
                 _LOGGER.debug("unicode decode error, %s",  e)
-    _LOGGER.debug("discover_endpoint_info:", extra_info)
+    _LOGGER.debug("discover_endpoint_info:%s", extra_info)
     return extra_info
 
 
