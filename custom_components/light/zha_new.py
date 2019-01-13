@@ -55,14 +55,17 @@ async def async_setup_platform(hass, config,
     if hasattr(endpoint, 'light_color'):
         caps = await zha_new.safe_read(
             endpoint.light_color, ['color_capabilities'])
-        discovery_info['color_capabilities'] = caps.get('color_capabilities')
-        if discovery_info['color_capabilities'] is None:
+        try:
+            discovery_info['color_capabilities'] = caps.get('color_capabilities')
+        except AttributeError:
             discovery_info['color_capabilities'] = CAPABILITIES_COLOR_XY
-            result = await zha_new.safe_read(
-                endpoint.light_color, ['color_temperature'])
-            if result.get('color_temperature') is not UNSUPPORTED_ATTRIBUTE:
-                discovery_info['color_capabilities'] |= CAPABILITIES_COLOR_TEMP
-
+            try:
+                result = await zha_new.safe_read(
+                    endpoint.light_color, ['color_temperature'])
+                if result.get('color_temperature') is not UNSUPPORTED_ATTRIBUTE:
+                    discovery_info['color_capabilities'] |= CAPABILITIES_COLOR_TEMP
+            except AttributeError:
+                pass
     entity = Light(**discovery_info)
 
     if hass.states.get(entity.entity_id):
