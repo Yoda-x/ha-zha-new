@@ -1,7 +1,18 @@
 
+
+
 # Incompatible with mainstream zigpy/bellows
 quirks code in mainstream zigpy breaks compatiblilty with zha_new, please use my versions
 With the patch from estevez-dev my zigpy and bellows should be loaded automatic
+
+# 01/13/2019
+new master release, please update to hass >84.1
+- restore states from history after restart
+- more devices
+- improved stability
+- rewrote light handler, read max/min mireds from bulb if posible, get state reports from bulbs, powered-on bulbs get detected asap.
+-much more 
+- new controller frame statistics
 
 # ha-zha-new
 see wiki for tips
