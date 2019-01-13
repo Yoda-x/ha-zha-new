@@ -4,4 +4,4 @@ __pycache__/
 *$py.class
 .gitignore
 .eric6project
-zha-NEW.e4p
+*.e4p
