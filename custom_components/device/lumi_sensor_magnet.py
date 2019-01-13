@@ -1,6 +1,5 @@
 """" custom py file for device."""
 import logging
-import asyncio
 import homeassistant.util.dt as dt_util
 from custom_components import zha_new
 
@@ -19,13 +18,15 @@ def _custom_endpoint_init(self, node_config, *argv):
             "in_cluster": [0x0000, 0x0006],
             "type": "binary_sensor",
         }
+        self.add_input_cluster(0x0006)
+
     elif selector in ['lumi.sensor_ht', ] and self.endpoint_id == 1:
         config = {
             "config_report": [
                 [0x0402, 0, 10, 600, 5],
                 [0x0405, 0, 10, 600, 5],
             ],
-            "in_cluster": [0x0000, 0x0402, ],
+            "in_cluster": [0x0000, 0x0402, ],  # just use one sensor as main
             "out_cluster": [],
             "type": "sensor",
         }
@@ -39,13 +40,13 @@ def _custom_endpoint_init(self, node_config, *argv):
                 [0x0403, 0, 10, 120, 5],
                 [0x0405, 0, 10, 120, 5],
             ],
-            "in_cluster": [0x0000, 0x402],
+            "in_cluster": [0x0000, 0x0402],  # just use one sensor as main
             "out_cluster": [],
             "type": "sensor",
         }
         self.add_input_cluster(0x0402)
+        self.add_input_cluster(0x0403)
         self.add_input_cluster(0x0405)
-        self.add_input_cluster(0x0406)
     elif selector in ['lumi.sensor_motion', ]:
         config = {
             "config_report": [
@@ -70,16 +71,17 @@ def _custom_endpoint_init(self, node_config, *argv):
         self.add_input_cluster(0x0400)
     elif selector == 'lumi.sensor_wleak.aq1':
         config = {
-            "in_cluster": [0x0000, 0xff01],
+            "in_cluster": [0x0000, 0xff01, 0x0500],
             "out_cluster": [0x0500],
             "type": "binary_sensor",
             "config_report": [
                 [0xff01, 0, 10, 1800, 1],
             ],
         }
+        self.add_input_cluster(0x0500)
     elif selector == 'lumi.vibration.aq1' and self.endpoint_id == 1:
         config = {
-            "type": "sensor",
+            "type": "binary_sensor",
             "in_cluster": [0x0000, 0x0101]
         }
 #        asyncio.ensure_future(zha_new.discover_cluster_values(self, self.in_clusters[0x0101]))
@@ -174,15 +176,36 @@ def _parse_attribute(entity, attrib, value, *argv, **kwargs):
     attributes["last seen"] = dt_util.now()
     if "path" in attributes:
         entity._endpoint._device.handle_RouteRecord(attributes["path"])
-    entity._device_state_attributes.update(attributes)
 
     if entity._model == 'lumi.vibration.aq1':
         if attrib == 85:
             event_data = {
                     'entity_id': entity.entity_id,
-                    'channel': "alarm",
-                    'type': value,
+                    'channel':  "alarm",
+                    'type':  "vibration" if value == 1 else ("tilt" if value == 2 else "drop")
                    }
             entity.hass.bus.fire('alarm', event_data)
+            attributes['alarm'] = event_data['type']
+        elif attrib == 1283:
+            _LOGGER.debug("Rotation: %s",  value)
+            attributes['rotation'] = value
+        elif attrib == 1288:
+            angle_z = value & 0x0fff
+            if angle_z > 2048:
+                angle_z -= 4096
+            angle_y = (value >> 16) & 0x0fff
+            if angle_y > 2048:
+                angle_y -= 4096
+            angle_x = (value >> 32) & 0x0fff
+            if angle_x > 2048:
+                angle_x -= 4096
+            _LOGGER.debug("Attrib 0x%04x: 0x%04x : %s %s %s",  attrib,  value,  angle_x,  angle_y,  angle_z)
+            attributes['angle_x'] = angle_x
+            attributes['angle_y'] = angle_y
+            attributes['angle_z'] = angle_z
+    elif entity._model in ['lumi.sensor_magnet.aq2', 'lumi.sensor_wleak.aq1']:
+        if "temperature" in attributes:
+            entity._state = attributes["temperature"]
 
+    entity._device_state_attributes.update(attributes)
     return(attrib, result)
