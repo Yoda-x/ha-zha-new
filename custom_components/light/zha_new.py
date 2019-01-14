@@ -285,7 +285,7 @@ class Light(zha_new.Entity, light.Light):
             if result:
                 if result[0] >= 1:
                     self._groups = result[1]
-                    if self._device_state_attributes["Group_id"] != self._groups:
+                    if self._device_state_attributes.get("Group_id") != self._groups:
                         self._device_state_attributes["Group_id"] = self._groups
                         for groups in self._groups:
                             self._endpoint._device._application.listener_event(
