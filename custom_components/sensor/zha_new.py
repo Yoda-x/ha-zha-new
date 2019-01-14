@@ -20,8 +20,7 @@ _LOGGER = logging.getLogger(__name__)
 #DEPENDENCIES = ['zha_new']
 
 
-@asyncio.coroutine
-def async_setup_platform(hass, config, async_add_devices, discovery_info=None):
+async def async_setup_platform(hass, config, async_add_devices, discovery_info=None):
     from zigpy.zcl.clusters.security import IasZone
     """Set up Zigbee Home Automation sensors."""
     discovery_info = zha_new.get_discovery_info(hass, discovery_info)
@@ -40,14 +39,14 @@ def async_setup_platform(hass, config, async_add_devices, discovery_info=None):
 
     if discovery_info['new_join']:
         try:
-            yield from cluster.bind()
+            await cluster.bind()
             ieee = cluster.endpoint.device.application.ieee
-            yield from cluster.write_attributes({'cie_addr': ieee})
+            await cluster.write_attributes({'cie_addr': ieee})
             _LOGGER.debug("write cie done")
         except:
             _LOGGER.debug("bind/write cie failed")
 
-    entity = yield from make_sensor(discovery_info)
+    entity = await make_sensor(discovery_info)
     _LOGGER.debug("Create sensor.zha: %s", entity.entity_id)
     if hass.states.get(entity.entity_id):
         _LOGGER.debug("entity exist,remove it: %s",  entity.entity_id)
@@ -61,9 +60,7 @@ def async_setup_platform(hass, config, async_add_devices, discovery_info=None):
         entity_store[endpoint.device._ieee] = []
     entity_store[endpoint.device._ieee].append(entity)
 
-
-@asyncio.coroutine
-def make_sensor(discovery_info):
+async def make_sensor(discovery_info):
     """Create ZHA sensors factory."""
     from zigpy.zcl.clusters.measurement import TemperatureMeasurement
     from zigpy.zcl.clusters.measurement import RelativeHumidity
@@ -263,8 +260,7 @@ class MeteringSensor(Sensor):
         """
         return False
 
-    @asyncio.coroutine
-    def async_update(self):
+    async def async_update(self):
         """Retrieve latest state."""
 #        ptr=0
 #        #_LOGGER.debug("%s async_update", self.entity_id)
@@ -277,7 +273,7 @@ class MeteringSensor(Sensor):
 #        attribs.extend(list(self.meter_attributes.keys()))
 #     #   _LOGGER.debug("query %s:", attribs)
 #        #v = yield from self.meter_cls.read_attributes_raw(attribs)
-        v = yield from self.meter_cls.read_attributes(attribs)
+        v = await self.meter_cls.read_attributes(attribs)
 #     #   _LOGGER.debug("attributes for cluster:%s" , v[0])
         for attrid, value in v[0].items():
             if attrid == 0:
