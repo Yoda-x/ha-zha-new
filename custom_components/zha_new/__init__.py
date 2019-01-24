@@ -92,6 +92,18 @@ def populate_data():
         zha.DeviceType.REMOTE_CONTROL: 'binary_sensor',
         zha.DeviceType.OCCUPANCY_SENSOR: 'binary_sensor',
         zha.DeviceType.IAS_ZONE: 'binary_sensor',
+        zha.DeviceType.LIGHT_SENSOR: 'binary_sensor',
+        zha.DeviceType.ON_OFF_BALLAST: 'switch', 
+        zha.DeviceType.ON_OFF_PLUG_IN_UNIT:  'switch', 
+        zha.DeviceType.DIMMABLE_PLUG_IN_UNIT:  'switch', 
+        zha.DeviceType.COLOR_TEMPERATURE_LIGHT: 'light', 
+        zha.DeviceType.EXTENTED_COLOR_LIGHT: 'light', 
+        zha.DeviceType.LIGHT_LEVEL_SENSOR: 'binary_sensor',
+        zha.DeviceType.NON_COLOR_CONTROLLER: 'binary_sensor',
+        zha.DeviceType.NON_COLOR_SCENE_CONTROLLER: 'binary_sensor', 
+        zha.DeviceType.CONTROL_BRIDGE: 'binary_sensor',
+        zha.DeviceType.ON_OFF_SENSOR: 'binary_sensor',
+    
         }
 
     DEVICE_CLASS[zll.PROFILE_ID] = {
