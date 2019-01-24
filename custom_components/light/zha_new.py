@@ -6,8 +6,8 @@ at https://home-assistant.io/components/light.zha/
 
 """
 import logging
+import custom_components.zha_new.helpers as helpers
 import asyncio
-from asyncio import ensure_future
 from homeassistant.components import light
 from homeassistant.const import STATE_UNKNOWN
 import custom_components.zha_new as zha_new
@@ -167,6 +167,7 @@ class Light(zha_new.Entity, light.Light):
                             self, cluster, cluster.cluster_id)
 
         endpoint._device.zdo.add_listener(self)
+#        asyncio.ensure_future(helpers.full_discovery(self._endpoint, timeout=2))
 
     @property
     def is_on(self) -> bool:
@@ -220,16 +221,9 @@ class Light(zha_new.Entity, light.Light):
                 duration
             )
             self._state = True
-#            self.async_schedule_update_ha_state()
-#            self.async_update()
-#            await asyncio.sleep(duration/10)
-#            self._call_ongoing = False
-#            return
         else:
             await self._endpoint.on_off.on()
             self._state = True
-#        self.async_update_ha_state(force_refresh=True)
-#        self.async_update()
         await asyncio.sleep(duration/10)
         self._call_ongoing = False
 
@@ -291,8 +285,8 @@ class Light(zha_new.Entity, light.Light):
                             self._endpoint._device._application.listener_event(
                                 'subscribe_group',
                                 groups)
-            if not self._state:
-                return
+#            if not self._state:
+#                return
         if self.is_on:
             if self._supported_features & light.SUPPORT_BRIGHTNESS:
                 result = await zha_new.safe_read(self._endpoint.level,
@@ -313,6 +307,24 @@ class Light(zha_new.Entity, light.Light):
                 if result:
                     if 'current_x' in result and 'current_y' in result:
                         self._hs_color = (result['current_x'], result['current_y'])
+                        
+#        if self._endpoint.in_clusters.get(0x1000, None):
+#            _LOGGER.debug("%s found commisioning cluster ",  self.entity_id)
+#            try: 
+#                #await helpers.cluster_discover_commands(self._endpoint.lightlink)
+#                await asyncio.wait_for(self._endpoint.lightlink.get_group_identifier_request(0), 5)
+#            except:
+#                _LOGGER.debug("get_group_identifier_request failed for %s",  self.entity_id)
+#        else:
+#            _LOGGER.debug("%s found NO commisioning cluster ",  self.entity_id)
+#
+#        for id,  cluster in self._endpoint.in_clusters.items():
+#            _LOGGER.debug("%s found cluster %s",  self.entity_id,  id)
+#            try: 
+#                await helpers.cluster_discover_commands(cluster)
+#                #await asyncio.wait_for(self._endpoint.lightlink.get_group_identifier_request(0), 5)
+#            except:
+#                _LOGGER.debug("get commands for %s failed for %s",  self.entity_id,  id)
 
     @property
     def should_poll(self) -> bool:
@@ -335,10 +347,12 @@ class Light(zha_new.Entity, light.Light):
             _LOGGER.info("Excecution of DH %s failed: %s", dev_func, e.args)
 
     def device_announce(self, *args,  **kwargs):
-        ensure_future(auto_set_attribute_report(self._endpoint,  self._in_clusters))
-        ensure_future(self.async_update())
+        asyncio.ensure_future(auto_set_attribute_report(self._endpoint,  self._in_clusters))
+        asyncio.ensure_future(self.async_update())
         self._assumed=False
         _LOGGER.debug("0x%04x device announce for light received",  self._endpoint._device.nwk)
+#        asyncio.ensure_future(helpers.full_discovery(self._endpoint, timeout=5))
+        
 
     @property
     def max_mireds(self):
