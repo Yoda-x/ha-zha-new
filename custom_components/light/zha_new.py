@@ -181,7 +181,7 @@ class Light(zha_new.Entity, light.Light):
 #       return bool(self._available)
 
     @property
-    def assumed_state(self):
+    def assumed_state(self) -> bool:
         """Return True if unable to access real state of the entity."""
         return bool(self._assumed)
 
@@ -260,22 +260,26 @@ class Light(zha_new.Entity, light.Light):
         try:
 #            result = await zha_new.safe_read(self._endpoint.on_off, ['on_off'])
             result, _ = await self._endpoint.on_off.read_attributes(['on_off'], allow_cache=False)
-            _LOGGER.debug("received: %s", result)
+            _LOGGER.debug(" poll received for %s : %s", self.entity_id, result)
         except Exception as e:
+            _LOGGER.debug('poll for %s failed: %s', self.entity_id,  e )
             result = None
         try:
             self._state = result['on_off']
             self._assumed = False
-        except Exception:
+            _LOGGER.debug("assumed state for %s is false", self.entity_id)
+        except Exception as e:
+            _LOGGER.debug("assumed state for %s excepted: %s", self.entity_id,  e)
             self._assumed = True
             return
 
         if hasattr(self, '_groups'):
             try:
                 result = await self._endpoint.groups.get_membership([])
-            except:
+                _LOGGER.debug("%s get membership : %s", self.entity_id,  result)
+            except Exception as e:
                 result = None
-            _LOGGER.debug("%s get membership: %s", self.entity_id,  result)
+                _LOGGER.debug("%s get membership failed: %s", self.entity_id,  e)
             if result:
                 if result[0] >= 1:
                     self._groups = result[1]

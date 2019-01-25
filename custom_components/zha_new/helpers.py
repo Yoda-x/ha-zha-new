@@ -65,7 +65,8 @@ async def cluster_commisioning_groups(cluster, timeout=2):
         if (cls_start + 1) >= total :
             break
         _LOGGER.debug("discover_commisioning_groups for %s: %s",  cluster.cluster_id, group_list)
-    return group_list
+    
+    return [ group.GroupId for group in group_list]
 
 
 

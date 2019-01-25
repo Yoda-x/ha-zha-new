@@ -15,6 +15,7 @@ REQUIREMENTS = [
 
 import asyncio
 import logging
+import json
 
 import voluptuous as vol
 from homeassistant.helpers.event import async_track_point_in_time
@@ -415,7 +416,7 @@ class ApplicationListener:
 
     async def async_device_initialized(self, device, join):
         """Handle device joined and basic information discovered (async)."""
-        from zigpy.zdo.types import Status
+#        from zigpy.zdo.types import Status
         import zigpy.profiles
         populate_data()
         discovered_info = {}
@@ -518,40 +519,6 @@ class ApplicationListener:
             # Add allowed Out_Clusters from config
             if CONF_OUT_CLUSTER in node_config:
                 profile_clusters[1] = set(node_config.get(CONF_OUT_CLUSTER))
-
-#            async def req_conf_report(report_cls, report_attr, report_min, report_max, report_change, mfgCode=None):
-#                try:
-#                    v = await report_cls.bind()
-#                    if v[0] > 0:
-#                        _LOGGER.debug("[0x%04x:%s] %s: bind failed: %s",
-#                                      device.nwk,
-#                                      endpoint_id,
-#                                      device_key,
-#                                      report_cls.cluster_id,
-#                                      Status(v[0]).name)
-#                except Exception as e:
-#                    _LOGGER.debug("[0x%04x:%s] %s: : %s bind exceptional failed %s",
-#                                  device.nwk,
-#                                  endpoint_id,
-#                                  device_key,
-#                                  report_cls.cluster_id,
-#                                  e)
-#                try:
-#                    v = await report_cls.configure_reporting(
-#                        report_attr, int(report_min),
-#                        int(report_max), report_change, manufacturer=mfgCode)
-#                    _LOGGER.debug("[0x%04x:%s] %s: set config report %s status: %s",
-#                                  device.nwk,
-#                                  endpoint_id,
-#                                  device_key,
-#                                  report_cls.cluster_id,
-#                                  v)
-#                except Exception as e:
-#                    _LOGGER.error("[0x%04x:%s:0x%04x] set config report failed: %s",
-#                                  device.nwk,
-#                                  endpoint_id,
-#                                  report_cls.cluster_id,
-#                                  e)
 
             # if reporting is configured in yaml,
             # then create cluster if needed and setup reporting
@@ -822,6 +789,7 @@ class Entity(RestoreEntity):
         self._device_state_attributes['rssi'] = self._endpoint.device.rssi
         self._device_state_attributes['nwk'] = self._endpoint.device.nwk
         self._device_state_attributes['path'] = self._endpoint.device.path
+       
         return self._device_state_attributes
 
     async def async_added_to_hass(self):
@@ -829,7 +797,7 @@ class Entity(RestoreEntity):
         await super().async_added_to_hass()
         data = await self.async_get_last_state()
         try:
-            _LOGGER.debug("Restore state for %s: %s",  self.entity_id,  data.state )
+            _LOGGER.debug("Restore state for %s:",  self.entity_id )
             if data.state:
                 if hasattr(self,  'state_div'):
                     self._state = float(data.state) * self.state_div
@@ -837,14 +805,22 @@ class Entity(RestoreEntity):
                     self._state = 1 if data.state == ha_const.STATE_ON else 0
                 if (data.state == '-') or (data.state == ha_const.STATE_UNKNOWN):
                     self._state = None
-        except AttributeError as e:
+            self._device_state_attributes.update(data.attributes)
+            self._device_state_attributes.pop('assumed_state',  None)
+            self._groups = data.attributes.get("Group_id", list()) if not self._groups else self._groups  
+            for group in self._groups:
+                self._endpoint._device._application.listener_event(
+                                'subscribe_group',
+                                group)
+            self._device_state_attributes['Group_id'] = self._groups
+        except Exception as e:
             _LOGGER.debug('Restore failed for %s: %s', self.entity_id, e )
 
     @property
     def assumed_state(self):
         """Return True if unable to access real state of the entity."""
         return False
-
+ 
 
 async def _discover_endpoint_info(endpoint):
     import string
