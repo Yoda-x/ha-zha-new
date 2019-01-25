@@ -6,7 +6,7 @@ _LOGGER = logging.getLogger(__name__)
 
 
 async def cluster_discover_commands(cluster, timeout=2):
-    
+
     cls_start = 0
     cls_no = 20
     command_list = list()
@@ -18,7 +18,7 @@ async def cluster_discover_commands(cluster, timeout=2):
             if done:
                 break
             else:
-                cls_start = command_list[-1] + 1 
+                cls_start = command_list[-1] + 1
         except TypeError:
             return
         except AttributeError:
@@ -29,20 +29,21 @@ async def cluster_discover_commands(cluster, timeout=2):
     _LOGGER.debug("discover_cluster_commands for %s: %s",  cluster.cluster_id, command_list)
     return command_list
 
+
 async def cluster_discover_attributes(cluster, timeout=2):
-    
+
     cls_start = 0
     cls_no = 20
     attribute_list = list()
     while True:
         try:
-            done,  result= await asyncio.wait_for(cluster.discover_attributes(cls_start, cls_no),  timeout)
+            done,  result = await asyncio.wait_for(cluster.discover_attributes(cls_start, cls_no),  timeout)
             _LOGGER.debug("discover_cluster_attributes for %s: %s",  cluster.cluster_id, result)
             attribute_list.extend(result).sort()
             if done:
                 break
             else:
-                cls_start = attribute_list[-1] +1 
+                cls_start = attribute_list[-1] + 1
         except TypeError:
             return
         except AttributeError:
@@ -52,8 +53,9 @@ async def cluster_discover_attributes(cluster, timeout=2):
     _LOGGER.debug("discover_attributes for %s: %s",  cluster.cluster_id, attribute_list)
     return attribute_list
 
+
 async def cluster_commisioning_groups(cluster, timeout=2):
-    
+
     cls_start = 0
     cls_no = 0
     group_list = list()
@@ -62,11 +64,12 @@ async def cluster_commisioning_groups(cluster, timeout=2):
         _LOGGER.debug("discover_group_identifier for %s: %s",  cluster.cluster_id, result)
         group_list.extend(result)
         cls_start += cls_no
-        if (cls_start + 1) >= total :
+        if (cls_start + 1) >= total:
             break
         _LOGGER.debug("discover_commisioning_groups for %s: %s",  cluster.cluster_id, group_list)
-    
-    return [ group.GroupId for group in group_list]
+
+    return [group.GroupId for group in group_list]
+
 
 
 
@@ -87,7 +90,6 @@ async def full_discovery(endpoint, timeout=5):
         except Exception as e:
             _LOGGER.debug("catched exception in full_discovery %s",  e)
         try:
-            attributes[cluster_id] =  await cluster_discover_attributes(cluster, timeout=timeout)
+            attributes[cluster_id] = await cluster_discover_attributes(cluster, timeout=timeout)
         except Exception as e:
             _LOGGER.debug("catched exception in full_discovery %s",  e)
-

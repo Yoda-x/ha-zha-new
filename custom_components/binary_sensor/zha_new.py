@@ -85,7 +85,7 @@ async def async_setup_platform(hass, config, async_add_devices,
                     device_class = CLASS_MAPPING.get(zone_type, None)
                 except Exception:  # pylint: disable=broad-except
                     _LOGGER.debug("zone read failed")
-     
+
     discovery_info['groups'] = groups
     entity = await _make_sensor(device_class, discovery_info)
     if hass.states.get(entity.entity_id):
@@ -222,13 +222,13 @@ class BinarySensor(zha_new.Entity, BinarySensorDevice):
                                 self, cluster, "TemperatureMeasurement")
             elif PowerConfiguration.cluster_id == cluster.cluster_id:
                 self.sub_listener[cluster.cluster_id] = Server_PowerConfiguration(
-                                self, cluster, "PowerConfiguration") 
+                                self, cluster, "PowerConfiguration")
             else:
                 self.sub_listener[cluster.cluster_id] = Cluster_Server(
                                 self, cluster, cluster.cluster_id)
         endpoint._device.zdo.add_listener(self)
 #        asyncio.ensure_future(helpers.full_discovery(self._endpoint, timeout=10))
-        
+
     @property
     def is_on(self) -> bool:
         """Return True if entity is on."""
@@ -273,6 +273,7 @@ class BinarySensor(zha_new.Entity, BinarySensorDevice):
                 self._endpoint._device._application.listener_event(
                             'subscribe_group',
                             group)
+
 
 class OccupancySensor(BinarySensor):
 

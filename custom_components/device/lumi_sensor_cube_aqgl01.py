@@ -6,6 +6,7 @@ from custom_components import zha_new
 _LOGGER = logging.getLogger(__name__)
 DOMAIN = 'cube_event'
 
+
 def _custom_endpoint_init(self, node_config, *argv):
     """set node_config based on Lumi device_type."""
     config = {}
@@ -43,6 +44,7 @@ def _custom_endpoint_init(self, node_config, *argv):
         self.add_input_cluster(0x000c)
     node_config.update(config)
 
+
 def _parse_attribute(entity, attrib, value, *argv):
     """ parse non standard atrributes."""
     import zigpy.types as t
@@ -68,19 +70,19 @@ def _parse_attribute(entity, attrib, value, *argv):
             command = 'cube_rotation'
         else:
             if value >= 499:
-                event= "double_tap"
-            elif value >=250:
+                event = "double_tap"
+            elif value >= 250:
                 event = "slide"
-            elif value >=100:
+            elif value >= 100:
                 event = "flip_180"
             elif value == 0:
-               event = "shake"
-            elif value <=15:
-                event= "noise"
-            elif value >0:
-                event= "flip_90"
+                event = "shake"
+            elif value <= 15:
+                event = "noise"
+            elif value > 0:
+                event = "flip_90"
             command = 'cube_slide'
-        _LOGGER.debug("value### "+str(result)+ "## state ## "+event)
+        _LOGGER.debug("value### "+str(result) + "## state ## "+event)
         entity._state = event
         event_data = {
                     'entity_id': entity.entity_id,
@@ -117,4 +119,6 @@ def _parse_attribute(entity, attrib, value, *argv):
     if "path" in attributes:
         entity._endpoint._device.handle_RouteRecord(attributes["path"])
     entity._device_state_attributes.update(attributes)
+
+
 return(attrib, result)

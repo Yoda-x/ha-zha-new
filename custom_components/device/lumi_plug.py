@@ -15,7 +15,7 @@ def _custom_endpoint_init(self, node_config, *argv):
         selector = argv[0]
     if self.endpoint_id == 1:
         config = {
-            "in_cluster": [0x0000, 0x0006 ],
+            "in_cluster": [0x0000, 0x0006],
             "type": "switch",
         }
         node_config.update(config)
@@ -23,9 +23,9 @@ def _custom_endpoint_init(self, node_config, *argv):
         config = {
             "config_report": [
                 [0x000c, 0x0055, 0, 1800, 5],
-            ], 
-            "in_cluster": [0x0000, 0x000c], 
-            "out_cluster": [], 
+            ],
+            "in_cluster": [0x0000, 0x000c],
+            "out_cluster": [],
             "type": "sensor",
         }
         self.add_input_cluster(0x000c)

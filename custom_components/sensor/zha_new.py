@@ -10,7 +10,7 @@ import asyncio
 import logging
 
 from homeassistant.components.sensor import DOMAIN
-from homeassistant.const import  STATE_UNKNOWN
+from homeassistant.const import STATE_UNKNOWN
 #from homeassistant.util.temperature import convert as convert_temperature
 import custom_components.zha_new as zha_new
 from asyncio import ensure_future
@@ -59,6 +59,7 @@ async def async_setup_platform(hass, config, async_add_devices, discovery_info=N
     if endpoint.device._ieee not in entity_store:
         entity_store[endpoint.device._ieee] = []
     entity_store[endpoint.device._ieee].append(entity)
+
 
 async def make_sensor(discovery_info):
     """Create ZHA sensors factory."""
@@ -116,7 +117,7 @@ class Sensor(zha_new.Entity):
                       list(in_clusters.keys()), list(out_clusters.keys()))
         for (key, cluster) in clusters:
             cluster.add_listener(self)
-        
+
         endpoint._device.zdo.add_listener(self)
 
     def attribute_updated(self, attribute, value):
@@ -133,6 +134,8 @@ class Sensor(zha_new.Entity):
             return STATE_UNKNOWN
         value = round(float(self._state) / self.state_div, self.state_prec)
         return value
+
+
 
 class TemperatureSensor(Sensor):
 
@@ -162,6 +165,7 @@ class TemperatureSensor(Sensor):
 
 class HumiditySensor(Sensor):
 
+
     """ZHA  humidity sensor."""
     state_div = 100
 
@@ -186,7 +190,7 @@ class HumiditySensor(Sensor):
 class PressureSensor(Sensor):
 
     """ZHA  pressure sensor."""
-    
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self._device_class = 'pressure'
@@ -229,13 +233,14 @@ class IlluminanceSensor(Sensor):
 #        return self._state
 
 
+
 class MeteringSensor(Sensor):
     """ZHA  smart engery metering."""
-    
+
     value_attribute = 0
     state_div = 100
     state_prec = 2
-    
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.meter_cls = self._endpoint.in_clusters[0x0702]
@@ -293,8 +298,10 @@ class MeteringSensor(Sensor):
     def device_announce(self, *args,  **kwargs):
         ensure_future(auto_set_attribute_report(self._endpoint,  self._in_clusters))
         ensure_future(self.async_update())
-        self._assumed=False
+        self._assumed = False
         _LOGGER.debug("0x%04x device announce for sensor received",  self._endpoint._device.nwk)
+
+
 
 async def auto_set_attribute_report(endpoint, in_clusters):
     _LOGGER.debug("[0x%04x:%s] called to set reports",  endpoint._device.nwk,  endpoint.endpoint_id)

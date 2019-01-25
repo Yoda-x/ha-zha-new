@@ -212,9 +212,9 @@ class Light(zha_new.Entity, light.Light):
 #            self._brightness = 2 if (brightness < 2 and self._state == False) else brightness
             # Move to level with on/off:
             _LOGGER.debug("[0x%04x:%s] move_to_level_w_onoff: %s ",
-                      self._endpoint._device.nwk,
-                      self._endpoint.endpoint_id,
-                      self._brightness)
+                          self._endpoint._device.nwk,
+                          self._endpoint.endpoint_id,
+                          self._brightness)
 
             await self._endpoint.level.move_to_level_with_on_off(
                 self._brightness,
@@ -262,7 +262,7 @@ class Light(zha_new.Entity, light.Light):
             result, _ = await self._endpoint.on_off.read_attributes(['on_off'], allow_cache=False)
             _LOGGER.debug(" poll received for %s : %s", self.entity_id, result)
         except Exception as e:
-            _LOGGER.debug('poll for %s failed: %s', self.entity_id,  e )
+            _LOGGER.debug('poll for %s failed: %s', self.entity_id,  e)
             result = None
         try:
             self._state = result['on_off']
@@ -311,10 +311,10 @@ class Light(zha_new.Entity, light.Light):
                 if result:
                     if 'current_x' in result and 'current_y' in result:
                         self._hs_color = (result['current_x'], result['current_y'])
-                        
+
 #        if self._endpoint.in_clusters.get(0x1000, None):
 #            _LOGGER.debug("%s found commisioning cluster ",  self.entity_id)
-#            try: 
+#            try:
 #                #await helpers.cluster_discover_commands(self._endpoint.lightlink)
 #                await asyncio.wait_for(self._endpoint.lightlink.get_group_identifier_request(0), 5)
 #            except:
@@ -324,7 +324,7 @@ class Light(zha_new.Entity, light.Light):
 #
 #        for id,  cluster in self._endpoint.in_clusters.items():
 #            _LOGGER.debug("%s found cluster %s",  self.entity_id,  id)
-#            try: 
+#            try:
 #                await helpers.cluster_discover_commands(cluster)
 #                #await asyncio.wait_for(self._endpoint.lightlink.get_group_identifier_request(0), 5)
 #            except:
@@ -353,10 +353,9 @@ class Light(zha_new.Entity, light.Light):
     def device_announce(self, *args,  **kwargs):
         asyncio.ensure_future(auto_set_attribute_report(self._endpoint,  self._in_clusters))
         asyncio.ensure_future(self.async_update())
-        self._assumed=False
+        self._assumed = False
         _LOGGER.debug("0x%04x device announce for light received",  self._endpoint._device.nwk)
 #        asyncio.ensure_future(helpers.full_discovery(self._endpoint, timeout=5))
-        
 
     @property
     def max_mireds(self):

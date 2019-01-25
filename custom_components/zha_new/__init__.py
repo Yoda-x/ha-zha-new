@@ -6,9 +6,9 @@ https://home-assistant.io/components/zha/
 
 """
 REQUIREMENTS = [
-#                'https://github.com/Yoda-x/bellows/archive/ng.zip#bellows==100.7.4.3.dev*',
+    #                'https://github.com/Yoda-x/bellows/archive/ng.zip#bellows==100.7.4.3.dev*',
                'https://github.com/Yoda-x/bellows/archive/master.zip#bellows==100.7.4.5',
-#                'https://github.com/Yoda-x/zigpy/archive/ng.zip#zigpy==100.1.4.1.dev*',
+    #                'https://github.com/Yoda-x/zigpy/archive/ng.zip#zigpy==100.1.4.1.dev*',
                 'https://github.com/Yoda-x/zigpy/archive/master.zip#zigpy==100.1.4.3',
                 ]
 
@@ -94,17 +94,17 @@ def populate_data():
         zha.DeviceType.OCCUPANCY_SENSOR: 'binary_sensor',
         zha.DeviceType.IAS_ZONE: 'binary_sensor',
         zha.DeviceType.LIGHT_SENSOR: 'binary_sensor',
-        zha.DeviceType.ON_OFF_BALLAST: 'switch', 
-        zha.DeviceType.ON_OFF_PLUG_IN_UNIT:  'switch', 
-        zha.DeviceType.DIMMABLE_PLUG_IN_UNIT:  'switch', 
-        zha.DeviceType.COLOR_TEMPERATURE_LIGHT: 'light', 
-        zha.DeviceType.EXTENTED_COLOR_LIGHT: 'light', 
+        zha.DeviceType.ON_OFF_BALLAST: 'switch',
+        zha.DeviceType.ON_OFF_PLUG_IN_UNIT:  'switch',
+        zha.DeviceType.DIMMABLE_PLUG_IN_UNIT:  'switch',
+        zha.DeviceType.COLOR_TEMPERATURE_LIGHT: 'light',
+        zha.DeviceType.EXTENTED_COLOR_LIGHT: 'light',
         zha.DeviceType.LIGHT_LEVEL_SENSOR: 'binary_sensor',
         zha.DeviceType.NON_COLOR_CONTROLLER: 'binary_sensor',
-        zha.DeviceType.NON_COLOR_SCENE_CONTROLLER: 'binary_sensor', 
+        zha.DeviceType.NON_COLOR_SCENE_CONTROLLER: 'binary_sensor',
         zha.DeviceType.CONTROL_BRIDGE: 'binary_sensor',
         zha.DeviceType.ON_OFF_SENSOR: 'binary_sensor',
-    
+
         }
 
     DEVICE_CLASS[zll.PROFILE_ID] = {
@@ -129,7 +129,7 @@ def populate_data():
         zcl.clusters.measurement.PressureMeasurement: 'sensor',
         zcl.clusters.measurement.IlluminanceMeasurement: 'sensor',
         zcl.clusters.measurement.OccupancySensing: 'binary_sensor',
-        zcl.clusters.homeautomation.ElectricalMeasurement: 'sensor', 
+        zcl.clusters.homeautomation.ElectricalMeasurement: 'sensor',
         })
 
     # A map of hass components to all Zigbee clusters it could use
@@ -246,7 +246,7 @@ class zha_state(entity.Entity):
 #        neighbors = await self.application.read_neighbor_table()
 #        self._device_state_attributes['neighbors'] = neighbors
 #        await self.application.update_topology()
-        stats= self.application.stats()
+        stats = self.application.stats()
         for key,  value in stats.items():
             self._device_state_attributes[key] = value
         status = self.application.status()
@@ -422,7 +422,7 @@ class ApplicationListener:
         discovered_info = {}
         out_clusters = []
         # loop over endpoints
-        
+
         if join:
             for endpoint_id, endpoint in device.endpoints.items():
                 if endpoint_id == 0:  # ZDO
@@ -540,7 +540,7 @@ class ApplicationListener:
                               device.nwk,
                               endpoint_id,
                               device._ieee,
-                               "no reports configured" if join else "already joined")
+                              "no reports configured" if join else "already joined")
 
             _LOGGER.debug("[0x%04x:%s] 2:profile %s, component: %s cluster:%s",
                           device.nwk,
@@ -707,7 +707,7 @@ class Entity(RestoreEntity):
             endpoint.endpoint_id,
         )
         if 'application' in kwargs:
-            self._application._entity_list[self.entity_id] = self   
+            self._application._entity_list[self.entity_id] = self
 
         self._device_state_attributes['friendly_name'] = '%s %s' % (
             manufacturer,
@@ -789,7 +789,7 @@ class Entity(RestoreEntity):
         self._device_state_attributes['rssi'] = self._endpoint.device.rssi
         self._device_state_attributes['nwk'] = self._endpoint.device.nwk
         self._device_state_attributes['path'] = self._endpoint.device.path
-       
+
         return self._device_state_attributes
 
     async def async_added_to_hass(self):
@@ -797,7 +797,7 @@ class Entity(RestoreEntity):
         await super().async_added_to_hass()
         data = await self.async_get_last_state()
         try:
-            _LOGGER.debug("Restore state for %s:",  self.entity_id )
+            _LOGGER.debug("Restore state for %s:",  self.entity_id)
             if data.state:
                 if hasattr(self,  'state_div'):
                     self._state = float(data.state) * self.state_div
@@ -807,20 +807,20 @@ class Entity(RestoreEntity):
                     self._state = None
             self._device_state_attributes.update(data.attributes)
             self._device_state_attributes.pop('assumed_state',  None)
-            self._groups = data.attributes.get("Group_id", list()) if not self._groups else self._groups  
+            self._groups = data.attributes.get("Group_id", list()) if not self._groups else self._groups
             for group in self._groups:
                 self._endpoint._device._application.listener_event(
                                 'subscribe_group',
                                 group)
             self._device_state_attributes['Group_id'] = self._groups
         except Exception as e:
-            _LOGGER.debug('Restore failed for %s: %s', self.entity_id, e )
+            _LOGGER.debug('Restore failed for %s: %s', self.entity_id, e)
 
     @property
     def assumed_state(self):
         """Return True if unable to access real state of the entity."""
         return False
- 
+
 
 async def _discover_endpoint_info(endpoint):
     import string
@@ -846,7 +846,7 @@ async def _discover_endpoint_info(endpoint):
     try:
         await read(['model'])
     except Exception as e:
-        _LOGGER.debug("single read attribute failed: model, %s" , e)
+        _LOGGER.debug("single read attribute failed: model, %s", e)
     try:
         await read(['manufacturer'])
     except Exception as e:
@@ -857,7 +857,7 @@ async def _discover_endpoint_info(endpoint):
             try:
                 value = value.decode('ascii').strip()
                 extra_info[key] = ''.join([x for x in value if x in string.printable])
-                _LOGGER.debug("%s: type(%s) %s", key, type(extra_info[key] ), extra_info[key] )
+                _LOGGER.debug("%s: type(%s) %s", key, type(extra_info[key]), extra_info[key])
             except UnicodeDecodeError as e:
                 # Unsure what the best behaviour here is. Unset the key?
                 _LOGGER.debug("unicode decode error, %s",  e)
@@ -984,10 +984,11 @@ def call_func(_model, function, *args):
     except Exception as e:
             _LOGGER.info("Excecution of DH %s failed: %s", dev_func, e.args)
 
-async def req_conf_report( report_cls, report_attr, report_min, report_max, report_change, mfgCode=None):
+
+async def req_conf_report(report_cls, report_attr, report_min, report_max, report_change, mfgCode=None):
         from zigpy.zcl.foundation import Status
 
-        endpoint=report_cls._endpoint
+        endpoint = report_cls._endpoint
         try:
             v = await report_cls.bind()
             if v[0] > 0:

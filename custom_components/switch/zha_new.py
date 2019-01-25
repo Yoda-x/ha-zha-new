@@ -5,11 +5,11 @@ from asyncio import ensure_future
 from homeassistant.components.switch import DOMAIN, SwitchDevice
 import custom_components.zha_new as zha_new
 from custom_components.zha_new.cluster_handler import (
-    Cluster_Server, 
-    Server_OnOff, 
-    Server_Scenes, 
-    Server_Basic, 
-    Server_Groups, 
+    Cluster_Server,
+    Server_OnOff,
+    Server_Scenes,
+    Server_Basic,
+    Server_Groups,
     )
 from importlib import import_module
 from zigpy.zcl.foundation import Status
@@ -30,7 +30,7 @@ async def async_setup_platform(hass, config, async_add_devices, discovery_info=N
     discovery_info = zha_new.get_discovery_info(hass, discovery_info)
     if discovery_info is None:
         return
-    
+
     entity = Switch(**discovery_info)
     if hass.states.get(entity.entity_id):
         _LOGGER.debug("entity exist,remove it: %s",  entity.entity_id)
@@ -81,7 +81,7 @@ class Switch(zha_new.Entity, SwitchDevice):
             else:
                 self.sub_listener[cluster.cluster_id] = Cluster_Server(
                                 self, cluster, cluster.cluster_id)
-        
+
         endpoint._device.zdo.add_listener(self)
 
     @property
@@ -108,7 +108,6 @@ class Switch(zha_new.Entity, SwitchDevice):
         _LOGGER.debug("attribute update: %s = %s ", attribute, value)
         self.schedule_update_ha_state()
 
-    
     async def async_turn_on(self, **kwargs):
         """Turn the entity on."""
         await self._endpoint.on_off.on()
@@ -134,7 +133,7 @@ class Switch(zha_new.Entity, SwitchDevice):
 
         if not self._state:
             return
-            
+
         if hasattr(self, '_groups'):
             try:
                 result = await self._endpoint.groups.get_membership([])
@@ -168,10 +167,12 @@ class Switch(zha_new.Entity, SwitchDevice):
     def device_announce(self, *args,  **kwargs):
         ensure_future(auto_set_attribute_report(self._endpoint,  self._in_clusters))
         ensure_future(self.async_update())
-        self._assumed=False
+        self._assumed = False
         _LOGGER.debug("0x%04x device announce for switch received",  self._endpoint._device.nwk)
 
 async def auto_set_attribute_report(endpoint, in_clusters):
+
+
     _LOGGER.debug("[0x%04x:%s] called to set reports",  endpoint._device.nwk,  endpoint.endpoint_id)
 
     if 0x0006 in in_clusters:

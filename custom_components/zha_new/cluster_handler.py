@@ -238,10 +238,13 @@ class Server_OnOff(Cluster_Server):
             self._entity._state = bool(value)
         self._entity.schedule_update_ha_state()
 
+
 class Server_Groups(Cluster_Server):
     def attribute_updated(self, attribute, value):
-         _LOGGER.debug('Group report received: %s %s',  attribute,  value)
-         
+        _LOGGER.debug('Group report received: %s %s',  attribute,  value)
+
+
+
 class Server_Scenes(Cluster_Server):
     def cluster_command(self, tsn, command_id, args):
         from zigpy.zcl.clusters.general import Scenes
