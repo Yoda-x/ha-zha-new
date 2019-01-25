@@ -5,6 +5,10 @@
 quirks code in mainstream zigpy breaks compatiblilty with zha_new, please use my versions
 With the patch from estevez-dev my zigpy and bellows should be loaded automatic
 
+# 01/26/2019
+ - initial lightlink support to read out group id from remotes and controllers
+ - bugfixes
+ - additional device types for lights
 # 01/13/2019
 new master release, please update to hass >84.1
 - restore states from history after restart
