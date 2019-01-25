@@ -9,6 +9,7 @@ at https://home-assistant.io/components/binary_sensor.zha/
 import asyncio
 import logging
 import datetime
+import json
 import homeassistant.util.dt as dt_util
 from homeassistant.components.binary_sensor import DOMAIN, BinarySensorDevice
 import custom_components.zha_new as zha_new
@@ -52,10 +53,9 @@ async def async_setup_platform(hass, config, async_add_devices,
         if 0x1000 in endpoint.in_clusters:
             try:
                 groups = await  helpers.cluster_commisioning_groups(endpoint.in_clusters[0x1000], timeout=10)
-                discovery_info['groups'] = groups
             except Exception as e:
                 _LOGGER.debug("catched exception in commissioning group_id %s",  e)
-                
+
         """ create ias cluster if it not already exists"""
         if IasZone.cluster_id not in in_clusters:
             cluster = endpoint.add_input_cluster(IasZone.cluster_id)
@@ -85,13 +85,8 @@ async def async_setup_platform(hass, config, async_add_devices,
                     device_class = CLASS_MAPPING.get(zone_type, None)
                 except Exception:  # pylint: disable=broad-except
                     _LOGGER.debug("zone read failed")
-    else:
-        pass
-        """ read out saved commisioning groups"""
-    for group in groups:
-        endpoint._device._application.listener_event(
-            'subscribe_group',
-            group.GroupId)
+     
+    discovery_info['groups'] = groups
     entity = await _make_sensor(device_class, discovery_info)
     if hass.states.get(entity.entity_id):
         _LOGGER.debug("entity exist,remove it: %s",  entity.entity_id)
@@ -192,9 +187,9 @@ class BinarySensor(zha_new.Entity, BinarySensorDevice):
         """Initialize the ZHA binary sensor."""
         super().__init__(**kwargs)
         self._device_class = device_class
-        self._groups = list()
 #        self._ias_zone_cluster = self._in_clusters[IasZone.cluster_id]
         endpoint = kwargs['endpoint']
+        self._groups = kwargs.get('groups', [])
         in_clusters = kwargs['in_clusters']
         out_clusters = kwargs['out_clusters']
         clusters = list(out_clusters.items()) + list(in_clusters.items())
@@ -232,12 +227,6 @@ class BinarySensor(zha_new.Entity, BinarySensorDevice):
                 self.sub_listener[cluster.cluster_id] = Cluster_Server(
                                 self, cluster, cluster.cluster_id)
         endpoint._device.zdo.add_listener(self)
-        if 'groups' in kwargs:
-            for group in kwargs['groups']:
-                self.groups.append(group.GroupId)
-                self._endpoint._device._application.listener_event(
-                                'subscribe_group',
-                                group.GroupId)
 #        asyncio.ensure_future(helpers.full_discovery(self._endpoint, timeout=10))
         
     @property
@@ -272,9 +261,18 @@ class BinarySensor(zha_new.Entity, BinarySensorDevice):
             self._state = value
         self.schedule_update_ha_state()
 
-    def device_announce(self, *args,  **kwargs):
+    async def device_announce(self, *args,  **kwargs):
         _LOGGER.debug("0x%04x device announce for BINARY_SENSOR received",  self._endpoint._device.nwk)
-        asyncio.ensure_future(helpers.full_discovery(self._endpoint, timeout=14))
+#        asyncio.ensure_future(helpers.full_discovery(self._endpoint, timeout=14))
+        if 0x1000 in self._endpoint.in_clusters:
+            try:
+                groups = await  helpers.cluster_commisioning_groups(self._endpoint.in_clusters[0x1000], timeout=10)
+            except Exception as e:
+                _LOGGER.debug("catched exception in commissioning group_id %s",  e)
+            for group in groups:
+                self._endpoint._device._application.listener_event(
+                            'subscribe_group',
+                            group)
 
 class OccupancySensor(BinarySensor):
 
