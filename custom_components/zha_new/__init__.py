@@ -376,7 +376,6 @@ class ApplicationListener:
         if device._ieee in entity_store:
             for dev_ent in entity_store[device._ieee]:
                 _LOGGER.debug("remove entity %s", dev_ent.entity_id)
-#                _LOGGER.debug("platform used: %s ", dir(dev_ent.platform))
                 self._entity_list.pop(dev_ent.entity_id,  None)
                 self._hass.async_add_job(dev_ent.async_remove())
             entity_store.pop(device._ieee)
@@ -706,8 +705,8 @@ class Entity(RestoreEntity):
             ieeetail,
             endpoint.endpoint_id,
         )
-        if 'application' in kwargs:
-            self._application._entity_list[self.entity_id] = self
+#        if 'application' in kwargs:
+#            self._application._entity_list[self.entity_id] = self
 
         self._device_state_attributes['friendly_name'] = '%s %s' % (
             manufacturer,
@@ -820,6 +819,10 @@ class Entity(RestoreEntity):
     def assumed_state(self):
         """Return True if unable to access real state of the entity."""
         return False
+
+    async def async_will_remove_from_hass(self) -> None:
+        """ Run when entity will be removedd from hass"""
+        self._application._entity_list.pop(self.entity_id])
 
 
 async def _discover_endpoint_info(endpoint):
