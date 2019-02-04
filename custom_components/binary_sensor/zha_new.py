@@ -46,6 +46,7 @@ async def async_setup_platform(hass, config, async_add_devices,
 
     in_clusters = discovery_info['in_clusters']
     endpoint = discovery_info['endpoint']
+    application = discovery_info['application']
     device_class = None
     groups = list()
 
@@ -88,9 +89,9 @@ async def async_setup_platform(hass, config, async_add_devices,
 
     discovery_info['groups'] = groups
     entity = await _make_sensor(device_class, discovery_info)
-    if hass.states.get(entity.entity_id):
+    if application._entity_list.get(entity.entity_id):
         _LOGGER.debug("entity exist,remove it: %s",  entity.entity_id)
-        hass.states.async_remove(entity.entity_id)
+        await application._entity_list.get(entity.entity_id).remove()
     async_add_devices([entity], update_before_add=False)
 
     _LOGGER.debug("set Entity object: %s-%s ", type(entity), entity.unique_id)

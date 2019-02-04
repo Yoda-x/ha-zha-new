@@ -39,6 +39,7 @@ async def async_setup_platform(hass, config,
     if discovery_info is None:
         return
 
+    application = discovery_info['application']
     endpoint = discovery_info['endpoint']
     in_clusters = discovery_info['in_clusters']
 #    try:
@@ -68,10 +69,9 @@ async def async_setup_platform(hass, config,
                 pass
     entity = Light(**discovery_info)
 
-    if hass.states.get(entity.entity_id):
-        _LOGGER.debug("entity exist,remove it: %s",
-                      dir(hass.states.get(entity.entity_id)))
-        hass.states.async_remove(entity.entity_id)
+    if application._entity_list.get(entity.entity_id):
+        _LOGGER.debug("entity exist,remove it: %s",  entity.entity_id)
+        await application._entity_list.get(entity.entity_id).remove()
     async_add_devices([entity])
 
     entity_store = zha_new.get_entity_store(hass)

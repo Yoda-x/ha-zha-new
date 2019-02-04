@@ -376,7 +376,7 @@ class ApplicationListener:
         if device._ieee in entity_store:
             for dev_ent in entity_store[device._ieee]:
                 _LOGGER.debug("remove entity %s", dev_ent.entity_id)
-                self._entity_list.pop(dev_ent.entity_id,  None)
+#                self._entity_list.pop(dev_ent.entity_id,  None)
                 self._hass.async_add_job(dev_ent.async_remove())
             entity_store.pop(device._ieee)
                 # cleanup Discovery_Key
@@ -822,7 +822,11 @@ class Entity(RestoreEntity):
 
     async def async_will_remove_from_hass(self) -> None:
         """ Run when entity will be removedd from hass"""
-        self._application._entity_list.pop(self.entity_id])
+        try:
+            self._application._entity_list.pop(self.entity_id)
+        except KeyError:
+            pass
+            
 
 
 async def _discover_endpoint_info(endpoint):

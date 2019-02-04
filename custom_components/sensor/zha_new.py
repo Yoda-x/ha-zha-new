@@ -28,6 +28,7 @@ async def async_setup_platform(hass, config, async_add_devices, discovery_info=N
         return
     endpoint = discovery_info['endpoint']
     in_clusters = discovery_info['in_clusters']
+    application = discovery_info['application']
 
     """ create ias cluster if it not already exists"""
     if IasZone.cluster_id not in in_clusters:
@@ -48,9 +49,9 @@ async def async_setup_platform(hass, config, async_add_devices, discovery_info=N
 
     entity = await make_sensor(discovery_info)
     _LOGGER.debug("Create sensor.zha: %s", entity.entity_id)
-    if hass.states.get(entity.entity_id):
+    if application._entity_list.get(entity.entity_id):
         _LOGGER.debug("entity exist,remove it: %s",  entity.entity_id)
-        hass.states.async_remove(entity.entity_id)
+        await application._entity_list.get(entity.entity_id).remove()
 
     async_add_devices([entity], update_before_add=False)
     endpoint._device._application.listener_event(
