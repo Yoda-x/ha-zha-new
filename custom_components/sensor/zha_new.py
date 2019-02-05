@@ -49,10 +49,15 @@ async def async_setup_platform(hass, config, async_add_devices, discovery_info=N
 
     entity = await make_sensor(discovery_info)
     _LOGGER.debug("Create sensor.zha: %s", entity.entity_id)
-    if application._entity_list.get(entity.entity_id):
-        _LOGGER.debug("entity exist,remove it: %s",  entity.entity_id)
-        await application._entity_list.get(entity.entity_id).remove()
-
+    
+    ent_reg = await hass.helpers.entity_registry.async_get_registry()
+    reg_dev_id =  ent_reg.async_get_entity_id(entity._domain, entity.platform, entity.uid )
+    
+    _LOGGER.debug("entity_list: %s",  application._entity_list)
+    _LOGGER.debug("entity_id: %s",  reg_dev_id)
+    if  reg_dev_id in application._entity_list:
+        _LOGGER.debug("entity exist,remove it: %s",  reg_dev_id)
+        await application._entity_list.get(reg_dev_id).async_async_remove()
     async_add_devices([entity], update_before_add=False)
     endpoint._device._application.listener_event(
                     'device_updated', endpoint._device)

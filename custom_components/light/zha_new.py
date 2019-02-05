@@ -52,7 +52,8 @@ async def async_setup_platform(hass, config,
 #    except Exception as e:
 #        _LOGGER.debug("Request for color_capabilities other error: %s", e.args)
 #    entity = Light(**discovery_info)
-
+    
+    
     if hasattr(endpoint, 'light_color'):
         caps = await zha_new.safe_read(
             endpoint.light_color, ['color_capabilities'])
@@ -68,10 +69,14 @@ async def async_setup_platform(hass, config,
             except AttributeError:
                 pass
     entity = Light(**discovery_info)
-
-    if application._entity_list.get(entity.entity_id):
-        _LOGGER.debug("entity exist,remove it: %s",  entity.entity_id)
-        await application._entity_list.get(entity.entity_id).remove()
+    ent_reg = await hass.helpers.entity_registry.async_get_registry()
+    reg_dev_id =  ent_reg.async_get_entity_id(entity._domain, entity.platform, entity.uid )
+    
+    _LOGGER.debug("entity_list: %s",  application._entity_list)
+    _LOGGER.debug("entity_id: %s",  reg_dev_id)
+    if  reg_dev_id in application._entity_list:
+        _LOGGER.debug("entity exist,remove it: %s",  reg_dev_id)
+        await application._entity_list.get(reg_dev_id).async_remove()
     async_add_devices([entity])
 
     entity_store = zha_new.get_entity_store(hass)

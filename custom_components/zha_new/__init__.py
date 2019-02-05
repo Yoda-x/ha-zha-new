@@ -15,7 +15,7 @@ REQUIREMENTS = [
 
 import asyncio
 import logging
-import json
+#import json
 
 import voluptuous as vol
 from homeassistant.helpers.event import async_track_point_in_time
@@ -32,7 +32,7 @@ from importlib import import_module
 from homeassistant.helpers.restore_state import RestoreEntity
 
 DOMAIN = 'zha_new'
-
+PLATFORM = 'zha_new'
 CONF_BAUDRATE = 'baudrate'
 CONF_DATABASE = 'database_path'
 CONF_DEVICE_CONFIG = 'device_config'
@@ -156,7 +156,7 @@ DEVICE_CONFIG_SCHEMA_ENTRY = vol.Schema({
     })
 
 CONFIG_SCHEMA = vol.Schema({
-    DOMAIN: vol.Schema({
+    PLATFORM: vol.Schema({
         CONF_USB_PATH: cv.string,
         vol.Optional(CONF_BAUDRATE, default=57600): cv.positive_int,
         CONF_DATABASE: cv.string,
@@ -209,8 +209,8 @@ class zha_state(entity.Entity):
         self._device_state_attributes['friendly_name'] = 'Controller'
         self.hass = hass
         self._state = state
-        self.entity_id = DOMAIN + '.' + name
-        self.platform = DOMAIN
+        self.entity_id = PLATFORM + '.' + name
+        self.platform = PLATFORM
         self.stack = stack
         self.application = application
 
@@ -264,17 +264,17 @@ async def async_setup(hass, config):
     from bellows.zigbee.application import ControllerApplication
 
     ezsp_ = bellows.ezsp.EZSP()
-    usb_path = config[DOMAIN].get(CONF_USB_PATH)
-    baudrate = config[DOMAIN].get(CONF_BAUDRATE)
+    usb_path = config[PLATFORM].get(CONF_USB_PATH)
+    baudrate = config[PLATFORM].get(CONF_BAUDRATE)
     await ezsp_.connect(usb_path, baudrate)
 
-    database = config[DOMAIN].get(CONF_DATABASE)
+    database = config[PLATFORM].get(CONF_DATABASE)
     APPLICATION_CONTROLLER = ControllerApplication(ezsp_, database)
     listener = ApplicationListener(hass, config)
     APPLICATION_CONTROLLER.add_listener(listener)
     await APPLICATION_CONTROLLER.startup(auto_form=True)
 
-    component = EntityComponent(_LOGGER, DOMAIN, hass, datetime.timedelta(minutes=1))
+    component = EntityComponent(_LOGGER, PLATFORM, hass, datetime.timedelta(minutes=1))
     zha_controller = zha_state(hass, ezsp_, APPLICATION_CONTROLLER, 'controller', 'Init')
     listener.controller = zha_controller
     listener.registry = await hass.helpers.device_registry.async_get_registry()
@@ -302,7 +302,7 @@ async def async_setup(hass, config):
             zha_controller.hass, _async_clear_state(zha_controller),
             dt_util.utcnow() + datetime.timedelta(seconds=duration))
 
-    hass.services.async_register(DOMAIN, SERVICE_PERMIT, permit,
+    hass.services.async_register(PLATFORM, SERVICE_PERMIT, permit,
                                  schema=SERVICE_SCHEMAS[SERVICE_PERMIT])
 
     async def remove(service):
@@ -319,13 +319,13 @@ async def async_setup(hass, config):
         for device in ieee_list:
             await APPLICATION_CONTROLLER.remove(device)
 
-    hass.services.async_register(DOMAIN, SERVICE_REMOVE, remove,
+    hass.services.async_register(PLATFORM, SERVICE_REMOVE, remove,
                                  schema=SERVICE_SCHEMAS[SERVICE_REMOVE])
 
     async def command(service):
         listener.command(service.data)
 
-#    hass.services.async_register(DOMAIN, SERVICE_COMMAND, command,
+#    hass.services.async_register(PLATFORM, SERVICE_COMMAND, command,
 #                                 schema=SERVICE_SCHEMAS[SERVICE_COMMAND])
 
     zha_controller._state = "Run"
@@ -377,7 +377,7 @@ class ApplicationListener:
             for dev_ent in entity_store[device._ieee]:
                 _LOGGER.debug("remove entity %s", dev_ent.entity_id)
 #                self._entity_list.pop(dev_ent.entity_id,  None)
-                self._hass.async_add_job(dev_ent.async_remove())
+                self._hass.async_add_job(dev_ent.async_async_remove())
             entity_store.pop(device._ieee)
                 # cleanup Discovery_Key
         for dev_ent in list(self._hass.data[DISCOVERY_KEY]):
@@ -441,7 +441,7 @@ class ApplicationListener:
             component = None
             profile_clusters = [set(), set()]
             device_key = '%s-%s' % (str(device.ieee), endpoint_id)
-            node_config = self._config[DOMAIN][CONF_DEVICE_CONFIG].get(device_key, {})
+            node_config = self._config[PLATFORM][CONF_DEVICE_CONFIG].get(device_key, {})
             _LOGGER.debug("[0x%04x:%s] node config for %s: %s",
                           device.nwk,
                           endpoint_id,
@@ -565,7 +565,7 @@ class ApplicationListener:
                         'out_clusters': {c.cluster_id: c for c in out_clusters},
                         'component': component,
                         'device': device,
-                        'domain': DOMAIN,
+                        'platform': PLATFORM,
                         'discovery_key': device_key,
                         'new_join': join,
                         'application': self,
@@ -580,7 +580,7 @@ class ApplicationListener:
                     await discovery.async_load_platform(
                         self._hass,
                         component,
-                        DOMAIN,
+                        PLATFORM,
                         {'discovery_key': device_key},
                         self._config,
                     )
@@ -613,7 +613,7 @@ class ApplicationListener:
                     'in_clusters': {cluster.cluster_id: cluster},
                     'out_clusters': {},
                     'new_join': join,
-                    'domain': DOMAIN,
+                    'platform': PLATFORM,
                     'component': component,
                     'application': self
                 }
@@ -627,7 +627,7 @@ class ApplicationListener:
                 await discovery.async_load_platform(
                     self._hass,
                     component,
-                    DOMAIN,
+                    PLATFORM,
                     {'discovery_key': cluster_key},
                     self._config,
                 )
@@ -687,8 +687,8 @@ class Entity(RestoreEntity):
             self.uid += self.cluster_key
         if 'application' in kwargs:
             self._application = kwargs['application']
-            self._application._entity_list[self.entity_id] = self
-
+#            self._application._entity_list[self.entity_id] = self
+        self.platform = kwargs['platform']
         if model in self._application.custom_devices:
             self._custom_module = self._application.custom_devices[model]
         else:
@@ -795,6 +795,8 @@ class Entity(RestoreEntity):
         """Call when entity about to be added to hass."""
         await super().async_added_to_hass()
         data = await self.async_get_last_state()
+        self._application._entity_list[self.entity_id] = self
+        _LOGGER.debug("entiy_list add: %s",  self._application._entity_list)
         try:
             _LOGGER.debug("Restore state for %s:",  self.entity_id)
             if data.state:
