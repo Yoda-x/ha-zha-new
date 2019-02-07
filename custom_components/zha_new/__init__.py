@@ -377,7 +377,7 @@ class ApplicationListener:
             for dev_ent in entity_store[device._ieee]:
                 _LOGGER.debug("remove entity %s", dev_ent.entity_id)
 #                self._entity_list.pop(dev_ent.entity_id,  None)
-                self._hass.async_add_job(dev_ent.async_async_remove())
+                self._hass.async_add_job(dev_ent.async_remove())
             entity_store.pop(device._ieee)
                 # cleanup Discovery_Key
         for dev_ent in list(self._hass.data[DISCOVERY_KEY]):
@@ -944,8 +944,8 @@ async def safe_read(cluster, attributes):
             allow_cache=False,
         )
         return result
-    except Exception:  # pylint: disable=broad-except
-        return
+    except Exception as e:  # pylint: disable=broad-except
+        _LOGGER.debug("safe_read failed: %s", e)
 
 
 def get_custom_device_info(_model):

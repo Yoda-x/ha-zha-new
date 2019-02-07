@@ -33,7 +33,7 @@ UNSUPPORTED_ATTRIBUTE = 0x86
 
 
 async def async_setup_platform(hass, config,
-                               async_add_devices, discovery_info=None):
+                               async_add_entities, discovery_info=None):
     """Set up the Zigbee Home Automation lights."""
     discovery_info = zha_new.get_discovery_info(hass, discovery_info)
     if discovery_info is None:
@@ -77,7 +77,7 @@ async def async_setup_platform(hass, config,
     if  reg_dev_id in application._entity_list:
         _LOGGER.debug("entity exist,remove it: %s",  reg_dev_id)
         await application._entity_list.get(reg_dev_id).async_remove()
-    async_add_devices([entity])
+    async_add_entities([entity])
 
     entity_store = zha_new.get_entity_store(hass)
     if endpoint.device._ieee not in entity_store:
@@ -99,12 +99,13 @@ class LightAttributeReports(Cluster_Server):
         if self._cluster.cluster_id == OnOff.cluster_id:
             if attribute == 0:
                 self._entity._state = True if value else False
-                self._entity.schedule_update_ha_state()
+#                self._entity.schedule_update_ha_state()
         if self._entity.is_on:
             if self._cluster.cluster_id == LevelControl.cluster_id:
                 if attribute == 0:
                     self._entity._brightness = value
-            if self._cluster.cluster_id == Color.cluster_id:
+                    _LOGGER.debug("cluster:%s attribute=value processed %s=%s", self._cluster.cluster_id, attribute, value)
+        if self._cluster.cluster_id == Color.cluster_id:
                 if attribute == 3:
                     self.current_x = value
                     self._entity._hs_color = (self.current_x, self.current_y)
@@ -113,7 +114,7 @@ class LightAttributeReports(Cluster_Server):
                     self._entity._hs_color = (self.current_x, self.current_y)
                 elif attribute == 7:
                     self._entity._color_temp = value
-            self._entity.schedule_update_ha_state()
+        self._entity.schedule_update_ha_state()
 
 
 class Light(zha_new.Entity, light.Light):
@@ -131,7 +132,7 @@ class Light(zha_new.Entity, light.Light):
         endpoint = kwargs['endpoint']
         self._available = True
         self._assumed = False
-        self._groups = None
+#        self._groups = None
         self._grp_name = None
         self._supported_features = 0
         self._color_temp = None
@@ -191,6 +192,7 @@ class Light(zha_new.Entity, light.Light):
         return bool(self._assumed)
 
     async def async_turn_on(self, **kwargs):
+        _LOGGER.debug("turn_on with %s",  kwargs)
         self._call_ongoing = True
         """Turn the entity on."""
         duration = kwargs.get(light.ATTR_TRANSITION, DEFAULT_DURATION)
@@ -210,12 +212,10 @@ class Light(zha_new.Entity, light.Light):
                 duration,
             )
 
-        if self._brightness is not None:
+        if light.ATTR_BRIGHTNESS in kwargs:
             brightness = kwargs.get(
                 light.ATTR_BRIGHTNESS, self._brightness)
             self._brightness = 2 if (brightness < 2) else brightness
-#            self._brightness = 2 if (brightness < 2 and self._state == False) else brightness
-            # Move to level with on/off:
             _LOGGER.debug("[0x%04x:%s] move_to_level_w_onoff: %s ",
                           self._endpoint._device.nwk,
                           self._endpoint.endpoint_id,
@@ -241,6 +241,7 @@ class Light(zha_new.Entity, light.Light):
     @property
     def brightness(self):
         """Return the brightness of this light between 0..255."""
+        _LOGGER.debug("polled state brightness: %s",  self._brightness)
         return self._brightness
 
     @property
@@ -294,14 +295,13 @@ class Light(zha_new.Entity, light.Light):
                             self._endpoint._device._application.listener_event(
                                 'subscribe_group',
                                 groups)
-#            if not self._state:
-#                return
         if self.is_on:
             if self._supported_features & light.SUPPORT_BRIGHTNESS:
                 result = await zha_new.safe_read(self._endpoint.level,
                                                  ['current_level'])
                 if result:
                     self._brightness = result.get('current_level', self._brightness)
+                    _LOGGER.debug("poll brightness %s",  self._brightness)
 
             if self._supported_features & light.SUPPORT_COLOR_TEMP:
                 result = await zha_new.safe_read(self._endpoint.light_color,
@@ -316,24 +316,6 @@ class Light(zha_new.Entity, light.Light):
                 if result:
                     if 'current_x' in result and 'current_y' in result:
                         self._hs_color = (result['current_x'], result['current_y'])
-
-#        if self._endpoint.in_clusters.get(0x1000, None):
-#            _LOGGER.debug("%s found commisioning cluster ",  self.entity_id)
-#            try:
-#                #await helpers.cluster_discover_commands(self._endpoint.lightlink)
-#                await asyncio.wait_for(self._endpoint.lightlink.get_group_identifier_request(0), 5)
-#            except:
-#                _LOGGER.debug("get_group_identifier_request failed for %s",  self.entity_id)
-#        else:
-#            _LOGGER.debug("%s found NO commisioning cluster ",  self.entity_id)
-#
-#        for id,  cluster in self._endpoint.in_clusters.items():
-#            _LOGGER.debug("%s found cluster %s",  self.entity_id,  id)
-#            try:
-#                await helpers.cluster_discover_commands(cluster)
-#                #await asyncio.wait_for(self._endpoint.lightlink.get_group_identifier_request(0), 5)
-#            except:
-#                _LOGGER.debug("get commands for %s failed for %s",  self.entity_id,  id)
 
     @property
     def should_poll(self) -> bool:
