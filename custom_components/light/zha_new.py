@@ -30,7 +30,7 @@ DEFAULT_DURATION = 0.5
 CAPABILITIES_COLOR_XY = 0x08
 CAPABILITIES_COLOR_TEMP = 0x10
 UNSUPPORTED_ATTRIBUTE = 0x86
-
+TIMEOUT = 2
 
 async def async_setup_platform(hass, config,
                                async_add_devices, discovery_info=None):
@@ -264,7 +264,9 @@ class Light(zha_new.Entity, light.Light):
 
         try:
 #            result = await zha_new.safe_read(self._endpoint.on_off, ['on_off'])
-            result, _ = await self._endpoint.on_off.read_attributes(['on_off'], allow_cache=False)
+            result, _ = await self._endpoint.on_off.read_attributes(['on_off'], 
+                            allow_cache=False, 
+                            timeout=TIMEOUT)
             _LOGGER.debug(" poll received for %s : %s", self.entity_id, result)
         except Exception as e:
             _LOGGER.debug('poll for %s failed: %s', self.entity_id,  e)
