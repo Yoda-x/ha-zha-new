@@ -48,7 +48,6 @@ def _parse_attribute(entity, attrib, value, *argv, **kwargs):
                 entity.entity_connect[dev_ent.cluster_key] = dev_ent
     attributes = {}
     if attrib == 85:
-        #result = []
         result = float(t.Double(value))
         attributes["power"] = float(t.Double(value))
         attributes["unit_of_measurement"] = 'W'

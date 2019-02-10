@@ -71,8 +71,6 @@ async def cluster_commisioning_groups(cluster, timeout=2):
     return [group.GroupId for group in group_list]
 
 
-
-
 async def full_discovery(endpoint, timeout=5):
     commands = dict()
     attributes = dict()

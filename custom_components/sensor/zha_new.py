@@ -49,13 +49,13 @@ async def async_setup_platform(hass, config, async_add_devices, discovery_info=N
 
     entity = await make_sensor(discovery_info)
     _LOGGER.debug("Create sensor.zha: %s", entity.entity_id)
-    
+
     ent_reg = await hass.helpers.entity_registry.async_get_registry()
-    reg_dev_id =  ent_reg.async_get_entity_id(entity._domain, entity.platform, entity.uid )
-    
+    reg_dev_id = ent_reg.async_get_entity_id(entity._domain, entity.platform, entity.uid)
+
     _LOGGER.debug("entity_list: %s",  application._entity_list)
     _LOGGER.debug("entity_id: %s",  reg_dev_id)
-    if  reg_dev_id in application._entity_list:
+    if reg_dev_id in application._entity_list:
         _LOGGER.debug("entity exist,remove it: %s",  reg_dev_id)
         await application._entity_list.get(reg_dev_id).async_async_remove()
     async_add_devices([entity], update_before_add=False)
@@ -121,7 +121,7 @@ class Sensor(zha_new.Entity):
                       endpoint._device.nwk,
                       endpoint.endpoint_id,
                       list(in_clusters.keys()), list(out_clusters.keys()))
-        for (key, cluster) in clusters:
+        for (_, cluster) in clusters:
             cluster.add_listener(self)
 
         endpoint._device.zdo.add_listener(self)
@@ -140,7 +140,6 @@ class Sensor(zha_new.Entity):
             return STATE_UNKNOWN
         value = round(float(self._state) / self.state_div, self.state_prec)
         return value
-
 
 
 class TemperatureSensor(Sensor):
@@ -171,8 +170,8 @@ class TemperatureSensor(Sensor):
 
 class HumiditySensor(Sensor):
 
-
     """ZHA  humidity sensor."""
+
     state_div = 100
 
     def __init__(self, **kwargs):
@@ -239,8 +238,8 @@ class IlluminanceSensor(Sensor):
 #        return self._state
 
 
-
 class MeteringSensor(Sensor):
+
     """ZHA  smart engery metering."""
 
     value_attribute = 0
@@ -300,13 +299,12 @@ class MeteringSensor(Sensor):
         """Handle commands received to this cluster."""
         _LOGGER.debug("sensor cluster_command %s", command_id)
 
-
     def device_announce(self, *args,  **kwargs):
+
         ensure_future(auto_set_attribute_report(self._endpoint,  self._in_clusters))
         ensure_future(self.async_update())
         self._assumed = False
         _LOGGER.debug("0x%04x device announce for sensor received",  self._endpoint._device.nwk)
-
 
 
 async def auto_set_attribute_report(endpoint, in_clusters):

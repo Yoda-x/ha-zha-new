@@ -244,7 +244,6 @@ class Server_Groups(Cluster_Server):
         _LOGGER.debug('Group report received: %s %s',  attribute,  value)
 
 
-
 class Server_Scenes(Cluster_Server):
     def cluster_command(self, tsn, command_id, args):
         from zigpy.zcl.clusters.general import Scenes
