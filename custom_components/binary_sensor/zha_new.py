@@ -9,21 +9,20 @@ at https://home-assistant.io/components/binary_sensor.zha/
 import asyncio
 import logging
 import datetime
-import json
 import homeassistant.util.dt as dt_util
 from homeassistant.components.binary_sensor import DOMAIN, BinarySensorDevice
 import custom_components.zha_new as zha_new
 import custom_components.zha_new.helpers as helpers
-import custom_components.device as z_device
 from homeassistant.helpers.event import async_track_point_in_time
 from zigpy.zdo.types import Status
 import zigpy.types as t
-from zigpy.zcl.clusters.general import LevelControl, OnOff, Scenes,  Basic, PowerConfiguration
+from zigpy.zcl.clusters.general import LevelControl, OnOff, Scenes
+from zigpy.zcl.clusters.general import Basic, PowerConfiguration
 from zigpy.zcl.clusters.security import IasZone
-from zigpy.zcl.clusters.measurement import OccupancySensing, TemperatureMeasurement
+from zigpy.zcl.clusters.measurement import OccupancySensing
+from zigpy.zcl.clusters.measurement import TemperatureMeasurement
 _LOGGER = logging.getLogger(__name__)
 """ changed to zha-new to use in home dir """
-#DEPENDENCIES = ['zha_new']
 
 # ZigBee Cluster Library Zone Type to Home Assistant device class
 CLASS_MAPPING = {
@@ -36,8 +35,8 @@ CLASS_MAPPING = {
 }
 
 
-async def async_setup_platform(hass, config, async_add_devices,
-                               discovery_info=None):
+async def async_setup_platform(
+        hass, config, async_add_devices, discovery_info=None):
     """Set up the Zigbee Home Automation binary sensors."""
     discovery_info = zha_new.get_discovery_info(hass, discovery_info)
 #    _LOGGER.debug("disocery info: %s", discovery_info)
@@ -53,9 +52,11 @@ async def async_setup_platform(hass, config, async_add_devices,
     if discovery_info['new_join']:
         if 0x1000 in endpoint.in_clusters:
             try:
-                groups = await  helpers.cluster_commisioning_groups(endpoint.in_clusters[0x1000], timeout=10)
+                groups = await  helpers.cluster_commisioning_groups(
+                    endpoint.in_clusters[0x1000], timeout=10)
             except Exception as e:
-                _LOGGER.debug("catched exception in commissioning group_id %s",  e)
+                _LOGGER.debug(
+                    "catched exception in commissioning group_id %s",  e)
 
         """ create ias cluster if it not already exists"""
         if IasZone.cluster_id not in in_clusters:
@@ -70,14 +71,14 @@ async def async_setup_platform(hass, config, async_add_devices,
             ieee = cluster.endpoint.device.application.ieee
             result = await cluster.write_attributes({'cie_addr': ieee})
             _LOGGER.debug("write cie:%s", result)
-        except:
+        except Exception:
             _LOGGER.debug("bind/write cie failed")
         else:
             if not result:
                 try:
                     await cluster.enroll_response(0, 0)
-                except:
-                    _LOGGER.debug("send enroll_command failed")  # not sure if this is possible
+                except Exception:
+                    _LOGGER.debug("send enroll_command failed")
 
                 try:
                     _LOGGER.debug("try zone read")
@@ -90,11 +91,12 @@ async def async_setup_platform(hass, config, async_add_devices,
     discovery_info['groups'] = groups
     entity = await _make_sensor(device_class, discovery_info)
     ent_reg = await hass.helpers.entity_registry.async_get_registry()
-    reg_dev_id =  ent_reg.async_get_entity_id(entity._domain, entity.platform, entity.uid )
-    
+    reg_dev_id = ent_reg.async_get_entity_id(
+        entity._domain, entity.platform, entity.uid)
+
     _LOGGER.debug("entity_list: %s",  application._entity_list)
     _LOGGER.debug("entity_id: %s",  reg_dev_id)
-    if  reg_dev_id in application._entity_list:
+    if reg_dev_id in application._entity_list:
         _LOGGER.debug("entity exist,remove it: %s",  reg_dev_id)
         await application._entity_list.get(reg_dev_id).async_remove()
     async_add_devices([entity], update_before_add=False)
@@ -116,7 +118,15 @@ async def _make_sensor(device_class, discovery_info):
     in_clusters = discovery_info['in_clusters']
     out_clusters = discovery_info['out_clusters']
     endpoint = discovery_info['endpoint']
-    if endpoint.device_type in (0x0800, 0x0810, 0x0820, 0x0830, 0x0000, 0x0001, 0x0006):
+    if endpoint.device_type in (
+                0x0800,
+                0x0810,
+                0x0820,
+                0x0830,
+                0x0000,
+                0x0001,
+                0x0006,
+                ):
         sensor = RemoteSensor('remote', **discovery_info)
     elif device_class == 'moisture':
         sensor = MoistureSensor('moisture', **discovery_info)
@@ -132,15 +142,6 @@ async def _make_sensor(device_class, discovery_info):
         sensor = OccupancySensor('motion',
                                  **discovery_info,
                                  cluster_key=OccupancySensing.ep_attribute)
- #       try:
- #           result = await zha_new.get_attributes(
- #                           endpoint,
- #                           OccupancySensing.cluster_id,
- #                           ['occupancy', 'occupancy_sensor_type'])
- #           sensor._device_state_attributes['occupancy_sensor_type'] = result[1]
- #           sensor._state = result[0]
- #       except:
- #           _LOGGER.debug("get attributes: failed")
     else:
         sensor = BinarySensor(device_class, **discovery_info)
 
@@ -148,7 +149,7 @@ async def _make_sensor(device_class, discovery_info):
         for cluster in in_clusters.values():
             try:
                 v = await cluster.bind()
-            except:
+            except Exception:
                 v = [Status.TIMEOUT]
             if v[0]:
                 _LOGGER.error("[0x%04x:%s] bind input-cluster failed %s",
@@ -204,7 +205,7 @@ class BinarySensor(zha_new.Entity, BinarySensorDevice):
                       endpoint.endpoint_id,
                       clusters)
 
-        for (key, cluster) in clusters:
+        for (_, cluster) in clusters:
             if LevelControl.cluster_id == cluster.cluster_id:
                 self.sub_listener[cluster.cluster_id] = Server_LevelControl(
                                 self, cluster, 'Level')
@@ -268,11 +269,17 @@ class BinarySensor(zha_new.Entity, BinarySensorDevice):
         self.schedule_update_ha_state()
 
     async def device_announce(self, *args,  **kwargs):
-        _LOGGER.debug("0x%04x device announce for BINARY_SENSOR received",  self._endpoint._device.nwk)
+        _LOGGER.debug(
+                "0x%04x device announce for BINARY_SENSOR received",
+                self._endpoint._device.nwk
+                )
 #        asyncio.ensure_future(helpers.full_discovery(self._endpoint, timeout=14))
         if 0x1000 in self._endpoint.in_clusters:
             try:
-                groups = await  helpers.cluster_commisioning_groups(self._endpoint.in_clusters[0x1000], timeout=10)
+                groups = await  helpers.cluster_commisioning_groups(
+                    self._endpoint.in_clusters[0x1000],
+                    timeout=10
+                )
             except Exception as e:
                 _LOGGER.debug("catched exception in commissioning group_id %s",  e)
             for group in groups:
@@ -294,7 +301,13 @@ class OccupancySensor(BinarySensor):
         """ handle trigger events from motion sensor.
         clear state after re_arm_sec seconds."""
         _LOGGER.debug("Attribute received: %s %s", attribute, value)
-        (attribute, value) = self._parse_attribute(self, attribute, value, self._model, cluster_id=None)
+        (attribute, value) = self._parse_attribute(
+                self,
+                attribute,
+                value,
+                self._model,
+                cluster_id=None,
+            )
 
         @asyncio.coroutine
         def _async_clear_state(entity):
@@ -611,7 +624,13 @@ class Server_OccupancySensing(Cluster_Server):
         """ handle trigger events from motion sensor.
         clear state after re_arm_sec seconds."""
         _LOGGER.debug("Attribute received: %s %s", attribute, value)
-        (attribute, value) = self._entity._parse_attribute(self._entity, attribute, value, self._entity._model, cluster_id=self._cluster.cluster_id)
+        (attribute, value) = self._entity._parse_attribute(
+                self._entity,
+                attribute,
+                value,
+                self._entity._model,
+                cluster_id=self._cluster.cluster_id
+            )
 
         @asyncio.coroutine
         def _async_clear_state(entity):
