@@ -31,7 +31,7 @@ DEFAULT_DURATION = 0.5
 CAPABILITIES_COLOR_XY = 0x08
 CAPABILITIES_COLOR_TEMP = 0x10
 UNSUPPORTED_ATTRIBUTE = 0x86
-
+TIMEOUT = 2
 
 async def async_setup_platform(hass, config,
                                async_add_entities, discovery_info=None):
