@@ -23,6 +23,7 @@ from zigpy.zcl.clusters.general import (
 from zigpy.zcl.clusters.lighting import Color
 from custom_components.zha_new.cluster_handler import (
     Cluster_Server)
+import homeassistant.util.dt as dt_util
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -290,13 +291,16 @@ class Light(zha_new.Entity, light.Light):
         try:
             self._state = result['on_off']
             self._assumed = False
-            _LOGGER.debug("assumed state for %s is false", self.entity_id)
+#            _LOGGER.debug("assumed state for %s is false", self.entity_id)
+            self._device_state_attributes.update({
+                'last seen': dt_util.now(),
+        })
         except Exception as e:
-            _LOGGER.debug(
-                    "assumed state for %s excepted: %s",
-                    self.entity_id,
-                    e,
-                )
+#            _LOGGER.debug(
+#                    "assumed state for %s excepted: %s",
+#                    self.entity_id,
+#                    e,
+#                )
             self._assumed = True
             return
 

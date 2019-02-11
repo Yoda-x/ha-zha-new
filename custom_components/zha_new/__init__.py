@@ -6,11 +6,11 @@ https://home-assistant.io/components/zha/
 
 """
 REQUIREMENTS = [
-    #                'https://github.com/Yoda-x/bellows/archive/ng.zip#bellows==100.7.4.3.dev*',
-               'https://github.com/Yoda-x/bellows/archive/master.zip#bellows==100.7.4.6',
-    #                'https://github.com/Yoda-x/zigpy/archive/ng.zip#zigpy==100.1.4.1.dev*',
-                'https://github.com/Yoda-x/zigpy/archive/master.zip#zigpy==100.1.4.4',
-                ]
+    #'https://github.com/Yoda-x/bellows/archive/ng.zip#bellows==100.7.4.3.dev*',
+    'https://github.com/Yoda-x/bellows/archive/master.zip#bellows==100.7.4.6',
+    #'https://github.com/Yoda-x/zigpy/archive/ng.zip#zigpy==100.1.4.1.dev*',
+    'https://github.com/Yoda-x/zigpy/archive/master.zip#zigpy==100.1.4.4',
+    ]
 
 
 import asyncio
@@ -688,7 +688,7 @@ class Entity(RestoreEntity):
         if 'application' in kwargs:
             self._application = kwargs['application']
 #            self._application._entity_list[self.entity_id] = self
-        self.platform = kwargs['platform']
+#        self.platform = kwargs['platform']
         if model in self._application.custom_devices:
             self._custom_module = self._application.custom_devices[model]
         else:
