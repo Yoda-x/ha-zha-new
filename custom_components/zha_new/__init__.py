@@ -7,9 +7,9 @@ https://home-assistant.io/components/zha/
 """
 REQUIREMENTS = [
     #'https://github.com/Yoda-x/bellows/archive/ng.zip#bellows==100.7.4.3.dev*',
-    'https://github.com/Yoda-x/bellows/archive/master.zip#bellows==100.7.4.6',
+    'https://github.com/Yoda-x/bellows/archive/master.zip#bellows==100.7.4.8',
     #'https://github.com/Yoda-x/zigpy/archive/ng.zip#zigpy==100.1.4.1.dev*',
-    'https://github.com/Yoda-x/zigpy/archive/master.zip#zigpy==100.1.4.4',
+    'https://github.com/Yoda-x/zigpy/archive/master.zip#zigpy==100.1.4.5',
     ]
 
 
@@ -825,6 +825,7 @@ class Entity(RestoreEntity):
 
     async def async_will_remove_from_hass(self) -> None:
         """ Run when entity will be removedd from hass."""
+        await super().async_will_remove_from_hass()
         try:
             self._application._entity_list.pop(self.entity_id)
         except KeyError:
