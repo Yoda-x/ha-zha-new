@@ -1,5 +1,5 @@
-# Don't update to HASS >0.85 as it breaks zha_new
-newest zha config integration loads upstream zha even it its not used and overload zigpy and bellows
+
+Never ever open the zha integration under configuration, this overwrites my bellows/zigpy
 
 # Incompatible with mainstream zigpy/bellows
 quirks code in mainstream zigpy breaks compatiblilty with zha_new, please use my versions
