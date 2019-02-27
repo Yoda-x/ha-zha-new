@@ -428,7 +428,7 @@ class ApplicationListener:
                     continue
                 if 0 in endpoint.in_clusters:
                     discovered_info = await _discover_endpoint_info(endpoint)
-                    device.model = discovered_info.get(CONF_MODEL, device.model)
+                    device.model = device.model if device.model else discovered_info.get(CONF_MODEL, device.model)
                     device.manufacturer = discovered_info.get(CONF_MANUFACTURER, device.manufacturer)
         _LOGGER.debug("[0x%04x] device init for %s(%s)(%s) -> Endpoints: %s, %s ",
                       device.nwk,  type(device.model),  device.model,  device.ieee, list(device.endpoints.keys()),
