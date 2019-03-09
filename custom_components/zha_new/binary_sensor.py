@@ -21,8 +21,8 @@ from zigpy.zcl.clusters.general import Basic, PowerConfiguration
 from zigpy.zcl.clusters.security import IasZone
 from zigpy.zcl.clusters.measurement import OccupancySensing
 from zigpy.zcl.clusters.measurement import TemperatureMeasurement
+from .const import DOMAIN as PLATFORM
 _LOGGER = logging.getLogger(__name__)
-""" changed to zha-new to use in home dir """
 
 # ZigBee Cluster Library Zone Type to Home Assistant device class
 CLASS_MAPPING = {
@@ -34,6 +34,13 @@ CLASS_MAPPING = {
     0x002d: 'vibration',
 }
 
+
+def setup_platform(
+        hass, config, async_add_devices, discovery_info=None):
+    _LOGGER.debug("disocery info setup_platform: %s", discovery_info)
+
+
+    return True
 
 async def async_setup_platform(
         hass, config, async_add_devices, discovery_info=None):
@@ -90,17 +97,21 @@ async def async_setup_platform(
 
     discovery_info['groups'] = groups
     entity = await _make_sensor(device_class, discovery_info)
-    ent_reg = await hass.helpers.entity_registry.async_get_registry()
-    reg_dev_id = ent_reg.async_get_entity_id(
-        entity._domain, entity.platform, entity.uid)
-
-    _LOGGER.debug("entity_list: %s",  application._entity_list)
-    _LOGGER.debug("entity_id: %s",  reg_dev_id)
-    if reg_dev_id in application._entity_list:
+    e_registry = await hass.helpers.entity_registry.async_get_registry()
+    reg_dev_id = e_registry.async_get_or_create(
+            DOMAIN, PLATFORM, entity.uid,
+            suggested_object_id = entity.entity_id, 
+            device_id = str(entity.device._ieee)
+        )
+    if entity.entity_id != reg_dev_id.entity_id and 'unknown' in reg_dev_id.entity_id:
+        _LOGGER.debug("entity different name,change it: %s",  reg_dev_id)
+        e_registry.async_update_entity(reg_dev_id.entity_id,  
+                new_entity_id=entity.entity_id)
+    if reg_dev_id.entity_id in application._entity_list:
         _LOGGER.debug("entity exist,remove it: %s",  reg_dev_id)
-        await application._entity_list.get(reg_dev_id).async_remove()
-    async_add_devices([entity], update_before_add=False)
-
+        await application._entity_list.get(reg_dev_id.entity_id).async_remove()
+    async_add_devices([entity])
+    
     _LOGGER.debug("set Entity object: %s-%s ", type(entity), entity.unique_id)
     entity_store = zha_new.get_entity_store(hass)
     if endpoint.device._ieee not in entity_store:

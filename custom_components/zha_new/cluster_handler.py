@@ -5,7 +5,7 @@ import asyncio
 import zigpy.types as t
 import datetime
 from homeassistant.helpers.event import async_track_point_in_time
-
+from zigpy.zcl.clusters.general import OnOff
 _LOGGER = logging.getLogger(__name__)
 
 
@@ -207,7 +207,7 @@ class Server_LevelControl(Cluster_Server):
 
 class Server_OnOff(Cluster_Server):
     def cluster_command(self, tsn, command_id, args):
-        from zigpy.zcl.clusters.general import OnOff
+        
         if tsn == self._prev_tsn:
             return
         self._prev_tsn = tsn

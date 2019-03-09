@@ -6,14 +6,13 @@ at https://home-assistant.io/components/light.zha/
 
 """
 import logging
-import custom_components.zha_new.helpers as helpers
+#import custom_components.zha_new.helpers as helpers
 import asyncio as a
 from homeassistant.components import light
 from homeassistant.const import STATE_UNKNOWN
 import custom_components.zha_new as zha_new
 from importlib import import_module
 import homeassistant.util.color as color_util
-from zigpy.zcl.foundation import Status
 from zigpy.zcl.clusters.general import (
     LevelControl,
     OnOff,
@@ -24,7 +23,8 @@ from zigpy.zcl.clusters.lighting import Color
 from custom_components.zha_new.cluster_handler import (
     Cluster_Server)
 import homeassistant.util.dt as dt_util
-
+from .const import DOMAIN as PLATFORM
+from homeassistant.components.light import DOMAIN
 _LOGGER = logging.getLogger(__name__)
 
 DEFAULT_DURATION = 0.5
@@ -32,6 +32,7 @@ CAPABILITIES_COLOR_XY = 0x08
 CAPABILITIES_COLOR_TEMP = 0x10
 UNSUPPORTED_ATTRIBUTE = 0x86
 TIMEOUT = 2
+
 
 async def async_setup_platform(hass, config,
                                async_add_entities, discovery_info=None):
@@ -71,20 +72,21 @@ async def async_setup_platform(hass, config,
             except AttributeError:
                 pass
     entity = Light(**discovery_info)
-    ent_reg = await hass.helpers.entity_registry.async_get_registry()
-    reg_dev_id = ent_reg.async_get_entity_id(
-            entity._domain,
-            entity.platform,
-            entity.uid,
+    e_registry = await hass.helpers.entity_registry.async_get_registry()
+    reg_dev_id = e_registry.async_get_or_create(
+            DOMAIN, PLATFORM, entity.uid,
+            suggested_object_id = entity.entity_id, 
+            device_id = str(entity.device._ieee)
         )
-
-    _LOGGER.debug("entity_list: %s",  application._entity_list)
-    _LOGGER.debug("entity_id: %s",  reg_dev_id)
-    if reg_dev_id in application._entity_list:
+    if entity.entity_id != reg_dev_id.entity_id and 'unknown' in reg_dev_id.entity_id:
+        _LOGGER.debug("entity different name,change it: %s",  reg_dev_id)
+        e_registry.async_update_entity(reg_dev_id.entity_id,  
+                new_entity_id=entity.entity_id)
+    if reg_dev_id.entity_id in application._entity_list:
         _LOGGER.debug("entity exist,remove it: %s",  reg_dev_id)
-        await application._entity_list.get(reg_dev_id).async_remove()
+        await application._entity_list.get(reg_dev_id.entity_id).async_remove()
     async_add_entities([entity])
-
+    
     entity_store = zha_new.get_entity_store(hass)
     if endpoint.device._ieee not in entity_store:
         entity_store[endpoint.device._ieee] = []
@@ -294,13 +296,8 @@ class Light(zha_new.Entity, light.Light):
 #            _LOGGER.debug("assumed state for %s is false", self.entity_id)
             self._device_state_attributes.update({
                 'last seen': dt_util.now(),
-        })
-        except Exception as e:
-#            _LOGGER.debug(
-#                    "assumed state for %s excepted: %s",
-#                    self.entity_id,
-#                    e,
-#                )
+            })
+        except Exception:
             self._assumed = True
             return
 
