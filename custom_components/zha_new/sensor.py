@@ -10,7 +10,7 @@ import logging
 from homeassistant.components.sensor import DOMAIN
 from homeassistant.const import STATE_UNKNOWN
 import custom_components.zha_new as zha_new
-from asyncio import ensure_future 
+from asyncio import ensure_future
 from .const import DOMAIN as PLATFORM
 _LOGGER = logging.getLogger(__name__)
 
@@ -48,18 +48,18 @@ async def async_setup_platform(
     e_registry = await hass.helpers.entity_registry.async_get_registry()
     reg_dev_id = e_registry.async_get_or_create(
             DOMAIN, PLATFORM, entity.uid,
-            suggested_object_id = entity.entity_id, 
-            device_id = str(entity.device._ieee)
+            suggested_object_id=entity.entity_id,
+            device_id=str(entity.device._ieee)
         )
     if entity.entity_id != reg_dev_id.entity_id and 'unknown' in reg_dev_id.entity_id:
         _LOGGER.debug("entity different name,change it: %s",  reg_dev_id)
-        e_registry.async_update_entity(reg_dev_id.entity_id,  
-                new_entity_id=entity.entity_id)
+        e_registry.async_update_entity(reg_dev_id.entity_id,
+                                       new_entity_id=entity.entity_id)
     if reg_dev_id.entity_id in application._entity_list:
         _LOGGER.debug("entity exist,remove it: %s",  reg_dev_id)
         await application._entity_list.get(reg_dev_id.entity_id).async_remove()
     async_add_devices([entity])
-    
+
     endpoint._device._application.listener_event(
                     'device_updated', endpoint._device)
     entity_store = zha_new.get_entity_store(hass)
@@ -81,19 +81,19 @@ async def make_sensor(discovery_info):
 
     if TemperatureMeasurement.cluster_id in in_clusters:
         sensor = TemperatureSensor(**discovery_info,
-                cluster_key=TemperatureMeasurement.ep_attribute)
+                                   cluster_key=TemperatureMeasurement.ep_attribute)
     elif RelativeHumidity.cluster_id in in_clusters:
         sensor = HumiditySensor(**discovery_info,
-                cluster_key=RelativeHumidity.ep_attribute)
+                                cluster_key=RelativeHumidity.ep_attribute)
     elif PressureMeasurement.cluster_id in in_clusters:
         sensor = PressureSensor(**discovery_info,
-                cluster_key=PressureMeasurement.ep_attribute)
+                                cluster_key=PressureMeasurement.ep_attribute)
     elif Metering.cluster_id in in_clusters:
         sensor = MeteringSensor(**discovery_info,
-                cluster_key=Metering.ep_attribute)
+                                cluster_key=Metering.ep_attribute)
     elif IlluminanceMeasurement.cluster_id in in_clusters:
         sensor = IlluminanceSensor(**discovery_info,
-                cluster_key=IlluminanceMeasurement.ep_attribute)
+                                   cluster_key=IlluminanceMeasurement.ep_attribute)
     else:
         sensor = Sensor(**discovery_info)
 
@@ -317,7 +317,6 @@ class MeteringSensor(Sensor):
         self._assumed = False
         _LOGGER.debug("0x%04x device announce for sensor received",
                       self._endpoint._device.nwk)
-        
 
 
 async def auto_set_attribute_report(endpoint, in_clusters):

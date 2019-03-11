@@ -25,12 +25,10 @@ _LOGGER = logging.getLogger(__name__)
 
 REQUIREMENTS = [
     #    'https://github.com/Yoda-x/bellows/archive/ng.zip#bellows==100.7.4.3.dev*',
-    'https://github.com/Yoda-x/bellows/archive/master.zip#bellows==100.7.4.8',
+    'https://github.com/Yoda-x/bellows/archive/master.zip#bellows==100.7.4.9',
     #    'https://github.com/Yoda-x/zigpy/archive/ng.zip#zigpy==100.1.4.1.dev*',
-    'https://github.com/Yoda-x/zigpy/archive/master.zip#zigpy==100.1.4.5',
+    'https://github.com/Yoda-x/zigpy/archive/master.zip#zigpy==100.1.4.7',
     ]
-
-
 
 
 def set_entity_store(hass, entity_store):
@@ -142,24 +140,28 @@ CONFIG_SCHEMA = vol.Schema({
     })
     }, extra=vol.ALLOW_EXTRA)
 
-SERVICE_SCHEMAS = {
-    SERVICE_PERMIT: vol.Schema({
-        vol.Optional(ATTR_DURATION, default=60):
-            vol.All(vol.Coerce(int), vol.Range(0, 255)),
-    }),
-    SERVICE_REMOVE: vol.Schema({
-        vol.Optional(ATTR_IEEE, default=''): cv.string, 
-        vol.Optional(ATTR_NWKID): cv.positive_int,
-#            vol.All(vol.Coerce(int), vol.Range(1, 65532)), 
-    }),
-    SERVICE_COMMAND: vol.Schema({
-        ATTR_ENTITY_ID: cv.string,
-        ATTR_COMMAND: cv.string,
-        vol.Optional('cluster'): cv.positive_int,
-        vol.Optional('attribute'): cv.positive_int,
-        vol.Optional('value'): cv.positive_int,
-    }),
-    }
+#SERVICE_SCHEMAS = {
+#    SERVICE_PERMIT: vol.Schema({
+#        vol.Optional(ATTR_DURATION, default=60):
+#            vol.All(vol.Coerce(int), vol.Range(0, 255)),
+#    }),
+#    SERVICE_REMOVE: vol.Schema({
+#        vol.Optional(ATTR_IEEE, default=''): cv.string,
+#        vol.Optional(ATTR_NWKID): cv.positive_int,
+##            vol.All(vol.Coerce(int), vol.Range(1, 65532)),
+#    }),
+#    SERVICE_COMMAND: vol.Schema({
+#        ATTR_ENTITY_ID: cv.string,
+#        ATTR_COMMAND: cv.string,
+#        vol.Optional('cluster'): cv.positive_int,
+#        vol.Optional('attribute'): cv.positive_int,
+#        vol.Optional('value'): cv.positive_int,
+#    }),
+#    SERVICE_LIGHT_STEP : vol.Schema({
+#    ATTR_ENTITY_ID: cv.comp_entity_ids,
+#    ATTR_STEP:vol.All(vol.Coerce(int), vol.Range(min=0, max=255))
+#})
+#    }
 
 
 def _custom_endpoint_init(self, node_config, *argv):
@@ -170,6 +172,7 @@ def _custom_endpoint_init(self, node_config, *argv):
 
 
 async def async_setup(hass, config):
+
 
     global APPLICATION_CONTROLLER
     import bellows.ezsp
@@ -222,7 +225,7 @@ async def async_setup(hass, config):
         ieee_list = []
         ieee = service.data.get(ATTR_IEEE)
         nwk = service.data.get(ATTR_NWKID)
-        if ieee == '' and nwk == None:
+        if ieee == '' and nwk is None:
             _LOGGER.debug("service remove device str empty")
             return
         _LOGGER.debug("service remove device str: %s",  ieee if ieee else nwk)
@@ -237,11 +240,20 @@ async def async_setup(hass, config):
 
     async def command(service):
         listener.command(service.data)
-
 #    hass.services.async_register(DOMAIN, SERVICE_COMMAND, command,
 #                                 schema=SERVICE_SCHEMAS[SERVICE_COMMAND])
 
+    async def async_handle_light_step_up_service(service, *args, **kwargs):
+        _LOGGER.debug("called service light_step_up %s %s", args, kwargs)
+        return
+
+    hass.services.async_register(
+        DOMAIN, SERVICE_COLORTEMP_STEP_UP, async_handle_light_step_up_service,
+        schema=SERVICE_SCHEMAS[SERVICE_COLORTEMP_STEP])
+
+
     zha_controller._state = "Run"
+
     zha_controller.async_schedule_update_ha_state()
     return True
 
@@ -328,7 +340,6 @@ class ApplicationListener:
 
     async def async_device_initialized(self, device, join):
         """Handle device joined and basic information discovered (async)."""
-#        from zigpy.zdo.types import Status
         import zigpy.profiles
         populate_data()
         discovered_info = {}
@@ -566,8 +577,8 @@ class ApplicationListener:
                 # get endpoint for entity
                 #write attribute to endpoint
 
-
 class Entity(RestoreEntity):
+
 
     """A base class for ZHA entities."""
 
@@ -652,7 +663,7 @@ class Entity(RestoreEntity):
     @property
     def name(self):
         return self.entity_id
-    
+
     @property
     def device_class(self) -> str:
         """Return the class of this device, from component DEVICE_CLASSES."""
@@ -704,7 +715,7 @@ class Entity(RestoreEntity):
     async def async_added_to_hass(self):
         """Call when entity about to be added to hass."""
         await super().async_added_to_hass()
-        data = await self.async_get_last_state()
+        data = self._restore_data = await self.async_get_last_state()
         self._application._entity_list[self.entity_id] = self
         _LOGGER.debug("entiy_list add: %s",  self._application._entity_list)
         try:
@@ -719,7 +730,8 @@ class Entity(RestoreEntity):
  #           self._device_state_attributes.update(data.attributes)
             self._device_state_attributes.pop('assumed_state',  None)
             self.device_state_attributes.pop('brightness', None)
-            self._groups = data.attributes.get("Group_id", list()) if not self._groups else self._groups
+
+            self._groups = data.attributes.get("Group_id", list()) if not hasattr(self, '_groups') else self._groups
             for group in self._groups:
                 self._endpoint._device._application.listener_event(
                                 'subscribe_group',
@@ -740,14 +752,14 @@ class Entity(RestoreEntity):
             self._application._entity_list.pop(self.entity_id)
         except KeyError:
             pass
-            
+
     @property
     def device_info(self):
         return{
             'connections': {(CONNECTION_ZIGBEE, self._endpoint.device._ieee)},
             'identifiers': {(DOMAIN, self._endpoint.device._ieee)},
-            'model': self._model, 
-            'manufacturer': self._manufacturer, 
+            'model': self._model,
+            'manufacturer': self._manufacturer,
         }
 
 
@@ -949,6 +961,8 @@ async def req_conf_report(report_cls, report_attr, report_min, report_max, repor
                           e)
 
 class zha_state(entity.Entity):
+
+
     def __init__(self, hass, stack, application, name, state='Init'):
         self._device_state_attributes = {}
         self._device_state_attributes['friendly_name'] = 'Controller'

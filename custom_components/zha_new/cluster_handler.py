@@ -207,7 +207,7 @@ class Server_LevelControl(Cluster_Server):
 
 class Server_OnOff(Cluster_Server):
     def cluster_command(self, tsn, command_id, args):
-        
+
         if tsn == self._prev_tsn:
             return
         self._prev_tsn = tsn

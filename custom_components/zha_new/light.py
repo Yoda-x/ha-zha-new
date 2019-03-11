@@ -9,7 +9,10 @@ import logging
 #import custom_components.zha_new.helpers as helpers
 import asyncio as a
 from homeassistant.components import light
-from homeassistant.const import STATE_UNKNOWN
+from homeassistant.const import (
+    STATE_UNKNOWN,
+    ATTR_SUPPORTED_FEATURES
+    )
 import custom_components.zha_new as zha_new
 from importlib import import_module
 import homeassistant.util.color as color_util
@@ -24,6 +27,13 @@ from custom_components.zha_new.cluster_handler import (
     Cluster_Server)
 import homeassistant.util.dt as dt_util
 from .const import DOMAIN as PLATFORM
+from .const import (
+    SERVICE_SCHEMAS,
+    SERVICE_COLORTEMP_STEP_UP,
+    SERVICE_COLORTEMP_STEP_DOWN,
+    SERVICE_COLORTEMP_STEP,
+    ATTR_STEP,
+    )
 from homeassistant.components.light import DOMAIN
 _LOGGER = logging.getLogger(__name__)
 
@@ -31,7 +41,6 @@ DEFAULT_DURATION = 0.5
 CAPABILITIES_COLOR_XY = 0x08
 CAPABILITIES_COLOR_TEMP = 0x10
 UNSUPPORTED_ATTRIBUTE = 0x86
-TIMEOUT = 2
 
 
 async def async_setup_platform(hass, config,
@@ -44,6 +53,8 @@ async def async_setup_platform(hass, config,
     application = discovery_info['application']
     endpoint = discovery_info['endpoint']
     in_clusters = discovery_info['in_clusters']
+    join = discovery_info['new_join']
+    component = hass.data[DOMAIN]
 #    try:
 #        discovery_info['color_capabilities'] \
 #            = await endpoint.light_color['color_capabilities']
@@ -55,43 +66,40 @@ async def async_setup_platform(hass, config,
 #        _LOGGER.debug("Request for color_capabilities other error: %s", e.args)
 #    entity = Light(**discovery_info)
 
-    if hasattr(endpoint, 'light_color'):
-        caps = await zha_new.safe_read(
-            endpoint.light_color, ['color_capabilities'])
-        try:
-            discovery_info['color_capabilities'] = (
-                caps.get('color_capabilities'))
+    async def async_handle_step_up_ct_service(service):
+        _LOGGER.debug('handle step up for %s: %s', service.data)
 
-        except AttributeError:
-            discovery_info['color_capabilities'] = CAPABILITIES_COLOR_XY
-            try:
-                result = await zha_new.safe_read(
-                    endpoint.light_color, ['color_temperature'])
-                if result.get('color_temperature') is not UNSUPPORTED_ATTRIBUTE:
-                    discovery_info['color_capabilities'] |= CAPABILITIES_COLOR_TEMP
-            except AttributeError:
-                pass
+    component.async_register_entity_service(
+        SERVICE_COLORTEMP_STEP_UP, SERVICE_SCHEMAS[SERVICE_COLORTEMP_STEP],
+        'async_handle_step_up_ct_service'
+        )
+    component.async_register_entity_service(
+        SERVICE_COLORTEMP_STEP_DOWN, SERVICE_SCHEMAS[SERVICE_COLORTEMP_STEP],
+        'async_handle_step_down_ct_service'
+        )
+
     entity = Light(**discovery_info)
     e_registry = await hass.helpers.entity_registry.async_get_registry()
     reg_dev_id = e_registry.async_get_or_create(
             DOMAIN, PLATFORM, entity.uid,
-            suggested_object_id = entity.entity_id, 
-            device_id = str(entity.device._ieee)
+            suggested_object_id=entity.entity_id,
+            device_id=str(entity.device._ieee)
         )
     if entity.entity_id != reg_dev_id.entity_id and 'unknown' in reg_dev_id.entity_id:
-        _LOGGER.debug("entity different name,change it: %s",  reg_dev_id)
-        e_registry.async_update_entity(reg_dev_id.entity_id,  
-                new_entity_id=entity.entity_id)
+        _LOGGER.debug("entity has different name,change it: %s",  reg_dev_id)
+        e_registry.async_update_entity(reg_dev_id.entity_id,
+                                       new_entity_id=entity.entity_id)
     if reg_dev_id.entity_id in application._entity_list:
         _LOGGER.debug("entity exist,remove it: %s",  reg_dev_id)
         await application._entity_list.get(reg_dev_id.entity_id).async_remove()
     async_add_entities([entity])
-    
+
     entity_store = zha_new.get_entity_store(hass)
     if endpoint.device._ieee not in entity_store:
         entity_store[endpoint.device._ieee] = []
     entity_store[endpoint.device._ieee].append(entity)
-    await auto_set_attribute_report(endpoint,  in_clusters)
+    if join:
+        await auto_set_attribute_report(endpoint,  in_clusters)
     endpoint._device._application.listener_event('device_updated',
                                                  endpoint._device)
 
@@ -138,7 +146,7 @@ class Light(zha_new.Entity, light.Light):
 
     """Representation of a ZHA or ZLL light."""
 
-    _domain = light.DOMAIN
+    _domain = DOMAIN
 
     def __init__(self, **kwargs):
         """Initialize the ZHA light."""
@@ -161,23 +169,8 @@ class Light(zha_new.Entity, light.Light):
         self._color_temp_physical_max = None
         self._call_ongoing = False
 
-        if LevelControl.cluster_id in self._in_clusters:
-            self._supported_features |= light.SUPPORT_BRIGHTNESS
-            self._supported_features |= light.SUPPORT_TRANSITION
-            self._brightness = 0
-
-        if Color.cluster_id in self._in_clusters:
-            color_capabilities = kwargs.get('color_capabilities', 0x10)
-            if color_capabilities & CAPABILITIES_COLOR_TEMP:
-                self._supported_features |= light.SUPPORT_COLOR_TEMP
-                a.ensure_future(self.get_range_mired())
-
-            if color_capabilities & CAPABILITIES_COLOR_XY:
-                self._supported_features |= light.SUPPORT_COLOR
-                self._hs_color = (0, 0)
-
         if Groups.cluster_id in self._in_clusters:
-            self._groups = []
+            self._groups = list()
             self._device_state_attributes["Group_id"] = self._groups
 
         clusters = list(out_clusters.items()) + list(in_clusters.items())
@@ -190,7 +183,32 @@ class Light(zha_new.Entity, light.Light):
                             self, cluster, cluster.cluster_id)
 
         endpoint._device.zdo.add_listener(self)
-#        a.ensure_future(helpers.full_discovery(self._endpoint, timeout=2))
+
+    async def async_handle_step_up_ct_service(self,  *args,  **kwargs):
+        _LOGGER.debug('handle step up for Class Light %s: %s - %s', self.entity_id,  args,  kwargs)
+        step = kwargs.get(ATTR_STEP, None)
+        if not (step and hasattr(self._endpoint, 'light_color')):
+            return False
+        duration = kwargs.get(light.ATTR_TRANSITION, DEFAULT_DURATION)
+        self._call_ongoing = True
+        await self._endpoint.light_color.step_color_temp(
+            0x01, step, int(duration/10), 0, 0)
+        await a.sleep(duration)
+        self._call_ongoing = False
+        return True
+
+    async def async_handle_step_down_ct_service(self,  *args,  **kwargs):
+        _LOGGER.debug('handle step up for Class Light %s: %s - %s', self.entity_id,  args,  kwargs)
+        step = kwargs.get(ATTR_STEP, None)
+        if not (step and hasattr(self._endpoint, 'light_color')):
+            return False
+        duration = kwargs.get(light.ATTR_TRANSITION, DEFAULT_DURATION)
+        self._call_ongoing = True
+        await self._endpoint.light_color.step_color_temp(
+            0x03, step, int(duration/10), 0, 0)
+        await a.sleep(duration)
+        self._call_ongoing = False
+        return True
 
     @property
     def is_on(self) -> bool:
@@ -198,10 +216,6 @@ class Light(zha_new.Entity, light.Light):
         if self._state == STATE_UNKNOWN:
             return False
         return bool(self._state)
-
-#    @property
-#    def available(self) -> bool:
-#       return bool(self._available)
 
     @property
     def assumed_state(self) -> bool:
@@ -378,7 +392,6 @@ class Light(zha_new.Entity, light.Light):
                 "0x%04x device announce for light received",
                 self._endpoint._device.nwk,
             )
-#        a.ensure_future(helpers.full_discovery(self._endpoint, timeout=5))
 
     @property
     def max_mireds(self):
@@ -406,6 +419,45 @@ class Light(zha_new.Entity, light.Light):
             self._color_temp_physical_max = result.get(
                     'color_temp_physical_max', None
                 )
+
+    async def async_added_to_hass(self):
+        """Call when entity about to be added to hass."""
+        await super().async_added_to_hass()
+        try:
+            self._supported_features = self._restore_data.attributes[ATTR_SUPPORTED_FEATURES]
+        except Exception:
+            if hasattr(self._endpoint, 'light_color'):
+                try:
+                    caps = await zha_new.safe_read(
+                        self._endpoint.light_color, ['color_capabilities']).get(
+                            'color_capabilities')
+                except AttributeError:
+                    caps = CAPABILITIES_COLOR_XY
+                    try:
+                        result = await zha_new.safe_read(
+                            self._endpoint.light_color, ['color_temperature'])
+                        if result.get('color_temperature') is not UNSUPPORTED_ATTRIBUTE:
+                            caps = CAPABILITIES_COLOR_TEMP
+                    except AttributeError:
+                        pass
+
+        try:
+            if caps & CAPABILITIES_COLOR_TEMP:
+                self._supported_features |= light.SUPPORT_COLOR_TEMP
+                a.ensure_future(self.get_range_mired())  # TODO move to new join only
+
+            if caps & CAPABILITIES_COLOR_XY:
+                self._supported_features |= light.SUPPORT_COLOR
+                self._hs_color = (0, 0)
+        except NameError:  # if caps not exists
+            pass
+        if LevelControl.cluster_id in self._in_clusters:
+            self._supported_features |= light.SUPPORT_BRIGHTNESS
+            self._supported_features |= light.SUPPORT_TRANSITION
+            try:
+                self._brightness = self._restore_data.attributes[light.ATTR_BRIGHTNESS]
+            except KeyError:
+                pass
 
 
 async def auto_set_attribute_report(endpoint, in_clusters):

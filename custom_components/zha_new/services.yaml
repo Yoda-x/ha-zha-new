@@ -34,3 +34,10 @@ command:
     mfgid:
       description: optional manufacturer ID
       
+step_up_ct:
+  description: send a colortemp step up command to a zigbee bulb
+  fields:
+    entity_id: 
+      description: entity_id
+    step:
+      description: value for step up, 0-255

@@ -40,23 +40,24 @@ async def async_setup_platform(hass, config, async_add_devices, discovery_info=N
     application = discovery_info['application']
     endpoint = discovery_info['endpoint']
     in_clusters = discovery_info['in_clusters']
-
+    join = discovery_info['new_join']
     entity = Switch(**discovery_info)
     e_registry = await hass.helpers.entity_registry.async_get_registry()
     reg_dev_id = e_registry.async_get_or_create(
             DOMAIN, PLATFORM, entity.uid,
-            suggested_object_id = entity.entity_id, 
-            device_id = str(entity.device._ieee)
+            suggested_object_id=entity.entity_id,
+            device_id=str(entity.device._ieee)
         )
     if entity.entity_id != reg_dev_id.entity_id and 'unknown' in reg_dev_id.entity_id:
         _LOGGER.debug("entity different name,change it: %s",  reg_dev_id)
-        e_registry.async_update_entity(reg_dev_id.entity_id,  
-                new_entity_id=entity.entity_id)
+        e_registry.async_update_entity(reg_dev_id.entity_id,
+                                       new_entity_id=entity.entity_id)
     if reg_dev_id.entity_id in application._entity_list:
         _LOGGER.debug("entity exist,remove it: %s",  reg_dev_id)
         await application._entity_list.get(reg_dev_id.entity_id).async_remove()
     async_add_devices([entity])
-    await auto_set_attribute_report(endpoint,  in_clusters)
+    if join:
+        await auto_set_attribute_report(endpoint,  in_clusters)
     entity_store = zha_new.get_entity_store(hass)
 
     if endpoint.device._ieee not in entity_store:
@@ -103,14 +104,14 @@ class Switch(zha_new.Entity, SwitchDevice):
                                 self, cluster, cluster.cluster_id)
 
         endpoint._device.zdo.add_listener(self)
-        
+
     @property
     def should_poll(self) -> bool:
         """Return True if entity has to be polled for state.
         False if entity pushes its state to HA.
         """
         return True
-    
+
     @property
     def is_on(self) -> bool:
         """Return if the switch is on based on the statemachine."""
@@ -144,12 +145,12 @@ class Switch(zha_new.Entity, SwitchDevice):
         """Turn the entity off."""
         await self._endpoint.on_off.off()
         self._state = 0
-        
+
     @property
     def assumed_state(self) -> bool:
         """Return True if unable to access real state of the entity."""
         return bool(self._assumed)
-        
+
     async def async_update(self):
         """Retrieve latest state."""
         _LOGGER.debug("%s async_update", self.entity_id)
