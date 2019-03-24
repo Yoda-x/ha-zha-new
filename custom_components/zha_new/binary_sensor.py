@@ -54,13 +54,13 @@ async def async_setup_platform(
     endpoint = discovery_info['endpoint']
     application = discovery_info['application']
     device_class = None
-    groups = list()
+    groups = None
 
     if discovery_info['new_join']:
         if 0x1000 in endpoint.in_clusters:
             try:
                 groups = await  helpers.cluster_commisioning_groups(
-                    endpoint.in_clusters[0x1000], timeout=10)
+                    endpoint.in_clusters[0x1000])
             except Exception as e:
                 _LOGGER.debug(
                     "catched exception in commissioning group_id %s",  e)
@@ -207,7 +207,7 @@ class BinarySensor(zha_new.Entity, BinarySensorDevice):
         self._device_class = device_class
 #        self._ias_zone_cluster = self._in_clusters[IasZone.cluster_id]
         endpoint = kwargs['endpoint']
-        self._groups = kwargs.get('groups', [])
+        self._groups = kwargs.get('groups', None)
         in_clusters = kwargs['in_clusters']
         out_clusters = kwargs['out_clusters']
         clusters = list(out_clusters.items()) + list(in_clusters.items())

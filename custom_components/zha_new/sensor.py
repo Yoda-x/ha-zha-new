@@ -8,7 +8,10 @@ at https://home-assistant.io/components/sensor.zha/
 """
 import logging
 from homeassistant.components.sensor import DOMAIN
-from homeassistant.const import STATE_UNKNOWN
+from homeassistant.const import (
+        STATE_UNKNOWN, 
+        TEMP_CELSIUS, 
+        )
 import custom_components.zha_new as zha_new
 from asyncio import ensure_future
 from .const import DOMAIN as PLATFORM
@@ -165,7 +168,7 @@ class TemperatureSensor(Sensor):
     @property
     def unit_of_measurement(self):
         """Return the unit of measurement of this entity."""
-        return self.hass.config.units.temperature_unit
+        return TEMP_CELSIUS
 
 #    @property
 #    def state(self):

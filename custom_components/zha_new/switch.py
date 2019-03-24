@@ -165,7 +165,7 @@ class Switch(zha_new.Entity, SwitchDevice):
             self._assumed = False
         except Exception as e:
             self._assumed = True
-#            _LOGGER.debug("%s async_update poll failed: %s", self.entity_id, e)
+            _LOGGER.debug("%s async_update poll failed: %s", self.entity_id, e)
             return True
 
         if hasattr(self, '_groups'):

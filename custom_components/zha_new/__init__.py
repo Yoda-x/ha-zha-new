@@ -20,6 +20,7 @@ from homeassistant.util import slugify
 from homeassistant.helpers.restore_state import RestoreEntity
 from homeassistant.helpers.device_registry import CONNECTION_ZIGBEE
 from .const import *
+from .helpers import create_MC_Entity
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -140,30 +141,6 @@ CONFIG_SCHEMA = vol.Schema({
     })
     }, extra=vol.ALLOW_EXTRA)
 
-#SERVICE_SCHEMAS = {
-#    SERVICE_PERMIT: vol.Schema({
-#        vol.Optional(ATTR_DURATION, default=60):
-#            vol.All(vol.Coerce(int), vol.Range(0, 255)),
-#    }),
-#    SERVICE_REMOVE: vol.Schema({
-#        vol.Optional(ATTR_IEEE, default=''): cv.string,
-#        vol.Optional(ATTR_NWKID): cv.positive_int,
-##            vol.All(vol.Coerce(int), vol.Range(1, 65532)),
-#    }),
-#    SERVICE_COMMAND: vol.Schema({
-#        ATTR_ENTITY_ID: cv.string,
-#        ATTR_COMMAND: cv.string,
-#        vol.Optional('cluster'): cv.positive_int,
-#        vol.Optional('attribute'): cv.positive_int,
-#        vol.Optional('value'): cv.positive_int,
-#    }),
-#    SERVICE_LIGHT_STEP : vol.Schema({
-#    ATTR_ENTITY_ID: cv.comp_entity_ids,
-#    ATTR_STEP:vol.All(vol.Coerce(int), vol.Range(min=0, max=255))
-#})
-#    }
-
-
 def _custom_endpoint_init(self, node_config, *argv):
     pass
 
@@ -189,13 +166,13 @@ async def async_setup(hass, config):
     APPLICATION_CONTROLLER.add_listener(listener)
     await APPLICATION_CONTROLLER.startup(auto_form=True)
 
-    component = EntityComponent(_LOGGER, DOMAIN, hass, datetime.timedelta(minutes=1))
+    listener.component = component = EntityComponent(_LOGGER, DOMAIN, hass, datetime.timedelta(minutes=1))
     zha_controller = zha_state(hass, ezsp_, APPLICATION_CONTROLLER, 'controller', 'Init')
     listener.controller = zha_controller
     listener.registry = await hass.helpers.device_registry.async_get_registry()
     await component.async_add_entities([zha_controller])
     zha_controller.async_schedule_update_ha_state()
-    await asyncio.sleep(5)
+#    await asyncio.sleep(5)
     for device in APPLICATION_CONTROLLER.devices.values():
         hass.async_add_job(listener.async_device_initialized(device, False))
         await asyncio.sleep(0.1)
@@ -250,10 +227,8 @@ async def async_setup(hass, config):
     hass.services.async_register(
         DOMAIN, SERVICE_COLORTEMP_STEP_UP, async_handle_light_step_up_service,
         schema=SERVICE_SCHEMAS[SERVICE_COLORTEMP_STEP])
-
-
+        
     zha_controller._state = "Run"
-
     zha_controller.async_schedule_update_ha_state()
     return True
 
@@ -276,16 +251,40 @@ class ApplicationListener:
         self.device_store = []
         self.mc_subscribers = {}
         self.custom_devices = {}
-
+        self._groups = set()
+        
     def device_updated(self,  device):
-        pass
+        pass 
 
     def subscribe_group(self, group_id):
         # keeps a list of susbcribers,
         # forwardrequest to zigpy if a group is new, otherwise do nothing
+        import zigpy as z
         _LOGGER.debug("received subscribe group: %s", group_id)
+        if group_id in self._groups:
+            return
         self._hass.async_add_job(
             APPLICATION_CONTROLLER.subscribe_group(group_id))
+        #create dummy device
+        
+#        mdev = z.device.Device(self,  0, group_id)
+#        mdev.add_endpoint(1)
+#        mdev.endpoint[1].profile = z.profiles.zha.PROFILE_ID
+#        for cluster_id in (0x0003, 0x0004, 0x0005, 0x0006, 0x0008, 0x0300):
+#            mdev.endpoint[1].in_clusters[cluster_id] = cluster \
+#                = z.zcl.Cluster.from_id(
+#                    mdev.add_endpoint[1], 
+#                    cluster_id
+#                )
+#            if hasattr(cluster, 'ep_attribute'):
+#                mdev.endpoint[1]._cluster_attr[cluster.ep_attribute] = cluster
+#        discovery_info = {
+#            'device': mdev, 
+#            'group_id': group_id}
+#        entity = MEntity(discovery_info)
+        self._groups.add(group_id)
+        
+        
 
     def unsubscribe_group(self, group_id):
         # keeps a list of susbcribers,
@@ -344,6 +343,7 @@ class ApplicationListener:
         populate_data()
         discovered_info = {}
         out_clusters = []
+        primary_cluster = None
         # loop over endpoints
 
         if join:
@@ -431,10 +431,7 @@ class ApplicationListener:
 
             # Add allowed In_Clusters from config
             if CONF_IN_CLUSTER in node_config:
-                a = set(node_config.get(CONF_IN_CLUSTER))
-
-#                _LOGGER.debug('%s', type(profile_clusters))
-                profile_clusters[0] = a
+                profile_clusters[0] = set(node_config.get(CONF_IN_CLUSTER))
             # Add allowed Out_Clusters from config
             if CONF_OUT_CLUSTER in node_config:
                 profile_clusters[1] = set(node_config.get(CONF_OUT_CLUSTER))
@@ -461,31 +458,58 @@ class ApplicationListener:
                               device._ieee,
                               "no reports configured" if join else "already joined")
 
-            _LOGGER.debug("[0x%04x:%s] 2:profile %s, component: %s cluster:%s",
+            _LOGGER.debug("[0x%04x:%s] 2:profile %s, component: %s cluster:%s in_clusters: %s",
                           device.nwk,
                           endpoint_id,
                           endpoint.profile_id,
                           component,
-                          profile_clusters)
+                          profile_clusters, 
+                          endpoint.in_clusters)
+            
+            in_clusters = set(endpoint.in_clusters.keys())
+            out_clusters = set(endpoint.out_clusters.keys())
+            sc = {cluster.cluster_id for cluster in SINGLE_CLUSTER_DEVICE_CLASS}
+            c_intersect= in_clusters & sc
+            if len(c_intersect)>1:
+                if primary_cluster:
+                    try:
+                        c_intersect.remove(primary_cluster)
+                    except Excecution:
+                        pass
+                else:
+                        c_intersect.discard(sorted(list(c_intersect))[0])
+            else:
+                c_intersect = set()
+                
+            
             if component:
+            # allow all clusters to be used
                 # only discovered clusters that are in the profile or configuration listed
-                in_clusters = [endpoint.in_clusters[c]
-                               for c in profile_clusters[0]
-                               if c in endpoint.in_clusters]
-                out_clusters = [endpoint.out_clusters[c]
-                                for c in profile_clusters[1]
-                                if c in endpoint.out_clusters]
+#                in_clusters = [endpoint.in_clusters[c]
+#                               for c in profile_clusters[0]
+#                               if c in endpoint.in_clusters]
+#                out_clusters = [endpoint.out_clusters[c]
+#                                for c in profile_clusters[1]
+#                                if c in endpoint.out_clusters]
+                in_clusters -= c_intersect
 
+                _LOGGER.debug("[0x%04x:%s]general entity:%s, component:%s clusters:%s<->%s",
+                          device.nwk,
+                          endpoint_id,
+                          endpoint.profile_id,
+                          component,
+                          in_clusters,
+                          out_clusters,
+                          )                
                 if in_clusters != [] or out_clusters != []:
 
                     # create  discovery info
                     discovery_info = {
                         'endpoint': endpoint,
-                        'in_clusters': {c.cluster_id: c for c in in_clusters},
-                        'out_clusters': {c.cluster_id: c for c in out_clusters},
+                        'in_clusters': {c: endpoint.in_clusters[c] for c in in_clusters},
+                        'out_clusters': {c: endpoint.out_clusters[c] for c in out_clusters},
                         'component': component,
                         'device': device,
-                        #                        'platform': PLATFORM,
                         'discovery_key': device_key,
                         'new_join': join,
                         'application': self,
@@ -503,29 +527,29 @@ class ApplicationListener:
                         {'discovery_key': device_key},
                         self._config,
                     )
-                    _LOGGER.debug("[0x%04x:%s] Return from component general entity:%s",
+                    _LOGGER.debug("[0x%04x:%s] Create general entity:%s",
                                   device.nwk,
                                   endpoint_id,
                                   device._ieee)
 
             # initialize single clusters
-            for cluster_id, cluster in endpoint.in_clusters.items():
-                cluster_type = type(cluster)
-                if cluster_id in profile_clusters[0]:
-                    continue
-                if cluster_type not in SINGLE_CLUSTER_DEVICE_CLASS:
-                    continue
+            for cluster in c_intersect:
+#                cluster_type = type(cluster)
+#                if cluster_id in profile_clusters[0]:
+#                    continue
+#                if cluster_type not in SINGLE_CLUSTER_DEVICE_CLASS:
+#                    continue
                 if ha_const.CONF_TYPE in node_config:
                     component = node_config[ha_const.CONF_TYPE]
                 else:
                     component = SINGLE_CLUSTER_DEVICE_CLASS[cluster_type]
 
-                cluster_key = '%s-%s' % (device_key, cluster_id)
+                cluster_key = '%s-%s' % (device_key, cluster)
                 # cluster key -> single cluster
                 discovery_info = {
                     'discovery_key': cluster_key,
                     'endpoint': endpoint,
-                    'in_clusters': {cluster.cluster_id: cluster},
+                    'in_clusters': {cluster: endpoint.in_clusters[cluster]},
                     'out_clusters': {},
                     'new_join': join,
                     #                    'platform': PLATFORM,
@@ -535,10 +559,10 @@ class ApplicationListener:
                 discovery_info.update(discovered_info)
 
                 self._hass.data[DISCOVERY_KEY][cluster_key] = discovery_info
-                _LOGGER.debug("[0x%04x:%s] Call single-cluster entity: %s",
+                _LOGGER.debug("[0x%04x:%s] Create single-cluster entity: %s",
                               device.nwk,
                               endpoint_id,
-                              cluster_id)
+                              cluster)
                 await discovery.async_load_platform(
                     self._hass,
                     component,
@@ -577,8 +601,9 @@ class ApplicationListener:
                 # get endpoint for entity
                 #write attribute to endpoint
 
-class Entity(RestoreEntity):
 
+
+class Entity(RestoreEntity):
 
     """A base class for ZHA entities."""
 
@@ -591,6 +616,7 @@ class Entity(RestoreEntity):
         self.entity_connect = {}
         self.sub_listener = dict()
         self._device_class = None
+        self._groups = None
 
         ieeetail = ''.join([
             '%02x' % (o, ) for o in endpoint.device.ieee[-4:]
@@ -717,10 +743,10 @@ class Entity(RestoreEntity):
         await super().async_added_to_hass()
         data = self._restore_data = await self.async_get_last_state()
         self._application._entity_list[self.entity_id] = self
-        _LOGGER.debug("entiy_list add: %s",  self._application._entity_list)
+        _LOGGER.debug("entity_list added: %s",  self._application._entity_list)
         try:
             _LOGGER.debug("Restore state for %s:",  self.entity_id)
-            if data.state:
+            if data is not None and data.state:
                 if hasattr(self,  'state_div'):
                     self._state = float(data.state) * self.state_div
                 else:
@@ -730,15 +756,15 @@ class Entity(RestoreEntity):
  #           self._device_state_attributes.update(data.attributes)
             self._device_state_attributes.pop('assumed_state',  None)
             self.device_state_attributes.pop('brightness', None)
-
-            self._groups = data.attributes.get("Group_id", list()) if not hasattr(self, '_groups') else self._groups
+            self._groups = data.attributes.get("Group_id", list()) \
+                       if self._groups is None else self._groups
             for group in self._groups:
                 self._endpoint._device._application.listener_event(
                                 'subscribe_group',
                                 group)
             self._device_state_attributes['Group_id'] = self._groups
         except Exception as e:
-            _LOGGER.debug('Restore failed for %s: %s', self.entity_id, e)
+            _LOGGER.exception('Restore failed for %s: %s', self.entity_id, e)
 
     @property
     def assumed_state(self):
@@ -762,6 +788,43 @@ class Entity(RestoreEntity):
             'manufacturer': self._manufacturer,
         }
 
+class MEntity(Entity):
+    
+    """ A dummy entity for multicasts. """
+    def __init__(self, **dicovery_info):
+        
+        """Init ZHA entity."""
+        in_clusters = entity_.out_clusters
+        out_clusters = ()
+        self._supported_features = 0b00111111
+        self._available = True
+        self._assumed = False
+        self._device_class = None      
+        self.uid = 'zha_group_sender'
+        self.manufacturer = 'YODA'
+        self.model = 'zha_group_sender'
+        if 'application' in kwargs:
+            self._application = kwargs['application']
+        self._hidden= True
+
+        self.entity_id = '%s.MC_%s' % (
+            self._domain,
+            slugify(group_id), 
+        )
+#        self.device = endpoint.device 
+
+        self._device_state_attributes['friendly_name'] = '%s %s' % (
+            self.manufacturer,
+            self.model,
+        )
+        self._device_state_attributes['model'] = self.model
+        self._device_state_attributes['manufacturer'] = self.manufacturer
+
+
+        self._endpoint = endpoint
+        self._in_clusters = in_clusters
+        self._out_clusters = out_clusters
+        self._state = True
 
 async def _discover_endpoint_info(endpoint):
     import string
@@ -1014,3 +1077,4 @@ class zha_state(entity.Entity):
             self._state = "Failed"
         elif self._state == "Failed":
             self._state = "Run"
+        self._device_state_attributes['Group_id'] = self.application._groups

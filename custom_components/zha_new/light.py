@@ -77,8 +77,10 @@ async def async_setup_platform(hass, config,
         SERVICE_COLORTEMP_STEP_DOWN, SERVICE_SCHEMAS[SERVICE_COLORTEMP_STEP],
         'async_handle_step_down_ct_service'
         )
-
-    entity = Light(**discovery_info)
+    if hasattr(discovery_info,'multicast'):
+        entity = MLight(**discovery_info)
+    else:
+        entity = Light(**discovery_info)
     e_registry = await hass.helpers.entity_registry.async_get_registry()
     reg_dev_id = e_registry.async_get_or_create(
             DOMAIN, PLATFORM, entity.uid,
@@ -140,7 +142,6 @@ class LightAttributeReports(Cluster_Server):
                 elif attribute == 7:
                     self._entity._color_temp = value
         self._entity.schedule_update_ha_state()
-
 
 class Light(zha_new.Entity, light.Light):
 
@@ -315,7 +316,7 @@ class Light(zha_new.Entity, light.Light):
             self._assumed = True
             return
 
-        if hasattr(self, '_groups'):
+        if self._groups is not None:
             try:
                 result = await self._endpoint.groups.get_membership([])
                 _LOGGER.debug("%s get membership : %s", self.entity_id,  result)
