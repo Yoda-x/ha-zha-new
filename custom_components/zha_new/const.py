@@ -29,6 +29,7 @@ ATTR_STEP = 'step'
 SERVICE_PERMIT = 'permit'
 SERVICE_REMOVE = 'remove'
 SERVICE_COMMAND = 'command'
+SERVICE_MC_COMMAND = 'mc_command'
 SERVICE_COLORTEMP_STEP_UP = 'step_up_CT'
 SERVICE_COLORTEMP_STEP_DOWN = 'step_down_CT'
 SERVICE_COLORTEMP_STEP = 'step'
@@ -62,5 +63,12 @@ SERVICE_SCHEMAS = {
     SERVICE_COLORTEMP_STEP: vol.Schema({
         ATTR_ENTITY_ID: cv.comp_entity_ids,
         ATTR_STEP: vol.All(vol.Coerce(int), vol.Range(min=0, max=255))
-    })
+    }), 
+    SERVICE_MC_COMMAND: vol.Schema({
+        'group': cv.string,
+        ATTR_COMMAND: cv.string,
+        'cluster': cv.positive_int,
+        'command': cv.string,
+        vol.Optional('value'): cv.positive_int,
+    }),
     }

@@ -25,10 +25,10 @@ from .helpers import create_MC_Entity
 _LOGGER = logging.getLogger(__name__)
 
 REQUIREMENTS = [
-    #    'https://github.com/Yoda-x/bellows/archive/ng.zip#bellows==100.7.4.3.dev*',
-    'https://github.com/Yoda-x/bellows/archive/master.zip#bellows==100.7.4.9',
-    #    'https://github.com/Yoda-x/zigpy/archive/ng.zip#zigpy==100.1.4.1.dev*',
-    'https://github.com/Yoda-x/zigpy/archive/master.zip#zigpy==100.1.4.7',
+#    'https://github.com/Yoda-x/bellows/archive/master.zip#bellows==100.7.4.9',
+    'https://github.com/Yoda-x/bellows/archive/multi.zip#bellows==100.7.4.10',
+    'https://github.com/Yoda-x/zigpy/archive/multi.zip#zigpy==100.1.4.8',
+#    'https://github.com/Yoda-x/zigpy/archive/master.zip#zigpy==100.1.4.7',
     ]
 
 
@@ -220,6 +220,11 @@ async def async_setup(hass, config):
 #    hass.services.async_register(DOMAIN, SERVICE_COMMAND, command,
 #                                 schema=SERVICE_SCHEMAS[SERVICE_COMMAND])
 
+    async def mc_command(service):
+        listener.mc_command(service.data)
+    hass.services.async_register(DOMAIN, SERVICE_MC_COMMAND, mc_command,
+                                 schema=SERVICE_SCHEMAS[SERVICE_MC_COMMANDC])
+                                 
     async def async_handle_light_step_up_service(service, *args, **kwargs):
         _LOGGER.debug("called service light_step_up %s %s", args, kwargs)
         return
@@ -256,6 +261,12 @@ class ApplicationListener:
     def device_updated(self,  device):
         pass 
 
+    async def mc_command(data):
+        
+        
+        
+        return
+        
     def subscribe_group(self, group_id):
         # keeps a list of susbcribers,
         # forwardrequest to zigpy if a group is new, otherwise do nothing
