@@ -223,7 +223,7 @@ async def async_setup(hass, config):
     async def mc_command(service):
         listener.mc_command(service.data)
     hass.services.async_register(DOMAIN, SERVICE_MC_COMMAND, mc_command,
-                                 schema=SERVICE_SCHEMAS[SERVICE_MC_COMMANDC])
+                                 schema=SERVICE_SCHEMAS[SERVICE_MC_COMMAND])
                                  
     async def async_handle_light_step_up_service(service, *args, **kwargs):
         _LOGGER.debug("called service light_step_up %s %s", args, kwargs)
@@ -481,6 +481,7 @@ class ApplicationListener:
             out_clusters = set(endpoint.out_clusters.keys())
             sc = {cluster.cluster_id for cluster in SINGLE_CLUSTER_DEVICE_CLASS}
             c_intersect= in_clusters & sc
+            primary_cluster = node_config.get('primary_cluster')
             if len(c_intersect)>1:
                 if primary_cluster:
                     try:
@@ -488,7 +489,8 @@ class ApplicationListener:
                     except Excecution:
                         pass
                 else:
-                        c_intersect.discard(sorted(list(c_intersect))[0])
+                        primary_cluster = sorted(list(c_intersect))[0]
+                        c_intersect.remove(primary_cluster)
             else:
                 c_intersect = set()
                 
@@ -575,12 +577,12 @@ class ApplicationListener:
                               endpoint_id,
                               cluster)
                 await discovery.async_load_platform(
-                    self._hass,
-                    component,
-                    DOMAIN,
-                    {'discovery_key': cluster_key},
-                    self._config,
-                )
+                            self._hass,
+                            component,
+                            DOMAIN,
+                            {'discovery_key': cluster_key},
+                            self._config,
+                            )
 
         device._application.listener_event('device_updated', device)
         self.controller._state = 'Run'

@@ -59,6 +59,7 @@ def _custom_endpoint_init(self, node_config, *argv):
         self.add_input_cluster(0x0406) # cluster_not in endpoint clusters 
     elif selector in ['lumi.sensor_motion.aq2', ]:
         config = {
+            'primary_cluster': 0x406,
             "config_report": [
                 [0x0406, 0, 10, 1800, 1],
                 [0x0400, 0, 10, 1800, 10],
