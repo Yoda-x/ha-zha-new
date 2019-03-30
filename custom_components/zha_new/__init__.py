@@ -481,6 +481,8 @@ class ApplicationListener:
             out_clusters = set(endpoint.out_clusters.keys())
             sc = {cluster.cluster_id for cluster in SINGLE_CLUSTER_DEVICE_CLASS}
             c_intersect= in_clusters & sc
+            _LOGGER.debug('[0x%04x:%s] Single Cluster: %s', 
+                        device.nwk,  endpoint_id, c_intersect)
             primary_cluster = node_config.get('primary_cluster')
             if len(c_intersect)>1:
                 if primary_cluster:
@@ -547,16 +549,14 @@ class ApplicationListener:
 
             # initialize single clusters
             for cluster in c_intersect:
-#                cluster_type = type(cluster)
-#                if cluster_id in profile_clusters[0]:
-#                    continue
-#                if cluster_type not in SINGLE_CLUSTER_DEVICE_CLASS:
-#                    continue
-                if ha_const.CONF_TYPE in node_config:
-                    component = node_config[ha_const.CONF_TYPE]
-                else:
-                    component = SINGLE_CLUSTER_DEVICE_CLASS[cluster_type]
-
+#                if ha_const.CONF_TYPE in node_config:
+#                    component = node_config[ha_const.CONF_TYPE]
+#                else:
+                component = SINGLE_CLUSTER_DEVICE_CLASS[type(endpoint.in_clusters[cluster])]
+                _LOGGER.debug("[0x%04x:%s] Create single-cluster entity: %s",
+                              device.nwk,
+                              endpoint_id,
+                              cluster)
                 cluster_key = '%s-%s' % (device_key, cluster)
                 # cluster key -> single cluster
                 discovery_info = {
@@ -572,10 +572,7 @@ class ApplicationListener:
                 discovery_info.update(discovered_info)
 
                 self._hass.data[DISCOVERY_KEY][cluster_key] = discovery_info
-                _LOGGER.debug("[0x%04x:%s] Create single-cluster entity: %s",
-                              device.nwk,
-                              endpoint_id,
-                              cluster)
+                
                 await discovery.async_load_platform(
                             self._hass,
                             component,
