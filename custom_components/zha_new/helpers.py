@@ -1,9 +1,13 @@
 import logging
 import asyncio
 #import zigpy.types as t
-#import zigpy.zcl as z
+import zigpy as z
 _LOGGER = logging.getLogger(__name__)
-
+from .const import (
+    DISCOVERY_KEY,
+    DOMAIN,
+    )
+from homeassistant.helpers import discovery
 
 async def cluster_discover_commands(cluster, timeout=2):
 
@@ -24,9 +28,13 @@ async def cluster_discover_commands(cluster, timeout=2):
         except AttributeError:
             return
         except Exception as e:
-            _LOGGER.debug("catched exception in cluster_discover_commands %s",  e)
+            _LOGGER.debug(
+                "catched exception in cluster_discover_commands %s",
+                e
+                )
             break
-    _LOGGER.debug("discover_cluster_commands for %s: %s",  cluster.cluster_id, command_list)
+    _LOGGER.debug("discover_cluster_commands for %s: %s",
+            cluster.cluster_id, command_list)
     return command_list
 
 
@@ -71,8 +79,6 @@ async def cluster_commisioning_groups(cluster, timeout=2):
     return [group.GroupId for group in group_list]
 
 
-
-
 async def full_discovery(endpoint, timeout=5):
     commands = dict()
     attributes = dict()
@@ -93,3 +99,32 @@ async def full_discovery(endpoint, timeout=5):
             attributes[cluster_id] = await cluster_discover_attributes(cluster, timeout=timeout)
         except Exception as e:
             _LOGGER.debug("catched exception in full_discovery %s",  e)
+
+async def create_MC_Entity(application, group_id):
+    mdev = z.device(application, 0, group_id)
+    mdev.add_endpoint(1)
+    mdev.endpoint[1].profile = z.profiles.zha.PROFILE_ID
+    for cluster_id in (0x0003, 0x0004, 0x0005, 0x0006, 0x0008, 0x0300):
+        mdev.endpoint[1].in_clusters[cluster_id] = cluster \
+            = z.zcl.Cluster.from_id(
+                mdev.add_endpoint[1], 
+                cluster_id
+            )
+        if hasattr(cluster, 'ep_attribute'):
+            mdev.endpoint[1]._cluster_attr[cluster.ep_attribute] = cluster
+    discovery_info = {
+        'device': mdev,
+        'group_id': group_id,
+        'application': application,
+        }
+    device_key = "{}_MC_{}".format(DOMAIN, group_id)
+    application._hass.data[DISCOVERY_KEY][device_key] = discovery_info
+    await discovery.async_load_platform(
+        application._hass,
+        'light',
+        DOMAIN,
+        {'discovery_key': device_key},
+        application._config,
+    )
+        
+        

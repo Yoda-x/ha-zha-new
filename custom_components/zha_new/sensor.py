@@ -6,21 +6,20 @@ For more details on this platform, please refer to the documentation
 at https://home-assistant.io/components/sensor.zha/
 
 """
-import asyncio
 import logging
-
 from homeassistant.components.sensor import DOMAIN
-from homeassistant.const import STATE_UNKNOWN
-#from homeassistant.util.temperature import convert as convert_temperature
+from homeassistant.const import (
+        STATE_UNKNOWN, 
+        TEMP_CELSIUS, 
+        )
 import custom_components.zha_new as zha_new
 from asyncio import ensure_future
-
+from .const import DOMAIN as PLATFORM
 _LOGGER = logging.getLogger(__name__)
 
-#DEPENDENCIES = ['zha_new']
 
-
-async def async_setup_platform(hass, config, async_add_devices, discovery_info=None):
+async def async_setup_platform(
+        hass, config, async_add_devices, discovery_info=None):
     from zigpy.zcl.clusters.security import IasZone
     """Set up Zigbee Home Automation sensors."""
     discovery_info = zha_new.get_discovery_info(hass, discovery_info)
@@ -28,6 +27,7 @@ async def async_setup_platform(hass, config, async_add_devices, discovery_info=N
         return
     endpoint = discovery_info['endpoint']
     in_clusters = discovery_info['in_clusters']
+    application = discovery_info['application']
 
     """ create ias cluster if it not already exists"""
     if IasZone.cluster_id not in in_clusters:
@@ -48,11 +48,21 @@ async def async_setup_platform(hass, config, async_add_devices, discovery_info=N
 
     entity = await make_sensor(discovery_info)
     _LOGGER.debug("Create sensor.zha: %s", entity.entity_id)
-    if hass.states.get(entity.entity_id):
-        _LOGGER.debug("entity exist,remove it: %s",  entity.entity_id)
-        hass.states.async_remove(entity.entity_id)
+    e_registry = await hass.helpers.entity_registry.async_get_registry()
+    reg_dev_id = e_registry.async_get_or_create(
+            DOMAIN, PLATFORM, entity.uid,
+            suggested_object_id=entity.entity_id,
+            device_id=str(entity.device._ieee)
+        )
+    if entity.entity_id != reg_dev_id.entity_id and 'unknown' in reg_dev_id.entity_id:
+        _LOGGER.debug("entity different name,change it: %s",  reg_dev_id)
+        e_registry.async_update_entity(reg_dev_id.entity_id,
+                                       new_entity_id=entity.entity_id)
+    if reg_dev_id.entity_id in application._entity_list:
+        _LOGGER.debug("entity exist,remove it: %s",  reg_dev_id)
+        await application._entity_list.get(reg_dev_id.entity_id).async_remove()
+    async_add_devices([entity])
 
-    async_add_devices([entity], update_before_add=False)
     endpoint._device._application.listener_event(
                     'device_updated', endpoint._device)
     entity_store = zha_new.get_entity_store(hass)
@@ -115,14 +125,15 @@ class Sensor(zha_new.Entity):
                       endpoint._device.nwk,
                       endpoint.endpoint_id,
                       list(in_clusters.keys()), list(out_clusters.keys()))
-        for (key, cluster) in clusters:
+        for (_, cluster) in clusters:
             cluster.add_listener(self)
 
         endpoint._device.zdo.add_listener(self)
 
     def attribute_updated(self, attribute, value):
 
-        (attribute, value) = self._parse_attribute(self, attribute, value, self._model)
+        (attribute, value) = self._parse_attribute(
+                self, attribute, value, self._model)
         if attribute == self.value_attribute:
             self._state = value
         self.schedule_update_ha_state()
@@ -135,6 +146,12 @@ class Sensor(zha_new.Entity):
         value = round(float(self._state) / self.state_div, self.state_prec)
         return value
 
+    def device_announce(self, *args,  **kwargs):
+
+        _LOGGER.debug(
+                "0x%04x device announce for sensor received",
+                self._endpoint._device.nwk,
+            )
 
 
 class TemperatureSensor(Sensor):
@@ -151,7 +168,7 @@ class TemperatureSensor(Sensor):
     @property
     def unit_of_measurement(self):
         """Return the unit of measurement of this entity."""
-        return self.hass.config.units.temperature_unit
+        return TEMP_CELSIUS
 
 #    @property
 #    def state(self):
@@ -165,8 +182,8 @@ class TemperatureSensor(Sensor):
 
 class HumiditySensor(Sensor):
 
-
     """ZHA  humidity sensor."""
+
     state_div = 100
 
     def __init__(self, **kwargs):
@@ -233,8 +250,8 @@ class IlluminanceSensor(Sensor):
 #        return self._state
 
 
-
 class MeteringSensor(Sensor):
+
     """ZHA  smart engery metering."""
 
     value_attribute = 0
@@ -294,17 +311,22 @@ class MeteringSensor(Sensor):
         """Handle commands received to this cluster."""
         _LOGGER.debug("sensor cluster_command %s", command_id)
 
-
     def device_announce(self, *args,  **kwargs):
-        ensure_future(auto_set_attribute_report(self._endpoint,  self._in_clusters))
+
+        ensure_future(
+                auto_set_attribute_report(self._endpoint, self._in_clusters)
+                )
         ensure_future(self.async_update())
         self._assumed = False
-        _LOGGER.debug("0x%04x device announce for sensor received",  self._endpoint._device.nwk)
-
+        _LOGGER.debug("0x%04x device announce for sensor received",
+                      self._endpoint._device.nwk)
 
 
 async def auto_set_attribute_report(endpoint, in_clusters):
-    _LOGGER.debug("[0x%04x:%s] called to set reports",  endpoint._device.nwk,  endpoint.endpoint_id)
+    _LOGGER.debug(
+            "[0x%04x:%s] called to set reports",
+            endpoint._device.nwk,  endpoint.endpoint_id)
 
     if 0x0702 in in_clusters:
-        await zha_new.req_conf_report(endpoint.in_clusters[0x0702],  0,  1,  600, 1)
+        await zha_new.req_conf_report(
+                endpoint.in_clusters[0x0702],  0,  1,  600, 1)

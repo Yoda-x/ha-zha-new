@@ -5,7 +5,6 @@ from custom_components import zha_new
 
 _LOGGER = logging.getLogger(__name__)
 
-
 def _custom_endpoint_init(self, node_config, *argv):
     """set node_config based obn Lumi device_type."""
     config = {}
@@ -22,6 +21,7 @@ def _custom_endpoint_init(self, node_config, *argv):
 
     elif selector in ['lumi.sensor_ht', ] and self.endpoint_id == 1:
         config = {
+            'primary_cluster': 0x0405, 
             "config_report": [
                 [0x0402, 0, 10, 600, 5],
                 [0x0405, 0, 10, 600, 5],
@@ -56,9 +56,10 @@ def _custom_endpoint_init(self, node_config, *argv):
             "out_cluster": [],
             "type": "binary_sensor",
         }
-        self.add_input_cluster(0x0406)
+        self.add_input_cluster(0x0406) # cluster_not in endpoint clusters 
     elif selector in ['lumi.sensor_motion.aq2', ]:
         config = {
+            'primary_cluster': 0x406,
             "config_report": [
                 [0x0406, 0, 10, 1800, 1],
                 [0x0400, 0, 10, 1800, 10],

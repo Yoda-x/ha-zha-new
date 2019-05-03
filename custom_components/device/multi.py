@@ -1,6 +1,5 @@
 """" custom py file for device."""
 import logging
-import asyncio
 import homeassistant.util.dt as dt_util
 from custom_components import zha_new
 import zigpy.types as t
@@ -30,8 +29,6 @@ def _custom_endpoint_init(self, node_config, *argv):
 
 def _parse_attribute(entity, attrib, value, *argv, **kwargs):
     """ parse non standard atrributes."""
-    import zigpy.types as t
-    from zigpy.zcl import foundation as f
     _LOGGER.debug('parse %s %s %a %s', attrib, value, argv, kwargs)
     cluster_id = kwargs.get('cluster_id', None)
     attributes = dict()
@@ -46,20 +43,20 @@ def _parse_attribute(entity, attrib, value, *argv, **kwargs):
             attributes['Temperature'] = value
     elif cluster_id == 0xfc02:
         if attrib == 0x0010:
-            type = "move"
+            command = "move"
         elif attrib == 0x0012:
-            type = "X-Axis"
+            command = "X-Axis"
         elif attrib == 0x0013:
-            type = "Y-Axis"
+            command = "Y-Axis"
         elif attrib == 0x0014:
-            type = "Z-Axis"
+            command = "Z-Axis"
         attributes['last alarm'] = dt_util.now()
         event_data = {
                     'entity_id': entity.entity_id,
                     'channel': "alarm",
-                    'type': type,
+                    'type': command,
                     'value': value,
                    }
         entity.hass.bus.fire('alarm', event_data)
     entity._device_state_attributes.update(attributes)
-    return(attrib, result)
+    return(attrib, value)

@@ -6,14 +6,16 @@ at https://home-assistant.io/components/light.zha/
 
 """
 import logging
-import custom_components.zha_new.helpers as helpers
-import asyncio
+#import custom_components.zha_new.helpers as helpers
+import asyncio as a
 from homeassistant.components import light
-from homeassistant.const import STATE_UNKNOWN
+from homeassistant.const import (
+    STATE_UNKNOWN,
+    ATTR_SUPPORTED_FEATURES
+    )
 import custom_components.zha_new as zha_new
 from importlib import import_module
 import homeassistant.util.color as color_util
-from zigpy.zcl.foundation import Status
 from zigpy.zcl.clusters.general import (
     LevelControl,
     OnOff,
@@ -23,7 +25,16 @@ from zigpy.zcl.clusters.general import (
 from zigpy.zcl.clusters.lighting import Color
 from custom_components.zha_new.cluster_handler import (
     Cluster_Server)
-
+import homeassistant.util.dt as dt_util
+from .const import DOMAIN as PLATFORM
+from .const import (
+    SERVICE_SCHEMAS,
+    SERVICE_COLORTEMP_STEP_UP,
+    SERVICE_COLORTEMP_STEP_DOWN,
+    SERVICE_COLORTEMP_STEP,
+    ATTR_STEP,
+    )
+from homeassistant.components.light import DOMAIN
 _LOGGER = logging.getLogger(__name__)
 
 DEFAULT_DURATION = 0.5
@@ -33,14 +44,17 @@ UNSUPPORTED_ATTRIBUTE = 0x86
 
 
 async def async_setup_platform(hass, config,
-                               async_add_devices, discovery_info=None):
+                               async_add_entities, discovery_info=None):
     """Set up the Zigbee Home Automation lights."""
     discovery_info = zha_new.get_discovery_info(hass, discovery_info)
     if discovery_info is None:
         return
 
+    application = discovery_info['application']
     endpoint = discovery_info['endpoint']
     in_clusters = discovery_info['in_clusters']
+    join = discovery_info['new_join']
+    component = hass.data[DOMAIN]
 #    try:
 #        discovery_info['color_capabilities'] \
 #            = await endpoint.light_color['color_capabilities']
@@ -52,33 +66,42 @@ async def async_setup_platform(hass, config,
 #        _LOGGER.debug("Request for color_capabilities other error: %s", e.args)
 #    entity = Light(**discovery_info)
 
-    if hasattr(endpoint, 'light_color'):
-        caps = await zha_new.safe_read(
-            endpoint.light_color, ['color_capabilities'])
-        try:
-            discovery_info['color_capabilities'] = caps.get('color_capabilities')
-        except AttributeError:
-            discovery_info['color_capabilities'] = CAPABILITIES_COLOR_XY
-            try:
-                result = await zha_new.safe_read(
-                    endpoint.light_color, ['color_temperature'])
-                if result.get('color_temperature') is not UNSUPPORTED_ATTRIBUTE:
-                    discovery_info['color_capabilities'] |= CAPABILITIES_COLOR_TEMP
-            except AttributeError:
-                pass
-    entity = Light(**discovery_info)
+    async def async_handle_step_up_ct_service(service):
+        _LOGGER.debug('handle step up for %s: %s', service.data)
 
-    if hass.states.get(entity.entity_id):
-        _LOGGER.debug("entity exist,remove it: %s",
-                      dir(hass.states.get(entity.entity_id)))
-        hass.states.async_remove(entity.entity_id)
-    async_add_devices([entity])
+    component.async_register_entity_service(
+        SERVICE_COLORTEMP_STEP_UP, SERVICE_SCHEMAS[SERVICE_COLORTEMP_STEP],
+        'async_handle_step_up_ct_service'
+        )
+    component.async_register_entity_service(
+        SERVICE_COLORTEMP_STEP_DOWN, SERVICE_SCHEMAS[SERVICE_COLORTEMP_STEP],
+        'async_handle_step_down_ct_service'
+        )
+    if hasattr(discovery_info,'multicast'):
+        entity = MLight(**discovery_info)
+    else:
+        entity = Light(**discovery_info)
+    e_registry = await hass.helpers.entity_registry.async_get_registry()
+    reg_dev_id = e_registry.async_get_or_create(
+            DOMAIN, PLATFORM, entity.uid,
+            suggested_object_id=entity.entity_id,
+            device_id=str(entity.device._ieee)
+        )
+    if entity.entity_id != reg_dev_id.entity_id and 'unknown' in reg_dev_id.entity_id:
+        _LOGGER.debug("entity has different name,change it: %s",  reg_dev_id)
+        e_registry.async_update_entity(reg_dev_id.entity_id,
+                                       new_entity_id=entity.entity_id)
+    if reg_dev_id.entity_id in application._entity_list:
+        _LOGGER.debug("entity exist,remove it: %s",  reg_dev_id)
+        await application._entity_list.get(reg_dev_id.entity_id).async_remove()
+    async_add_entities([entity])
 
     entity_store = zha_new.get_entity_store(hass)
     if endpoint.device._ieee not in entity_store:
         entity_store[endpoint.device._ieee] = []
     entity_store[endpoint.device._ieee].append(entity)
-    await auto_set_attribute_report(endpoint,  in_clusters)
+    if join:
+        await auto_set_attribute_report(endpoint,  in_clusters)
     endpoint._device._application.listener_event('device_updated',
                                                  endpoint._device)
 
@@ -88,18 +111,28 @@ class LightAttributeReports(Cluster_Server):
     current_y = None
 
     def attribute_updated(self, attribute, value):
-        _LOGGER.debug("cluster:%s attribute=value received: %s=%s", self._cluster.cluster_id, attribute, value)
+        _LOGGER.debug(
+                "cluster:%s attribute=value received: %s=%s",
+                self._cluster.cluster_id, attribute,
+                value,
+            )
         if self._entity._call_ongoing is True:
             return
         if self._cluster.cluster_id == OnOff.cluster_id:
             if attribute == 0:
                 self._entity._state = True if value else False
-                self._entity.schedule_update_ha_state()
+#                self._entity.schedule_update_ha_state()
         if self._entity.is_on:
             if self._cluster.cluster_id == LevelControl.cluster_id:
                 if attribute == 0:
                     self._entity._brightness = value
-            if self._cluster.cluster_id == Color.cluster_id:
+                    _LOGGER.debug(
+                            "cluster:%s attribute=value processed %s=%s",
+                            self._cluster.cluster_id,
+                            attribute,
+                            value,
+                        )
+        if self._cluster.cluster_id == Color.cluster_id:
                 if attribute == 3:
                     self.current_x = value
                     self._entity._hs_color = (self.current_x, self.current_y)
@@ -108,14 +141,13 @@ class LightAttributeReports(Cluster_Server):
                     self._entity._hs_color = (self.current_x, self.current_y)
                 elif attribute == 7:
                     self._entity._color_temp = value
-            self._entity.schedule_update_ha_state()
-
+        self._entity.schedule_update_ha_state()
 
 class Light(zha_new.Entity, light.Light):
 
     """Representation of a ZHA or ZLL light."""
 
-    _domain = light.DOMAIN
+    _domain = DOMAIN
 
     def __init__(self, **kwargs):
         """Initialize the ZHA light."""
@@ -126,7 +158,7 @@ class Light(zha_new.Entity, light.Light):
         endpoint = kwargs['endpoint']
         self._available = True
         self._assumed = False
-        self._groups = None
+#        self._groups = None
         self._grp_name = None
         self._supported_features = 0
         self._color_temp = None
@@ -138,23 +170,8 @@ class Light(zha_new.Entity, light.Light):
         self._color_temp_physical_max = None
         self._call_ongoing = False
 
-        if LevelControl.cluster_id in self._in_clusters:
-            self._supported_features |= light.SUPPORT_BRIGHTNESS
-            self._supported_features |= light.SUPPORT_TRANSITION
-            self._brightness = 0
-
-        if Color.cluster_id in self._in_clusters:
-            color_capabilities = kwargs.get('color_capabilities', 0x10)
-            if color_capabilities & CAPABILITIES_COLOR_TEMP:
-                self._supported_features |= light.SUPPORT_COLOR_TEMP
-                asyncio.ensure_future(self.get_range_mired())
-
-            if color_capabilities & CAPABILITIES_COLOR_XY:
-                self._supported_features |= light.SUPPORT_COLOR
-                self._hs_color = (0, 0)
-
         if Groups.cluster_id in self._in_clusters:
-            self._groups = []
+            self._groups = list()
             self._device_state_attributes["Group_id"] = self._groups
 
         clusters = list(out_clusters.items()) + list(in_clusters.items())
@@ -162,12 +179,37 @@ class Light(zha_new.Entity, light.Light):
                       endpoint._device.nwk,
                       endpoint.endpoint_id,
                       list(in_clusters.keys()), list(out_clusters.keys()))
-        for (key, cluster) in clusters:
+        for (_, cluster) in clusters:
             self.sub_listener[cluster.cluster_id] = LightAttributeReports(
                             self, cluster, cluster.cluster_id)
 
         endpoint._device.zdo.add_listener(self)
-#        asyncio.ensure_future(helpers.full_discovery(self._endpoint, timeout=2))
+
+    async def async_handle_step_up_ct_service(self,  *args,  **kwargs):
+        _LOGGER.debug('handle step up for Class Light %s: %s - %s', self.entity_id,  args,  kwargs)
+        step = kwargs.get(ATTR_STEP, None)
+        if not (step and hasattr(self._endpoint, 'light_color')):
+            return False
+        duration = kwargs.get(light.ATTR_TRANSITION, DEFAULT_DURATION)
+        self._call_ongoing = True
+        await self._endpoint.light_color.step_color_temp(
+            0x01, step, int(duration/10), 0, 0)
+        await a.sleep(duration)
+        self._call_ongoing = False
+        return True
+
+    async def async_handle_step_down_ct_service(self,  *args,  **kwargs):
+        _LOGGER.debug('handle step up for Class Light %s: %s - %s', self.entity_id,  args,  kwargs)
+        step = kwargs.get(ATTR_STEP, None)
+        if not (step and hasattr(self._endpoint, 'light_color')):
+            return False
+        duration = kwargs.get(light.ATTR_TRANSITION, DEFAULT_DURATION)
+        self._call_ongoing = True
+        await self._endpoint.light_color.step_color_temp(
+            0x03, step, int(duration/10), 0, 0)
+        await a.sleep(duration)
+        self._call_ongoing = False
+        return True
 
     @property
     def is_on(self) -> bool:
@@ -176,16 +218,13 @@ class Light(zha_new.Entity, light.Light):
             return False
         return bool(self._state)
 
-#    @property
-#    def available(self) -> bool:
-#       return bool(self._available)
-
     @property
     def assumed_state(self) -> bool:
         """Return True if unable to access real state of the entity."""
         return bool(self._assumed)
 
     async def async_turn_on(self, **kwargs):
+        _LOGGER.debug("turn_on with %s",  kwargs)
         self._call_ongoing = True
         """Turn the entity on."""
         duration = kwargs.get(light.ATTR_TRANSITION, DEFAULT_DURATION)
@@ -205,12 +244,10 @@ class Light(zha_new.Entity, light.Light):
                 duration,
             )
 
-        if self._brightness is not None:
+        if light.ATTR_BRIGHTNESS in kwargs:
             brightness = kwargs.get(
                 light.ATTR_BRIGHTNESS, self._brightness)
             self._brightness = 2 if (brightness < 2) else brightness
-#            self._brightness = 2 if (brightness < 2 and self._state == False) else brightness
-            # Move to level with on/off:
             _LOGGER.debug("[0x%04x:%s] move_to_level_w_onoff: %s ",
                           self._endpoint._device.nwk,
                           self._endpoint.endpoint_id,
@@ -224,7 +261,7 @@ class Light(zha_new.Entity, light.Light):
         else:
             await self._endpoint.on_off.on()
             self._state = True
-        await asyncio.sleep(duration/10)
+        await a.sleep(duration/10)
         self._call_ongoing = False
 
     async def async_turn_off(self, **kwargs):
@@ -236,6 +273,7 @@ class Light(zha_new.Entity, light.Light):
     @property
     def brightness(self):
         """Return the brightness of this light between 0..255."""
+        _LOGGER.debug("polled state brightness: %s",  self._brightness)
         return self._brightness
 
     @property
@@ -259,7 +297,10 @@ class Light(zha_new.Entity, light.Light):
 
         try:
 #            result = await zha_new.safe_read(self._endpoint.on_off, ['on_off'])
-            result, _ = await self._endpoint.on_off.read_attributes(['on_off'], allow_cache=False)
+            result, _ = await self._endpoint.on_off.read_attributes(
+                    ['on_off'],
+                    allow_cache=False,
+                )
             _LOGGER.debug(" poll received for %s : %s", self.entity_id, result)
         except Exception as e:
             _LOGGER.debug('poll for %s failed: %s', self.entity_id,  e)
@@ -267,36 +308,44 @@ class Light(zha_new.Entity, light.Light):
         try:
             self._state = result['on_off']
             self._assumed = False
-            _LOGGER.debug("assumed state for %s is false", self.entity_id)
-        except Exception as e:
-            _LOGGER.debug("assumed state for %s excepted: %s", self.entity_id,  e)
+#            _LOGGER.debug("assumed state for %s is false", self.entity_id)
+            self._device_state_attributes.update({
+                'last seen': dt_util.now(),
+            })
+        except Exception:
             self._assumed = True
             return
 
-        if hasattr(self, '_groups'):
+        if self._groups is not None:
             try:
                 result = await self._endpoint.groups.get_membership([])
                 _LOGGER.debug("%s get membership : %s", self.entity_id,  result)
             except Exception as e:
                 result = None
-                _LOGGER.debug("%s get membership failed: %s", self.entity_id,  e)
+                _LOGGER.debug(
+                        "%s get membership failed: %s",
+                        self.entity_id,
+                        e,
+                    )
             if result:
                 if result[0] >= 1:
                     self._groups = result[1]
-                    if self._device_state_attributes.get("Group_id") != self._groups:
+                    if (self._device_state_attributes.get("Group_id")
+                            != self._groups):
                         self._device_state_attributes["Group_id"] = self._groups
                         for groups in self._groups:
                             self._endpoint._device._application.listener_event(
                                 'subscribe_group',
                                 groups)
-#            if not self._state:
-#                return
         if self.is_on:
             if self._supported_features & light.SUPPORT_BRIGHTNESS:
                 result = await zha_new.safe_read(self._endpoint.level,
                                                  ['current_level'])
                 if result:
-                    self._brightness = result.get('current_level', self._brightness)
+                    self._brightness = result.get(
+                            'current_level', self._brightness
+                        )
+                    _LOGGER.debug("poll brightness %s",  self._brightness)
 
             if self._supported_features & light.SUPPORT_COLOR_TEMP:
                 result = await zha_new.safe_read(self._endpoint.light_color,
@@ -310,25 +359,9 @@ class Light(zha_new.Entity, light.Light):
                                                  ['current_x', 'current_y'])
                 if result:
                     if 'current_x' in result and 'current_y' in result:
-                        self._hs_color = (result['current_x'], result['current_y'])
-
-#        if self._endpoint.in_clusters.get(0x1000, None):
-#            _LOGGER.debug("%s found commisioning cluster ",  self.entity_id)
-#            try:
-#                #await helpers.cluster_discover_commands(self._endpoint.lightlink)
-#                await asyncio.wait_for(self._endpoint.lightlink.get_group_identifier_request(0), 5)
-#            except:
-#                _LOGGER.debug("get_group_identifier_request failed for %s",  self.entity_id)
-#        else:
-#            _LOGGER.debug("%s found NO commisioning cluster ",  self.entity_id)
-#
-#        for id,  cluster in self._endpoint.in_clusters.items():
-#            _LOGGER.debug("%s found cluster %s",  self.entity_id,  id)
-#            try:
-#                await helpers.cluster_discover_commands(cluster)
-#                #await asyncio.wait_for(self._endpoint.lightlink.get_group_identifier_request(0), 5)
-#            except:
-#                _LOGGER.debug("get commands for %s failed for %s",  self.entity_id,  id)
+                        self._hs_color = (
+                                result['current_x'], result['current_y']
+                            )
 
     @property
     def should_poll(self) -> bool:
@@ -351,36 +384,105 @@ class Light(zha_new.Entity, light.Light):
             _LOGGER.info("Excecution of DH %s failed: %s", dev_func, e.args)
 
     def device_announce(self, *args,  **kwargs):
-        asyncio.ensure_future(auto_set_attribute_report(self._endpoint,  self._in_clusters))
-        asyncio.ensure_future(self.async_update())
+        a.ensure_future(
+                auto_set_attribute_report(self._endpoint,  self._in_clusters)
+            )
+        a.ensure_future(self.async_update())
         self._assumed = False
-        _LOGGER.debug("0x%04x device announce for light received",  self._endpoint._device.nwk)
-#        asyncio.ensure_future(helpers.full_discovery(self._endpoint, timeout=5))
+        _LOGGER.debug(
+                "0x%04x device announce for light received",
+                self._endpoint._device.nwk,
+            )
 
     @property
     def max_mireds(self):
-        return self._color_temp_physical_max if self._color_temp_physical_max else 500
+        return (
+            self._color_temp_physical_max
+            if self._color_temp_physical_max
+            else 500)
 
     @property
     def min_mireds(self):
-        return self._color_temp_physical_min if self._color_temp_physical_min else 153
+        return (
+            self._color_temp_physical_min
+            if self._color_temp_physical_min
+            else 153)
 
     async def get_range_mired(self):
-        result = await zha_new.safe_read(self._endpoint.light_color,
-                                         ['color_temp_physical_min', 'color_temp_physical_max'])
+        result = await zha_new.safe_read(
+                self._endpoint.light_color,
+                ['color_temp_physical_min', 'color_temp_physical_max'],
+            )
         if result:
-            self._color_temp_physical_min = result.get('color_temp_physical_min', None)
-            self._color_temp_physical_max = result.get('color_temp_physical_max', None)
+            self._color_temp_physical_min = result.get(
+                    'color_temp_physical_min', None
+                )
+            self._color_temp_physical_max = result.get(
+                    'color_temp_physical_max', None
+                )
+
+    async def async_added_to_hass(self):
+        """Call when entity about to be added to hass."""
+        await super().async_added_to_hass()
+        try:
+            self._supported_features = self._restore_data.attributes[ATTR_SUPPORTED_FEATURES]
+        except Exception:
+            if hasattr(self._endpoint, 'light_color'):
+                try:
+                    caps = await zha_new.safe_read(
+                        self._endpoint.light_color, ['color_capabilities']).get(
+                            'color_capabilities')
+                except AttributeError:
+                    caps = CAPABILITIES_COLOR_XY
+                    try:
+                        result = await zha_new.safe_read(
+                            self._endpoint.light_color, ['color_temperature'])
+                        if result.get('color_temperature') is not UNSUPPORTED_ATTRIBUTE:
+                            caps = CAPABILITIES_COLOR_TEMP
+                    except AttributeError:
+                        pass
+
+        try:
+            if caps & CAPABILITIES_COLOR_TEMP:
+                self._supported_features |= light.SUPPORT_COLOR_TEMP
+                a.ensure_future(self.get_range_mired())  # TODO move to new join only
+
+            if caps & CAPABILITIES_COLOR_XY:
+                self._supported_features |= light.SUPPORT_COLOR
+                self._hs_color = (0, 0)
+        except NameError:  # if caps not exists
+            pass
+        if LevelControl.cluster_id in self._in_clusters:
+            self._supported_features |= light.SUPPORT_BRIGHTNESS
+            self._supported_features |= light.SUPPORT_TRANSITION
+            try:
+                self._brightness = self._restore_data.attributes[light.ATTR_BRIGHTNESS]
+            except KeyError:
+                pass
 
 
 async def auto_set_attribute_report(endpoint, in_clusters):
-    _LOGGER.debug("[0x%04x:%s] called to set reports",  endpoint._device.nwk,  endpoint.endpoint_id)
+    _LOGGER.debug(
+            "[0x%04x:%s] called to set reports",
+            endpoint._device.nwk,
+            endpoint.endpoint_id,
+        )
 
     if 0x0006 in in_clusters:
-        await zha_new.req_conf_report(endpoint.in_clusters[0x0006],  0,  1,  600, 1)
+        await zha_new.req_conf_report(
+                endpoint.in_clusters[0x0006],  0,  1,  600, 1
+            )
     if 0x0008 in in_clusters:
-        await zha_new.req_conf_report(endpoint.in_clusters[0x0008],  0,  1,  600, 1)
+        await zha_new.req_conf_report(
+                endpoint.in_clusters[0x0008],  0,  1,  600, 1
+            )
     if 0x0300 in in_clusters:
-        await zha_new.req_conf_report(endpoint.in_clusters[0x0300],  3,  1,  600, 1)
-        await zha_new.req_conf_report(endpoint.in_clusters[0x0300],  4,  1,  600, 1)
-        await zha_new.req_conf_report(endpoint.in_clusters[0x0300],  7,  1,  600, 1)
+        await zha_new.req_conf_report(
+                endpoint.in_clusters[0x0300],  3,  1,  600, 1
+            )
+        await zha_new.req_conf_report(
+                endpoint.in_clusters[0x0300],  4,  1,  600, 1
+            )
+        await zha_new.req_conf_report(
+                endpoint.in_clusters[0x0300],  7,  1,  600, 1
+            )

@@ -13,6 +13,9 @@ remove:
     ieee:
       description: ieee or parts of it
       example: 00:15:8d:00:01:f4:66:c1
+    nwk:
+      description: nwk id of the device
+      example: 1234
 
 command:
   description: send a zigbee command to an entity, command write_attribute, tbd
@@ -31,3 +34,10 @@ command:
     mfgid:
       description: optional manufacturer ID
       
+step_up_ct:
+  description: send a colortemp step up command to a zigbee bulb
+  fields:
+    entity_id: 
+      description: entity_id
+    step:
+      description: value for step up, 0-255

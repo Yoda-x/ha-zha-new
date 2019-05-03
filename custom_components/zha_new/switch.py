@@ -1,5 +1,5 @@
 """Switches on Zigbee Home Automation networks."""
-import asyncio
+
 import logging
 from asyncio import ensure_future
 from homeassistant.components.switch import DOMAIN, SwitchDevice
@@ -12,17 +12,23 @@ from custom_components.zha_new.cluster_handler import (
     Server_Groups,
     )
 from importlib import import_module
-from zigpy.zcl.foundation import Status
 from zigpy.zcl.clusters.general import (
     OnOff,
     Groups,
     Scenes,
     Basic)
-
+#from zigpy.exceptions import DeliveryError
+from .const import DOMAIN as PLATFORM
 _LOGGER = logging.getLogger(__name__)
 
 """ change to zha-new for use in home dir """
 #DEPENDENCIES = ['zha_new']
+
+
+def setup_platform(
+        hass, config, async_add_devices, discovery_info=None):
+    _LOGGER.debug("disocery info setup_platform: %s", discovery_info)
+    return True
 
 
 async def async_setup_platform(hass, config, async_add_devices, discovery_info=None):
@@ -31,15 +37,29 @@ async def async_setup_platform(hass, config, async_add_devices, discovery_info=N
     if discovery_info is None:
         return
 
-    entity = Switch(**discovery_info)
-    if hass.states.get(entity.entity_id):
-        _LOGGER.debug("entity exist,remove it: %s",  entity.entity_id)
-        hass.states.async_remove(entity.entity_id)
-    async_add_devices([entity])
+    application = discovery_info['application']
     endpoint = discovery_info['endpoint']
     in_clusters = discovery_info['in_clusters']
-    await auto_set_attribute_report(endpoint,  in_clusters)
+    join = discovery_info['new_join']
+    entity = Switch(**discovery_info)
+    e_registry = await hass.helpers.entity_registry.async_get_registry()
+    reg_dev_id = e_registry.async_get_or_create(
+            DOMAIN, PLATFORM, entity.uid,
+            suggested_object_id=entity.entity_id,
+            device_id=str(entity.device._ieee)
+        )
+    if entity.entity_id != reg_dev_id.entity_id and 'unknown' in reg_dev_id.entity_id:
+        _LOGGER.debug("entity different name,change it: %s",  reg_dev_id)
+        e_registry.async_update_entity(reg_dev_id.entity_id,
+                                       new_entity_id=entity.entity_id)
+    if reg_dev_id.entity_id in application._entity_list:
+        _LOGGER.debug("entity exist,remove it: %s",  reg_dev_id)
+        await application._entity_list.get(reg_dev_id.entity_id).async_remove()
+    async_add_devices([entity])
+    if join:
+        await auto_set_attribute_report(endpoint,  in_clusters)
     entity_store = zha_new.get_entity_store(hass)
+
     if endpoint.device._ieee not in entity_store:
         entity_store[endpoint.device._ieee] = []
     entity_store[endpoint.device._ieee].append(entity)
@@ -56,7 +76,8 @@ class Switch(zha_new.Entity, SwitchDevice):
         in_clusters = kwargs['in_clusters']
         out_clusters = kwargs['out_clusters']
         endpoint = kwargs['endpoint']
-        self._groups = None
+#        self._groups = None
+        self._assumed = False
         if Groups.cluster_id in self._in_clusters:
             self._groups = []
             self._device_state_attributes["Group_id"] = self._groups
@@ -77,12 +98,19 @@ class Switch(zha_new.Entity, SwitchDevice):
                                 self, cluster, "Basic")
             elif Groups.cluster_id == cluster.cluster_id:
                 self.sub_listener[cluster.cluster_id] = Server_Groups(
-                                self, cluster, "Basic")
+                                self, cluster, "Groups")
             else:
                 self.sub_listener[cluster.cluster_id] = Cluster_Server(
                                 self, cluster, cluster.cluster_id)
 
         endpoint._device.zdo.add_listener(self)
+
+    @property
+    def should_poll(self) -> bool:
+        """Return True if entity has to be polled for state.
+        False if entity pushes its state to HA.
+        """
+        return True
 
     @property
     def is_on(self) -> bool:
@@ -118,21 +146,27 @@ class Switch(zha_new.Entity, SwitchDevice):
         await self._endpoint.on_off.off()
         self._state = 0
 
+    @property
+    def assumed_state(self) -> bool:
+        """Return True if unable to access real state of the entity."""
+        return bool(self._assumed)
+
     async def async_update(self):
         """Retrieve latest state."""
-        if OnOff.cluster_id in self._in_clusters:
-            result = await zha_new.safe_read(
-                self._endpoint.on_off, ['on_off'])
-        else:
+        _LOGGER.debug("%s async_update", self.entity_id)
+        if not OnOff.cluster_id in self._in_clusters:
             return
         try:
+            result, _ = await self._endpoint.on_off.read_attributes(
+                ['on_off'],
+                allow_cache=False,
+                )
             self._state = result['on_off']
-            self._available = True
-        except Exception:
-            self._available = False
-
-        if not self._state:
-            return
+            self._assumed = False
+        except Exception as e:
+            self._assumed = True
+            _LOGGER.debug("%s async_update poll failed: %s", self.entity_id, e)
+            return True
 
         if hasattr(self, '_groups'):
             try:
@@ -170,8 +204,8 @@ class Switch(zha_new.Entity, SwitchDevice):
         self._assumed = False
         _LOGGER.debug("0x%04x device announce for switch received",  self._endpoint._device.nwk)
 
-async def auto_set_attribute_report(endpoint, in_clusters):
 
+async def auto_set_attribute_report(endpoint, in_clusters):
 
     _LOGGER.debug("[0x%04x:%s] called to set reports",  endpoint._device.nwk,  endpoint.endpoint_id)
 
