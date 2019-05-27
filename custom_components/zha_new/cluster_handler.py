@@ -322,10 +322,10 @@ class Server_TemperatureMeasurement(Cluster_Server):
 class Server_PowerConfiguration(Cluster_Server):
     def attribute_updated(self, attribute, value):
         update_attrib = {}
-
-        if attribute == 20:
+        _LOGGER.debug('Power report received: %s %s',  attribute,  value)
+        if attribute == 0x20:
             update_attrib['Battery_Voltage'] = round(float(value) / 100, 1)
-        elif attribute == 21:
+        elif attribute == 0x21:
             update_attrib['battery_level'] = value
         update_attrib['last seen'] = dt_util.now()
         self._entity._device_state_attributes.update(update_attrib)
