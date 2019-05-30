@@ -757,12 +757,13 @@ class Entity(RestoreEntity):
         try:
             _LOGGER.debug("Restore state for %s:",  self.entity_id)
             if data is not None and data.state:
-                if hasattr(self,  'state_div'):
+                if (data.state == '-') or (data.state == ha_const.STATE_UNKNOWN):
+                    self._state = None 
+                elif hasattr(self,  'state_div'):
                     self._state = float(data.state) * self.state_div
                 else:
                     self._state = 1 if data.state == ha_const.STATE_ON else 0
-                if (data.state == '-') or (data.state == ha_const.STATE_UNKNOWN):
-                    self._state = None
+ 
  #           self._device_state_attributes.update(data.attributes)
             self._device_state_attributes.pop('assumed_state',  None)
             self.device_state_attributes.pop('brightness', None)
