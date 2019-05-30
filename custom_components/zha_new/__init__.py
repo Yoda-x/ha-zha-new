@@ -27,8 +27,8 @@ _LOGGER = logging.getLogger(__name__)
 
 REQUIREMENTS = [
 #    'https://github.com/Yoda-x/bellows/archive/master.zip#bellows==100.7.4.9',
-    'https://github.com/Yoda-x/bellows/archive/multi.zip#bellows==100.7.4.10',
-    'https://github.com/Yoda-x/zigpy/archive/multi.zip#zigpy==100.1.4.8',
+    'https://github.com/Yoda-x/bellows/archive/master.zip#bellows==100.7.4.10',
+    'https://github.com/Yoda-x/zigpy/archive/master.zip#zigpy==100.1.4.8',
 #    'https://github.com/Yoda-x/zigpy/archive/master.zip#zigpy==100.1.4.7',
     ]
 
@@ -271,7 +271,6 @@ class ApplicationListener:
     def subscribe_group(self, group_id):
         # keeps a list of susbcribers,
         # forwardrequest to zigpy if a group is new, otherwise do nothing
-        import zigpy as z
         _LOGGER.debug("received subscribe group: %s", group_id)
         if group_id in self._groups:
             return
@@ -767,8 +766,8 @@ class Entity(RestoreEntity):
  #           self._device_state_attributes.update(data.attributes)
             self._device_state_attributes.pop('assumed_state',  None)
             self.device_state_attributes.pop('brightness', None)
-            self._groups = data.attributes.get("Group_id", list()) \
-                       if self._groups is None else self._groups
+            if not self._groups:
+                self._groups = data.attributes.get("Group_id", list())
             for group in self._groups:
                 self._endpoint._device._application.listener_event(
                                 'subscribe_group',
@@ -937,22 +936,6 @@ async def discover_cluster_values(endpoint, cluster):
     except:
         return({})
     return(v[0])
-
-
-async def safe_read(cluster, attributes):
-    """Swallow all exceptions from network read.
-    If we throw during initialization, setup fails. Rather have an
-    entity that exists, but is in a maybe wrong state, than no entity.
-    """
-    try:
-        result, _ = await cluster.read_attributes(
-            attributes,
-            allow_cache=False,
-        )
-        return result
-    except Exception as e:  # pylint: disable=broad-except
-        _LOGGER.debug("safe_read failed: %s", e)
-
 
 def get_custom_device_info(_model):
     custom_info = dict()

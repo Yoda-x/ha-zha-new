@@ -8,6 +8,7 @@ at https://home-assistant.io/components/light.zha/
 import logging
 #import custom_components.zha_new.helpers as helpers
 import asyncio as a
+from .helpers import safe_read
 from homeassistant.components import light
 from homeassistant.const import (
     STATE_UNKNOWN,
@@ -296,7 +297,6 @@ class Light(zha_new.Entity, light.Light):
         _LOGGER.debug("%s async_update", self.entity_id)
 
         try:
-#            result = await zha_new.safe_read(self._endpoint.on_off, ['on_off'])
             result, _ = await self._endpoint.on_off.read_attributes(
                     ['on_off'],
                     allow_cache=False,
@@ -339,7 +339,7 @@ class Light(zha_new.Entity, light.Light):
                                 groups)
         if self.is_on:
             if self._supported_features & light.SUPPORT_BRIGHTNESS:
-                result = await zha_new.safe_read(self._endpoint.level,
+                result = await safe_read(self._endpoint.level,
                                                  ['current_level'])
                 if result:
                     self._brightness = result.get(
@@ -348,14 +348,14 @@ class Light(zha_new.Entity, light.Light):
                     _LOGGER.debug("poll brightness %s",  self._brightness)
 
             if self._supported_features & light.SUPPORT_COLOR_TEMP:
-                result = await zha_new.safe_read(self._endpoint.light_color,
+                result = await safe_read(self._endpoint.light_color,
                                                  ['color_temperature'])
                 if result:
                     self._color_temp = result.get('color_temperature',
                                                   self._color_temp)
 
             if self._supported_features & light.SUPPORT_COLOR:
-                result = await zha_new.safe_read(self._endpoint.light_color,
+                result = await safe_read(self._endpoint.light_color,
                                                  ['current_x', 'current_y'])
                 if result:
                     if 'current_x' in result and 'current_y' in result:
@@ -409,7 +409,7 @@ class Light(zha_new.Entity, light.Light):
             else 153)
 
     async def get_range_mired(self):
-        result = await zha_new.safe_read(
+        result = await safe_read(
                 self._endpoint.light_color,
                 ['color_temp_physical_min', 'color_temp_physical_max'],
             )
@@ -429,13 +429,13 @@ class Light(zha_new.Entity, light.Light):
         except Exception:
             if hasattr(self._endpoint, 'light_color'):
                 try:
-                    caps = await zha_new.safe_read(
+                    caps = await safe_read(
                         self._endpoint.light_color, ['color_capabilities']).get(
                             'color_capabilities')
                 except AttributeError:
                     caps = CAPABILITIES_COLOR_XY
                     try:
-                        result = await zha_new.safe_read(
+                        result = await safe_read(
                             self._endpoint.light_color, ['color_temperature'])
                         if result.get('color_temperature') is not UNSUPPORTED_ATTRIBUTE:
                             caps = CAPABILITIES_COLOR_TEMP
