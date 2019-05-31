@@ -246,6 +246,11 @@ class Server_OnOff(Cluster_Server):
         self._entity.schedule_update_ha_state()
 
 
+class Server_Groups(Cluster_Server):
+  
+    def attribute_updated(self, attribute, value):
+        _LOGGER.debug('Group report received: %s %s', attribute, value)
+
 class Server_LightLink(Cluster_Server):
   
     def __init__(self, entity,  cluster,  identifier):
