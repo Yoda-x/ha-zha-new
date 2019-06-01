@@ -82,6 +82,10 @@ async def async_setup_platform(hass, config,
         entity = MLight(**discovery_info)
     else:
         entity = Light(**discovery_info)
+    if discovery_info['new_join']:
+        for CH in entity.sub_listener.values(): 
+            await CH.join_prepare()
+            
     e_registry = await hass.helpers.entity_registry.async_get_registry()
     reg_dev_id = e_registry.async_get_or_create(
             DOMAIN, PLATFORM, entity.uid,
