@@ -47,6 +47,10 @@ async def async_setup_platform(
             _LOGGER.debug("bind/write cie failed")
 
     entity = await make_sensor(discovery_info)
+    if discovery_info['new_join']:
+        for CH in entity.sub_listener.values(): 
+            await CH.join_prepare()
+            
     _LOGGER.debug("Create sensor.zha: %s", entity.entity_id)
     e_registry = await hass.helpers.entity_registry.async_get_registry()
     reg_dev_id = e_registry.async_get_or_create(

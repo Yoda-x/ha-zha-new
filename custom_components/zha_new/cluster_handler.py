@@ -6,6 +6,8 @@ import zigpy.types as t
 import datetime
 from homeassistant.helpers.event import async_track_point_in_time
 from zigpy.zcl.clusters.general import OnOff
+from .helpers import req_conf_report, safe_read
+from .const import BatteryType
 _LOGGER = logging.getLogger(__name__)
 
 
@@ -23,6 +25,7 @@ class Cluster_Server(object):
             self._parse_attribute = self._entity._custom_module['_parse_attribute']
 
     def _parse_attribute(self, *args,  **kwargs):
+        _LOGGER.debug("called _parse attribute for %s", self._identifier)
         return (args, kwargs)
 
     def cluster_command(self, tsn, command_id, args):
@@ -48,6 +51,10 @@ class Cluster_Server(object):
         if attribute == self._entity.value_attribute:
             self._entity._state = value
         self._entity.schedule_update_ha_state()
+        
+    async def join_prepare(self, **kwargs):
+        return
+  
 
 
 class Server_Basic(Cluster_Server):
@@ -240,9 +247,28 @@ class Server_OnOff(Cluster_Server):
 
 
 class Server_Groups(Cluster_Server):
+  
     def attribute_updated(self, attribute, value):
-        _LOGGER.debug('Group report received: %s %s',  attribute,  value)
+        _LOGGER.debug('Group report received: %s %s', attribute, value)
 
+class Server_LightLink(Cluster_Server):
+  
+    def __init__(self, entity,  cluster,  identifier):
+        self._groups = list()
+        super().__init__(entity,  cluster,  identifier)
+        
+    def attribute_updated(self, attribute, value):
+        _LOGGER.debug('LightLink report received: %s %s',  attribute,  value)
+
+    async def join_prepare(self, timeout = 15):
+        from .helpers import cluster_commisioning_groups
+        _LOGGER.debug('LightLink prepare')
+        try:
+            self._entity._groups = self._groups = await cluster_commisioning_groups(self._cluster)
+            _LOGGER.debug("discovered group from lightlink: %s", self._groups)
+        except Exception as e:
+            _LOGGER.debug(
+            "catched exception in commissioning group_id %s",  e)
 
 class Server_Scenes(Cluster_Server):
     def cluster_command(self, tsn, command_id, args):
@@ -324,9 +350,45 @@ class Server_PowerConfiguration(Cluster_Server):
         update_attrib = {}
         _LOGGER.debug('Power report received: %s %s',  attribute,  value)
         if attribute == 0x20:
-            update_attrib['Battery_Voltage'] = round(float(value) / 100, 1)
+            update_attrib['Battery_Voltage'] = round(float(value) / 10, 1)
         elif attribute == 0x21:
-            update_attrib['battery_level'] = value
+            update_attrib['battery_level'] = value / 2
+        elif attribute == 0x31:
+            update_attrib['battery_type'] = BatteryType.get(value)
         update_attrib['last seen'] = dt_util.now()
         self._entity._device_state_attributes.update(update_attrib)
-        self._entity.schedule_update_ha_state()
+#        self._entity.schedule_update_ha_state()
+
+    async def join_prepare(self, timeout = 15):
+        from .helpers import cluster_discover_attributes
+        _LOGGER.debug('Power prepare')
+        attribute_list = await cluster_discover_attributes(self._cluster, timeout)
+        for attribute in attribute_list:
+            if attribute.attrid == 0x20:
+                await req_conf_report(
+                  self._cluster,  0x20,  60,  7200, 10
+                )
+            elif attribute.attrid == 0x21:
+                await req_conf_report(
+                  self._cluster,  0x21,  60,  7200, 10
+                )
+            elif attribute.attrid == 0x31:
+                result = await safe_read(self._cluster,  ['battery_size'])
+                if not result:
+                    return
+                batterySize = result.get('battery_size')
+                self._entity._device_state_attributes['battery_type'] = BatteryType.get(batterySize)
+#                self._entity.schedule_update_ha_state()
+  
+
+class Server_Alarms(Cluster_Server):
+    def attribute_updated(self, attribute, value):
+        _LOGGER.info('Alarms report received: %s %s',  attribute,  value)
+#
+#        update_attrib = {}
+#        if attribute == 0:
+#            update_attrib['Temperature'] = round(float(value) / 100, 1)
+#        update_attrib['last seen'] = dt_util.now()
+#        self._entity._device_state_attributes.update(update_attrib)
+#
+#        self._entity.schedule_update_ha_state()

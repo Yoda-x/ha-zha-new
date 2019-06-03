@@ -8,7 +8,8 @@ from .const import (
     DOMAIN,
     )
 from homeassistant.helpers import discovery
-
+import sys
+import traceback
 async def cluster_discover_commands(cluster, timeout=2):
 
     cls_start = 0
@@ -47,17 +48,18 @@ async def cluster_discover_attributes(cluster, timeout=2):
         try:
             done,  result = await asyncio.wait_for(cluster.discover_attributes(cls_start, cls_no),  timeout)
             _LOGGER.debug("discover_cluster_attributes for %s: %s",  cluster.cluster_id, result)
-            attribute_list.extend(result).sort()
+            attribute_list.extend(result)
             if done:
                 break
             else:
                 cls_start = attribute_list[-1] + 1
-        except TypeError:
-            return
-        except AttributeError:
-            return
-#        except Exception as e:
- #           _LOGGER.debug("catched exception in cluster_discover_attributes %s",  e)
+#        except TypeError:
+#            return
+#        except AttributeError:
+#            return
+        except Exception as e:
+            _LOGGER.debug("catched exception in cluster_discover_attributes %s",  e)
+            break
     _LOGGER.debug("discover_attributes for %s: %s",  cluster.cluster_id, attribute_list)
     return attribute_list
 
@@ -128,3 +130,51 @@ async def create_MC_Entity(application, group_id):
     )
         
         
+async def req_conf_report(report_cls, report_attr, report_min, report_max, report_change, mfgCode=None):
+        from zigpy.zcl.foundation import Status
+
+        endpoint = report_cls._endpoint
+        try:
+            v = await report_cls.bind()
+            if v[0] > 0:
+                _LOGGER.debug("[0x%04x:%s:0x%04x]: bind failed: %s",
+                              endpoint._device.nwk,
+                              endpoint.endpoint_id,
+                              report_cls.cluster_id,
+                              Status(v[0]).name)
+        except Exception as e:
+            _LOGGER.debug("[0x%04x:%s:0x%04x]: : bind exceptional failed %s",
+                          endpoint._device.nwk,
+                          endpoint.endpoint_id,
+                          report_cls.cluster_id,
+                          e)
+        try:
+            v = await report_cls.configure_reporting(
+                report_attr, int(report_min),
+                int(report_max), report_change, manufacturer=mfgCode)
+            _LOGGER.debug("[0x%04x:%s:0x%04x] set config report status: %s",
+                          endpoint._device.nwk,
+                          endpoint._endpoint_id,
+                          report_cls.cluster_id,
+                          v)
+        except Exception as e:
+            _LOGGER.error("[0x%04x:%s:0x%04x] set config report exeptional failed: %s",
+                          endpoint._device.nwk,
+                          endpoint.endpoint_id,
+                          report_cls.cluster_id,
+                          e)
+                          
+async def safe_read(cluster, attributes):
+    try:
+        result, _ = await cluster.read_attributes(
+            attributes,
+            allow_cache=False,
+        )
+        return result
+    except Exception as e:  # pylint: disable=broad-except
+        exc_type, exc_value, exc_traceback = sys.exc_info()
+        exep_data = traceback.format_exception(exc_type, exc_value,
+                                                       exc_traceback)
+        for e in exep_data:
+            _LOGGER.debug("> %s", e)
+        _LOGGER.debug("safe_read failed: %s", e)

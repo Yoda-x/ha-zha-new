@@ -2,7 +2,6 @@
 import homeassistant.helpers.config_validation as cv
 import voluptuous as vol
 
-
 DOMAIN = 'zha_new'
 CONF_BAUDRATE = 'baudrate'
 CONF_DATABASE = 'database_path'
@@ -39,9 +38,24 @@ SERVICE_COLORTEMP_STEP = 'step'
 CENTICELSIUS = 'C-100'
 # Key in hass.data dict containing discovery info
 DISCOVERY_KEY = 'zha_discovery_info'
+BatteryType = {
+      0x00: "NoBattery", 
+      0x01: "Built In", 
+      0x02: "Other", 
+      0x03: "AA", 
+      0x04: "AAA", 
+      0x05: "C", 
+      0x06: "D", 
+      0x07: "CR2", 
+      0x08: "CR123A", 
+      0xff: "Unknown", 
+    }
+
 
 # Internal definitions
 APPLICATION_CONTROLLER = None
+
+    
 
 SERVICE_SCHEMAS = {
     SERVICE_PERMIT: vol.Schema({
