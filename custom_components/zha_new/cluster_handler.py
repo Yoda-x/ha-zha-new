@@ -48,8 +48,11 @@ class Cluster_Server(object):
                         value,
                         self._entity._model,
                         cluster_id=self._cluster.cluster_id)
-        if attribute == self._entity.value_attribute:
-            self._entity._state = value
+        try: 
+            if attribute == self._entity.value_attribute:
+                self._entity._state = value
+        except Exception:
+            pass
         self._entity.schedule_update_ha_state()
         
     async def join_prepare(self, **kwargs):
@@ -240,14 +243,31 @@ class Server_OnOff(Cluster_Server):
         self._entity.schedule_update_ha_state()
 
     def attribute_updated(self, attribute, value):
-        _LOGGER.debug('On/Off report received: %s %s',  attribute,  value)
-        if attribute == 0:
-            self._entity._state = bool(value)
+        _LOGGER.debug('Attribute report received on cluster [0x%04x:%s:]=%s',
+                self._cluster.cluster_id,
+                attribute,
+                value
+                )
+
+        (attribute, value) = self._parse_attribute(
+                        self._entity,
+                        attribute,
+                        value,
+                        self._entity._model,
+                        cluster_id=self._cluster.cluster_id)
+        try: 
+            if attribute == self._entity.value_attribute:
+                self._entity._state = value
+        except Exception:
+          pass
+        else:
+            if attribute == 0:
+                self._entity._state = bool(value)
         self._entity.schedule_update_ha_state()
 
 
 class Server_Groups(Cluster_Server):
-  
+
     def attribute_updated(self, attribute, value):
         _LOGGER.debug('Group report received: %s %s', attribute, value)
 
@@ -257,8 +277,8 @@ class Server_LightLink(Cluster_Server):
         self._groups = list()
         super().__init__(entity,  cluster,  identifier)
         
-    def attribute_updated(self, attribute, value):
-        _LOGGER.debug('LightLink report received: %s %s',  attribute,  value)
+#    def attribute_updated(self, attribute, value):
+#        _LOGGER.debug('LightLink report received: %s %s',  attribute,  value)
 
     async def join_prepare(self, timeout = 15):
         from .helpers import cluster_commisioning_groups
@@ -382,8 +402,8 @@ class Server_PowerConfiguration(Cluster_Server):
   
 
 class Server_Alarms(Cluster_Server):
-    def attribute_updated(self, attribute, value):
-        _LOGGER.info('Alarms report received: %s %s',  attribute,  value)
+#    def attribute_updated(self, attribute, value):
+#        _LOGGER.info('Alarms report received: %s %s',  attribute,  value)
 #
 #        update_attrib = {}
 #        if attribute == 0:
@@ -392,3 +412,4 @@ class Server_Alarms(Cluster_Server):
 #        self._entity._device_state_attributes.update(update_attrib)
 #
 #        self._entity.schedule_update_ha_state()
+    pass
