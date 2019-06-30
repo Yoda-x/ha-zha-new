@@ -39,6 +39,9 @@ from homeassistant.components.light import DOMAIN
 _LOGGER = logging.getLogger(__name__)
 
 DEFAULT_DURATION = 0.5
+CAPABILITIES_COLOR_HUE = 0x01
+CAPABILITIES_COLOR_EXT_HUE = 0x02
+CAPABILITIES_COLOR_LOOP = 0x04
 CAPABILITIES_COLOR_XY = 0x08
 CAPABILITIES_COLOR_TEMP = 0x10
 UNSUPPORTED_ATTRIBUTE = 0x86
@@ -78,14 +81,15 @@ async def async_setup_platform(hass, config,
         SERVICE_COLORTEMP_STEP_DOWN, SERVICE_SCHEMAS[SERVICE_COLORTEMP_STEP],
         'async_handle_step_down_ct_service'
         )
-    if hasattr(discovery_info,'multicast'):
+    if hasattr(discovery_info, 'multicast'):
         entity = MLight(**discovery_info)
     else:
         entity = Light(**discovery_info)
     if discovery_info['new_join']:
-        for CH in entity.sub_listener.values(): 
+
+        for CH in entity.sub_listener.values():
             await CH.join_prepare()
-            
+
     e_registry = await hass.helpers.entity_registry.async_get_registry()
     reg_dev_id = e_registry.async_get_or_create(
             DOMAIN, PLATFORM, entity.uid,
@@ -148,6 +152,7 @@ class LightAttributeReports(Cluster_Server):
                     self._entity._color_temp = value
         self._entity.schedule_update_ha_state()
 
+
 class Light(zha_new.Entity, light.Light):
 
     """Representation of a ZHA or ZLL light."""
@@ -174,6 +179,10 @@ class Light(zha_new.Entity, light.Light):
         self._color_temp_physical_min = None
         self._color_temp_physical_max = None
         self._call_ongoing = False
+        self.CurrentHue = None
+        self.CurrentSaturation = None
+        self.EnhancedCurrentHue = None
+        self._caps = 0
 
         if Groups.cluster_id in self._in_clusters:
             self._groups = list()
@@ -344,7 +353,9 @@ class Light(zha_new.Entity, light.Light):
         if self.is_on:
             if self._supported_features & light.SUPPORT_BRIGHTNESS:
                 result = await safe_read(self._endpoint.level,
-                                                 ['current_level'])
+
+                                         ['current_level'])
+
                 if result:
                     self._brightness = result.get(
                             'current_level', self._brightness
@@ -353,14 +364,16 @@ class Light(zha_new.Entity, light.Light):
 
             if self._supported_features & light.SUPPORT_COLOR_TEMP:
                 result = await safe_read(self._endpoint.light_color,
-                                                 ['color_temperature'])
+                                         ['color_temperature'])
+
                 if result:
                     self._color_temp = result.get('color_temperature',
                                                   self._color_temp)
 
             if self._supported_features & light.SUPPORT_COLOR:
                 result = await safe_read(self._endpoint.light_color,
-                                                 ['current_x', 'current_y'])
+                                         ['current_x', 'current_y'])
+
                 if result:
                     if 'current_x' in result and 'current_y' in result:
                         self._hs_color = (
@@ -392,6 +405,7 @@ class Light(zha_new.Entity, light.Light):
                 auto_set_attribute_report(self._endpoint,  self._in_clusters)
             )
         a.ensure_future(self.async_update())
+        a.ensure_future(self._get_caps_features())
         self._assumed = False
         _LOGGER.debug(
                 "0x%04x device announce for light received",
@@ -431,37 +445,38 @@ class Light(zha_new.Entity, light.Light):
         try:
             self._supported_features = self._restore_data.attributes[ATTR_SUPPORTED_FEATURES]
         except Exception:
-            if hasattr(self._endpoint, 'light_color'):
+            await self._get_caps_features()
+
+    async def _get_caps_features(self):
+        self._caps = 0
+        if hasattr(self._endpoint, 'light_color'):
+            try:
+                self._caps = await safe_read(
+                    self._endpoint.light_color, ['color_capabilities']).get(
+                        'color_capabilities')
+            except AttributeError:
+                self._caps = CAPABILITIES_COLOR_XY
                 try:
-                    caps = await safe_read(
-                        self._endpoint.light_color, ['color_capabilities']).get(
-                            'color_capabilities')
+                    result = await safe_read(
+                        self._endpoint.light_color, ['color_temperature'])
+                    if result.get('color_temperature') is not UNSUPPORTED_ATTRIBUTE:
+                        self._caps = self._caps | CAPABILITIES_COLOR_TEMP
                 except AttributeError:
-                    caps = CAPABILITIES_COLOR_XY
-                    try:
-                        result = await safe_read(
-                            self._endpoint.light_color, ['color_temperature'])
-                        if result.get('color_temperature') is not UNSUPPORTED_ATTRIBUTE:
-                            caps = CAPABILITIES_COLOR_TEMP
-                    except AttributeError:
-                        pass
+                    pass
 
-        try:
-            if caps & CAPABILITIES_COLOR_TEMP:
-                self._supported_features |= light.SUPPORT_COLOR_TEMP
-                a.ensure_future(self.get_range_mired())  # TODO move to new join only
+        if self._caps & CAPABILITIES_COLOR_TEMP:
+            self._supported_features |= light.SUPPORT_COLOR_TEMP
+            a.ensure_future(self.get_range_mired())  # TODO move to new join only
+        if (self._caps & CAPABILITIES_COLOR_HUE) or (self._caps & CAPABILITIES_COLOR_EXT_HUE) or (self._caps & CAPABILITIES_COLOR_XY):
+            self._supported_features |= light.SUPPORT_COLOR
+            self._hs_color = (0, 0)
 
-            if caps & CAPABILITIES_COLOR_XY:
-                self._supported_features |= light.SUPPORT_COLOR
-                self._hs_color = (0, 0)
-        except NameError:  # if caps not exists
-            pass
         if LevelControl.cluster_id in self._in_clusters:
             self._supported_features |= light.SUPPORT_BRIGHTNESS
             self._supported_features |= light.SUPPORT_TRANSITION
             try:
                 self._brightness = self._restore_data.attributes[light.ATTR_BRIGHTNESS]
-            except KeyError:
+            except Exception:
                 pass
 
 
