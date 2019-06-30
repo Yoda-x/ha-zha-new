@@ -277,6 +277,7 @@ class Server_LightLink(Cluster_Server):
         self._groups = list()
         super().__init__(entity,  cluster,  identifier)
         
+
 #    def attribute_updated(self, attribute, value):
 #        _LOGGER.debug('LightLink report received: %s %s',  attribute,  value)
 
@@ -404,6 +405,7 @@ class Server_PowerConfiguration(Cluster_Server):
 class Server_Alarms(Cluster_Server):
 #    def attribute_updated(self, attribute, value):
 #        _LOGGER.info('Alarms report received: %s %s',  attribute,  value)
+
 #
 #        update_attrib = {}
 #        if attribute == 0:
