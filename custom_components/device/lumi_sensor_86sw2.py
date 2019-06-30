@@ -26,7 +26,6 @@ def _custom_endpoint_init(self, node_config, *argv):
 
 def _parse_attribute(entity, attrib, value, *argv, **kwargs):
     """ parse non standard atrributes."""
-    import zigpy.types as t
     from zigpy.zcl import foundation as f
     _LOGGER.debug('parse %s %s %a %s', attrib, value, argv, kwargs)
 

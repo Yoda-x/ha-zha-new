@@ -86,7 +86,6 @@ async def async_setup_platform(hass, config,
     else:
         entity = Light(**discovery_info)
     if discovery_info['new_join']:
-
         for CH in entity.sub_listener.values():
             await CH.join_prepare()
 
@@ -353,9 +352,7 @@ class Light(zha_new.Entity, light.Light):
         if self.is_on:
             if self._supported_features & light.SUPPORT_BRIGHTNESS:
                 result = await safe_read(self._endpoint.level,
-
                                          ['current_level'])
-
                 if result:
                     self._brightness = result.get(
                             'current_level', self._brightness
@@ -365,7 +362,6 @@ class Light(zha_new.Entity, light.Light):
             if self._supported_features & light.SUPPORT_COLOR_TEMP:
                 result = await safe_read(self._endpoint.light_color,
                                          ['color_temperature'])
-
                 if result:
                     self._color_temp = result.get('color_temperature',
                                                   self._color_temp)
@@ -373,7 +369,6 @@ class Light(zha_new.Entity, light.Light):
             if self._supported_features & light.SUPPORT_COLOR:
                 result = await safe_read(self._endpoint.light_color,
                                          ['current_x', 'current_y'])
-
                 if result:
                     if 'current_x' in result and 'current_y' in result:
                         self._hs_color = (
@@ -470,7 +465,6 @@ class Light(zha_new.Entity, light.Light):
         if (self._caps & CAPABILITIES_COLOR_HUE) or (self._caps & CAPABILITIES_COLOR_EXT_HUE) or (self._caps & CAPABILITIES_COLOR_XY):
             self._supported_features |= light.SUPPORT_COLOR
             self._hs_color = (0, 0)
-
         if LevelControl.cluster_id in self._in_clusters:
             self._supported_features |= light.SUPPORT_BRIGHTNESS
             self._supported_features |= light.SUPPORT_TRANSITION
