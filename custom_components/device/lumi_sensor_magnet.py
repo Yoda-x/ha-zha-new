@@ -80,6 +80,7 @@ def _custom_endpoint_init(self, node_config, *argv):
             ],
         }
         self.add_input_cluster(0x0500)
+        self.add_output_cluster(0x0500)
     elif selector == 'lumi.vibration.aq1' and self.endpoint_id == 1:
         config = {
             "type": "binary_sensor",
