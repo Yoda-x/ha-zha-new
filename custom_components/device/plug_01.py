@@ -17,8 +17,3 @@ def _custom_endpoint_init(self, node_config, *argv):
         "out_cluster": [],
     }
     node_config.update(config)
-
-
-def _parse_attribute(entity, attrib, value, *argv):
-    """parse non standard attributes."""
-    return(attrib, value)

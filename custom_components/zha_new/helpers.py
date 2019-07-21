@@ -39,9 +39,9 @@ async def cluster_discover_commands(cluster, timeout=2):
     return command_list
 
 
-async def cluster_discover_attributes(cluster, timeout=2):
+async def cluster_discover_attributes(cluster, timeout, start=0x0000):
 
-    cls_start = 0
+    cls_start = start
     cls_no = 20
     attribute_list = list()
     while True:

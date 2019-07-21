@@ -3,7 +3,7 @@ Support for ZigBee Home Automation devices.
 
 For more details about this component, please refer to the documentation at
 https://home-assistant.io/components/zha/
-
+Revision: 0.81.100
 """
 
 from importlib import import_module
@@ -28,7 +28,7 @@ _LOGGER = logging.getLogger(__name__)
 REQUIREMENTS = [
 #    'https://github.com/Yoda-x/bellows/archive/master.zip#bellows==100.7.4.9',
     'https://github.com/Yoda-x/bellows/archive/master.zip#bellows==100.7.4.10',
-    'https://github.com/Yoda-x/zigpy/archive/master.zip#zigpy==100.1.4.8',
+    'https://github.com/Yoda-x/zigpy/archive/master.zip#zigpy==100.1.4.9',
 #    'https://github.com/Yoda-x/zigpy/archive/master.zip#zigpy==100.1.4.7',
     ]
 
