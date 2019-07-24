@@ -1,0 +1,7 @@
+{
+  "domain": "zha_new",
+  "name": "zha new",
+  "dependencies": ["mqtt"],
+  "requirements": ["https://github.com/Yoda-x/bellows/archive/master.zip#bellows==100.7.4.10",
+                    "https://github.com/Yoda-x/zigpy/archive/master.zip#zigpy==100.1.4.9"]
+}
