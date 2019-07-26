@@ -422,23 +422,23 @@ class Server_ElectricalMeasurement(Cluster_Server):
 
     async def join_prepare(self, timeout=15):
         _LOGGER.debug("measurement_type: %s",  'start')
-        map = await safe_read(self._cluster,  ['measurement_type'])
-        if not map:
+        m_type = await safe_read(self._cluster,  ['measurement_type'])
+        if not m_type:
             _LOGGER.debug("measurement_type: %s",  'failed')
             return
-        _LOGGER.debug("measurement_type: %x",  map)
-        self._entity._device_state_attributes['measurement_type'] = map.get('measurement_type')
+        _LOGGER.debug("measurement_type: %x",  m_type)
+        self._entity._device_state_attributes['measurement_type'] = m_type.get('measurement_type')
 #                self._entity.schedule_update_ha_state()
 
     async def async_update(self):
         from .helpers import cluster_discover_attributes
         attribute_list = await cluster_discover_attributes(self._cluster, 2, start = 0x0500)
         attributes = [a.attrid for a in attribute_list]
-        map = await safe_read(self._cluster,  ['measurement_type'])
-        if not map:
+        result = await safe_read(self._cluster,  ['measurement_type'])
+        if not result:
             _LOGGER.debug("measurement_type: %s",  'failed')
             return
-        m_type=map.get('measurement_type')
+        m_type=result.get('measurement_type')
         if m_type & 8:
             phaseA = await safe_read(self._cluster, attributes)
 #            self._entity._device_state_attributes['active_power'] = active_power
