@@ -31,7 +31,7 @@ class Cluster_Server(object):
             self._parse_attribute = self._entity._custom_module['_parse_attribute']
 
     def _parse_attribute(self, entity, attr,  value, *args,   **kwargs):
-        _LOGGER.debug("called _parse attribute for %s", self._identifier)
+        _LOGGER.debug("called _parse attribute for &s-%s", self.entity,  self._identifier)
         return (attr,  value)
 
     def cluster_command(self, tsn, command_id, args):
@@ -275,14 +275,11 @@ class Server_OnOff(Cluster_Server):
 
 
 class Server_Groups(Cluster_Server):
-
     def attribute_updated(self, attribute, value):
         _LOGGER.debug('Group report received: %s %s', attribute, value)
 
+
 class Server_LightLink(Cluster_Server):
-
-
-
     def __init__(self, entity,  cluster,  identifier):
         self._groups = list()
         super().__init__(entity,  cluster,  identifier)
@@ -292,7 +289,6 @@ class Server_LightLink(Cluster_Server):
 #        _LOGGER.debug('LightLink report received: %s %s',  attribute,  value)
 
     async def join_prepare(self, timeout=15):
-
         from .helpers import cluster_commisioning_groups
         _LOGGER.debug('LightLink prepare')
         try:
@@ -432,7 +428,7 @@ class Server_ElectricalMeasurement(Cluster_Server):
 
     async def async_update(self):
         from .helpers import cluster_discover_attributes
-        attribute_list = await cluster_discover_attributes(self._cluster, 2, start = 0x0500)
+        attribute_list = await cluster_discover_attributes(self._cluster, 2, start = 0x0000)
         attributes = [a.attrid for a in attribute_list]
         result = await safe_read(self._cluster,  ['measurement_type'])
         if not result:

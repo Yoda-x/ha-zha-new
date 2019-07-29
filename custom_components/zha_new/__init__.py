@@ -9,6 +9,8 @@ Revision: 0.81.100
 from importlib import import_module
 import asyncio
 import logging
+_LOGGER = logging.getLogger(__name__)
+_LOGGER.debug("start zha_new")
 import voluptuous as vol
 from homeassistant.helpers.event import async_track_point_in_time
 import homeassistant.util.dt as dt_util
@@ -21,9 +23,7 @@ from homeassistant.util import slugify
 from homeassistant.helpers.restore_state import RestoreEntity
 from homeassistant.helpers.device_registry import CONNECTION_ZIGBEE
 from .const import *
-from .helpers import create_MC_Entity
-
-_LOGGER = logging.getLogger(__name__)
+#from .helpers import create_MC_Entity
 
 REQUIREMENTS = [
 #    'https://github.com/Yoda-x/bellows/archive/master.zip#bellows==100.7.4.9',
@@ -155,7 +155,7 @@ async def async_setup(hass, config):
     global APPLICATION_CONTROLLER
     import bellows.ezsp
     from bellows.zigbee.application import ControllerApplication
-
+    _LOGGER.debug("async_setup zha_new")
     ezsp_ = bellows.ezsp.EZSP()
     usb_path = config[DOMAIN].get(CONF_USB_PATH)
     baudrate = config[DOMAIN].get(CONF_BAUDRATE)
