@@ -160,6 +160,15 @@ class Sensor(zha_new.Entity):
                 "0x%04x device announce for sensor received",
                 self._endpoint._device.nwk,
             )
+            
+    @property
+    def should_poll(self) -> bool:
+        """Return True if entity has to be polled for state.
+        False if entity pushes its state to HA.
+        """
+        return False
+    
+    
 
 
 class TemperatureSensor(Sensor):
@@ -271,7 +280,9 @@ class ElectricalMeasurementSensor(Sensor):
         return True
     
     async def async_update(self):
-        _LOGGER.debug("async update")
+        _LOGGER.debug('[%s] Entity async_update called',
+                      self.entity_id,
+                      )
         for CH in self.sub_listener.values(): 
             await CH.async_update()
     
@@ -310,6 +321,9 @@ class MeteringSensor(Sensor):
 
     async def async_update(self):
         """Retrieve latest state."""
+        _LOGGER.debug('[0x%04x] Entity async_update called',
+                      self.nwk,
+                      )
 #        ptr=0
 #        #_LOGGER.debug("%s async_update", self.entity_id)
 #      #  while len_v==1:

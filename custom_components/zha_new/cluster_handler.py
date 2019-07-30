@@ -12,7 +12,7 @@ from zigpy.zcl.clusters.general import Basic, PowerConfiguration, Alarms
 from zigpy.zcl.clusters.security import IasZone
 from zigpy.zcl.clusters.measurement import OccupancySensing
 from zigpy.zcl.clusters.measurement import TemperatureMeasurement
-from .helpers import req_conf_report, safe_read
+from .helpers import req_conf_report, safe_read, cluster_discover_attributes
 from .const import BatteryType
 _LOGGER = logging.getLogger(__name__)
 
@@ -65,7 +65,11 @@ class Cluster_Server(object):
         return
         
     async def async_update(self):
-        return
+         _LOGGER.debug('[%s:0x%04x] cluster async_update called',
+                      self._entity.entity_id,
+                      self._cluster.cluster_id,
+                      )
+        
 
 
 class Server_Basic(Cluster_Server):
@@ -427,7 +431,10 @@ class Server_ElectricalMeasurement(Cluster_Server):
 #                self._entity.schedule_update_ha_state()
 
     async def async_update(self):
-        from .helpers import cluster_discover_attributes
+        _LOGGER.debug('[%s:0x%04x] cluster async_update called',
+                      self._entity.entity_id,
+                      self._cluster.cluster_id,
+                      )
         attribute_list = await cluster_discover_attributes(self._cluster, 2, start = 0x0000)
         attributes = [a.attrid for a in attribute_list]
         result = await safe_read(self._cluster,  ['measurement_type'])

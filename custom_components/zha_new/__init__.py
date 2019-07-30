@@ -798,6 +798,12 @@ class Entity(RestoreEntity):
             'model': self._model,
             'manufacturer': self._manufacturer,
         }
+        
+    async def async_update(self):
+        _LOGGER.debug('[%s] Entity async_update called',
+                      self.entity_id,
+                      )
+  
 
 class MEntity(Entity):
     
