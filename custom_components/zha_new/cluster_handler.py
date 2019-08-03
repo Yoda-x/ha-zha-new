@@ -435,8 +435,10 @@ class Server_ElectricalMeasurement(Cluster_Server):
                       self._entity.entity_id,
                       self._cluster.cluster_id,
                       )
+#        return
         attribute_list = await cluster_discover_attributes(self._cluster, 2, start = 0x0000)
         attributes = [a.attrid for a in attribute_list]
+        return
         result = await safe_read(self._cluster,  ['measurement_type'])
         if not result:
             _LOGGER.debug("measurement_type: %s",  'failed')
@@ -449,8 +451,8 @@ class Server_ElectricalMeasurement(Cluster_Server):
 
 
 class Server_Alarms(Cluster_Server):
-#    def attribute_updated(self, attribute, value):
-#        _LOGGER.info('Alarms report received: %s %s',  attribute,  value)
+    def attribute_updated(self, attribute, value):
+        _LOGGER.info('Alarms report received: %s %s',  attribute,  value)
 
 #
 #        update_attrib = {}
@@ -460,7 +462,7 @@ class Server_Alarms(Cluster_Server):
 #        self._entity._device_state_attributes.update(update_attrib)
 #
 #        self._entity.schedule_update_ha_state()
-    pass
+#    pass
 
 def init_clusters(entity, clusters):
     for (_, cluster) in clusters:
