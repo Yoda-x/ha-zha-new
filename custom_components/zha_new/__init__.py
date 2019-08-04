@@ -27,8 +27,8 @@ from .const import *
 
 REQUIREMENTS = [
 #    'https://github.com/Yoda-x/bellows/archive/master.zip#bellows==100.7.4.9',
-    'https://github.com/Yoda-x/bellows/archive/master.zip#bellows==100.7.4.10',
-    'https://github.com/Yoda-x/zigpy/archive/master.zip#zigpy==100.1.4.9',
+    'https://github.com/Yoda-x/bellows/archive/master.zip#bellows==100.7.4.12',
+    'https://github.com/Yoda-x/zigpy/archive/master.zip#zigpy==100.1.4.10',
 #    'https://github.com/Yoda-x/zigpy/archive/master.zip#zigpy==100.1.4.7',
     ]
 
