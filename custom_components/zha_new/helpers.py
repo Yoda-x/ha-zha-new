@@ -1,5 +1,4 @@
 import logging
-import asyncio
 #import zigpy.types as t
 import zigpy as z
 _LOGGER = logging.getLogger(__name__)
@@ -17,7 +16,7 @@ async def cluster_discover_commands(cluster, timeout=2):
     command_list = list()
     while True:
         try:
-            done, result = await asyncio.wait_for(cluster.discover_command_rec(cls_start, cls_no), timeout)
+            done, result = await cluster.discover_command_rec(cls_start, cls_no)
             _LOGGER.debug("[0x%04x:%s] discover_cluster_commands : %s",  
                           cluster._endpoint._device.nwk, cluster.cluster_id, result)
             command_list.extend(result).sort()
@@ -51,7 +50,7 @@ async def cluster_discover_attributes(cluster, timeout, start=0x0000):
                   cluster._endpoint._device.nwk, cluster.cluster_id)
     while True:
         try:
-            done,  result = await asyncio.wait_for(cluster.discover_attributes(cls_start, cls_no),  timeout)
+            done,  result = await cluster.discover_attributes(cls_start, cls_no)
             _LOGGER.debug("[0x%04x:%s] discover_cluster_attributes: %s",
                 cluster._endpoint._device.nwk, cluster.cluster_id,
                 result)
@@ -81,7 +80,7 @@ async def cluster_commisioning_groups(cluster, timeout=2):
     cls_no = 0
     group_list = list()
     while True:
-        total, cls_start,  result = await asyncio.wait_for(cluster.get_group_identifier_request(cls_start), timeout)
+        total, cls_start,  result = await cluster.get_group_identifier_request(cls_start)
         _LOGGER.debug("[0x%04x:%s] discover_group_identifier: %s",
                   cluster._endpoint._device.nwk, cluster.cluster_id,
                   result)
