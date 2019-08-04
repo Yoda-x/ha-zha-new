@@ -1,5 +1,4 @@
 import logging
-import asyncio
 #import zigpy.types as t
 import zigpy as z
 _LOGGER = logging.getLogger(__name__)
@@ -17,8 +16,9 @@ async def cluster_discover_commands(cluster, timeout=2):
     command_list = list()
     while True:
         try:
-            done, result = await asyncio.wait_for(cluster.discover_command_rec(cls_start, cls_no), timeout)
-            _LOGGER.debug("discover_cluster_commands for %s: %s",  cluster.cluster_id, result)
+            done, result = await cluster.discover_command_rec(cls_start, cls_no)
+            _LOGGER.debug("[0x%04x:%s] discover_cluster_commands : %s",  
+                          cluster._endpoint._device.nwk, cluster.cluster_id, result)
             command_list.extend(result).sort()
             if done:
                 break
@@ -30,24 +30,30 @@ async def cluster_discover_commands(cluster, timeout=2):
             return
         except Exception as e:
             _LOGGER.debug(
-                "catched exception in cluster_discover_commands %s",
+                "[0x%04x:%s] catched exception in cluster_discover_commands %s",
+                cluster._endpoint._device.nwk, cluster.cluster_id,
                 e
                 )
             break
-    _LOGGER.debug("discover_cluster_commands for %s: %s",
-            cluster.cluster_id, command_list)
+    _LOGGER.debug("[0x%04x:%s] discover_cluster_commands: %s",
+                cluster._endpoint._device.nwk, cluster.cluster_id,
+                command_list)
     return command_list
 
 
-async def cluster_discover_attributes(cluster, timeout=2):
+async def cluster_discover_attributes(cluster, timeout, start=0x0000):
 
-    cls_start = 0
+    cls_start = start
     cls_no = 20
     attribute_list = list()
+    _LOGGER.debug("[0x%04x:%s] Start discover_cluster_attributes ",  
+                  cluster._endpoint._device.nwk, cluster.cluster_id)
     while True:
         try:
-            done,  result = await asyncio.wait_for(cluster.discover_attributes(cls_start, cls_no),  timeout)
-            _LOGGER.debug("discover_cluster_attributes for %s: %s",  cluster.cluster_id, result)
+            done,  result = await cluster.discover_attributes(cls_start, cls_no)
+            _LOGGER.debug("[0x%04x:%s] discover_cluster_attributes: %s",
+                cluster._endpoint._device.nwk, cluster.cluster_id,
+                result)
             attribute_list.extend(result)
             if done:
                 break
@@ -58,9 +64,13 @@ async def cluster_discover_attributes(cluster, timeout=2):
 #        except AttributeError:
 #            return
         except Exception as e:
-            _LOGGER.debug("catched exception in cluster_discover_attributes %s",  e)
+            _LOGGER.debug("[0x%04x:%s] catched exception in cluster_discover_attributes %s",
+                cluster._endpoint._device.nwk, cluster.cluster_id,
+                e)
             break
-    _LOGGER.debug("discover_attributes for %s: %s",  cluster.cluster_id, attribute_list)
+    _LOGGER.debug("[0x%04x:%sdiscover_attributes for %s: %s",  
+                cluster._endpoint._device.nwk, cluster.cluster_id,
+                attribute_list)
     return attribute_list
 
 
@@ -70,13 +80,17 @@ async def cluster_commisioning_groups(cluster, timeout=2):
     cls_no = 0
     group_list = list()
     while True:
-        total, cls_start,  result = await asyncio.wait_for(cluster.get_group_identifier_request(cls_start), timeout)
-        _LOGGER.debug("discover_group_identifier for %s: %s",  cluster.cluster_id, result)
+        total, cls_start,  result = await cluster.get_group_identifier_request(cls_start)
+        _LOGGER.debug("[0x%04x:%s] discover_group_identifier: %s",
+                  cluster._endpoint._device.nwk, cluster.cluster_id,
+                  result)
         group_list.extend(result)
         cls_start += cls_no
         if (cls_start + 1) >= total:
             break
-        _LOGGER.debug("discover_commisioning_groups for %s: %s",  cluster.cluster_id, group_list)
+        _LOGGER.debug("[0x%04x:%s] discover_commisioning_groups: %s",
+                cluster._endpoint._device.nwk, cluster.cluster_id,
+                group_list)
 
     return [group.GroupId for group in group_list]
 
@@ -128,8 +142,8 @@ async def create_MC_Entity(application, group_id):
         {'discovery_key': device_key},
         application._config,
     )
-        
-        
+
+
 async def req_conf_report(report_cls, report_attr, report_min, report_max, report_change, mfgCode=None):
         from zigpy.zcl.foundation import Status
 
@@ -163,7 +177,7 @@ async def req_conf_report(report_cls, report_attr, report_min, report_max, repor
                           endpoint.endpoint_id,
                           report_cls.cluster_id,
                           e)
-                          
+
 async def safe_read(cluster, attributes):
     try:
         result, _ = await cluster.read_attributes(
@@ -177,4 +191,6 @@ async def safe_read(cluster, attributes):
                                                        exc_traceback)
         for e in exep_data:
             _LOGGER.debug("> %s", e)
-        _LOGGER.debug("safe_read failed: %s", e)
+        _LOGGER.debug("[0x%04x:%s] safe_read failed: %s",
+                cluster._endpoint._device.nwk, cluster.cluster_id,
+                e)

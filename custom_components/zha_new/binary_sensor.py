@@ -261,7 +261,14 @@ class BinarySensor(zha_new.Entity, BinarySensorDevice):
     def is_on(self) -> bool:
         """Return True if entity is on."""
         return bool(self._state)
-
+        
+    @property
+    def should_poll(self) -> bool:
+        """Return True if entity has to be polled for state.
+        False if entity pushes its state to HA.
+        """
+        return False
+        
     @property
     def device_class(self):
         """Return the class of this device, from component DEVICE_CLASSES."""

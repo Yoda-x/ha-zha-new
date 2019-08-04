@@ -5,8 +5,14 @@ import asyncio
 import zigpy.types as t
 import datetime
 from homeassistant.helpers.event import async_track_point_in_time
-from zigpy.zcl.clusters.general import OnOff
-from .helpers import req_conf_report, safe_read
+from zigpy.zcl.clusters.homeautomation import ElectricalMeasurement
+from zigpy.zcl.clusters.general import LevelControl, OnOff, Scenes
+from zigpy.zcl.clusters.lightlink import LightLink
+from zigpy.zcl.clusters.general import Basic, PowerConfiguration, Alarms
+from zigpy.zcl.clusters.security import IasZone
+from zigpy.zcl.clusters.measurement import OccupancySensing
+from zigpy.zcl.clusters.measurement import TemperatureMeasurement
+from .helpers import req_conf_report, safe_read, cluster_discover_attributes
 from .const import BatteryType
 _LOGGER = logging.getLogger(__name__)
 
@@ -24,9 +30,9 @@ class Cluster_Server(object):
         if self._entity._custom_module.get('_parse_attribute', None):
             self._parse_attribute = self._entity._custom_module['_parse_attribute']
 
-    def _parse_attribute(self, *args,  **kwargs):
-        _LOGGER.debug("called _parse attribute for %s", self._identifier)
-        return (args, kwargs)
+    def _parse_attribute(self, entity, attr,  value, *args,   **kwargs):
+        _LOGGER.debug("called _parse attribute for &s-%s", self.entity,  self._identifier)
+        return (attr,  value)
 
     def cluster_command(self, tsn, command_id, args):
         _LOGGER.debug('cluster command received:[0x%04x:%s] %s',
@@ -48,16 +54,22 @@ class Cluster_Server(object):
                         value,
                         self._entity._model,
                         cluster_id=self._cluster.cluster_id)
-        try: 
+        try:
             if attribute == self._entity.value_attribute:
                 self._entity._state = value
         except Exception:
             pass
         self._entity.schedule_update_ha_state()
-        
+
     async def join_prepare(self, **kwargs):
         return
-  
+        
+    async def async_update(self):
+         _LOGGER.debug('[%s:0x%04x] cluster async_update called',
+                      self._entity.entity_id,
+                      self._cluster.cluster_id,
+                      )
+        
 
 
 class Server_Basic(Cluster_Server):
@@ -244,10 +256,10 @@ class Server_OnOff(Cluster_Server):
 
     def attribute_updated(self, attribute, value):
         _LOGGER.debug('Attribute report received on cluster [0x%04x:%s:]=%s',
-                self._cluster.cluster_id,
-                attribute,
-                value
-                )
+                      self._cluster.cluster_id,
+                      attribute,
+                      value
+                      )
 
         (attribute, value) = self._parse_attribute(
                         self._entity,
@@ -255,33 +267,32 @@ class Server_OnOff(Cluster_Server):
                         value,
                         self._entity._model,
                         cluster_id=self._cluster.cluster_id)
-        try: 
+        try:
             if attribute == self._entity.value_attribute:
                 self._entity._state = value
         except Exception:
-          pass
-        else:
+            _LOGGER.debug("no default cluster defined")
+        finally:
             if attribute == 0:
                 self._entity._state = bool(value)
         self._entity.schedule_update_ha_state()
 
 
 class Server_Groups(Cluster_Server):
-
     def attribute_updated(self, attribute, value):
         _LOGGER.debug('Group report received: %s %s', attribute, value)
 
+
 class Server_LightLink(Cluster_Server):
-  
     def __init__(self, entity,  cluster,  identifier):
         self._groups = list()
         super().__init__(entity,  cluster,  identifier)
-        
+
 
 #    def attribute_updated(self, attribute, value):
 #        _LOGGER.debug('LightLink report received: %s %s',  attribute,  value)
 
-    async def join_prepare(self, timeout = 15):
+    async def join_prepare(self, timeout=15):
         from .helpers import cluster_commisioning_groups
         _LOGGER.debug('LightLink prepare')
         try:
@@ -289,7 +300,8 @@ class Server_LightLink(Cluster_Server):
             _LOGGER.debug("discovered group from lightlink: %s", self._groups)
         except Exception as e:
             _LOGGER.debug(
-            "catched exception in commissioning group_id %s",  e)
+                "catched exception in commissioning group_id %s",  e)
+
 
 class Server_Scenes(Cluster_Server):
     def cluster_command(self, tsn, command_id, args):
@@ -380,7 +392,7 @@ class Server_PowerConfiguration(Cluster_Server):
         self._entity._device_state_attributes.update(update_attrib)
 #        self._entity.schedule_update_ha_state()
 
-    async def join_prepare(self, timeout = 15):
+    async def join_prepare(self, timeout=15):
         from .helpers import cluster_discover_attributes
         _LOGGER.debug('Power prepare')
         attribute_list = await cluster_discover_attributes(self._cluster, timeout)
@@ -400,11 +412,47 @@ class Server_PowerConfiguration(Cluster_Server):
                 batterySize = result.get('battery_size')
                 self._entity._device_state_attributes['battery_type'] = BatteryType.get(batterySize)
 #                self._entity.schedule_update_ha_state()
-  
+
+
+
+class Server_ElectricalMeasurement(Cluster_Server):
+    
+#    def attribute_updated(self, attribute, value):
+#        pass
+
+    async def join_prepare(self, timeout=15):
+        _LOGGER.debug("measurement_type: %s",  'start')
+        m_type = await safe_read(self._cluster,  ['measurement_type'])
+        if not m_type:
+            _LOGGER.debug("measurement_type: %s",  'failed')
+            return
+        _LOGGER.debug("measurement_type: %x",  m_type)
+        self._entity._device_state_attributes['measurement_type'] = m_type.get('measurement_type')
+#                self._entity.schedule_update_ha_state()
+
+    async def async_update(self):
+        _LOGGER.debug('[%s:0x%04x] cluster async_update called',
+                      self._entity.entity_id,
+                      self._cluster.cluster_id,
+                      )
+#        return
+        attribute_list = await cluster_discover_attributes(self._cluster, 2, start = 0x0000)
+        attributes = [a.attrid for a in attribute_list]
+        return
+        result = await safe_read(self._cluster,  ['measurement_type'])
+        if not result:
+            _LOGGER.debug("measurement_type: %s",  'failed')
+            return
+        m_type=result.get('measurement_type')
+        if m_type & 8:
+            phaseA = await safe_read(self._cluster, attributes)
+#            self._entity._device_state_attributes['active_power'] = active_power
+            _LOGGER.debug("Phase A: %s",  phaseA)
+
 
 class Server_Alarms(Cluster_Server):
-#    def attribute_updated(self, attribute, value):
-#        _LOGGER.info('Alarms report received: %s %s',  attribute,  value)
+    def attribute_updated(self, attribute, value):
+        _LOGGER.info('Alarms report received: %s %s',  attribute,  value)
 
 #
 #        update_attrib = {}
@@ -414,4 +462,43 @@ class Server_Alarms(Cluster_Server):
 #        self._entity._device_state_attributes.update(update_attrib)
 #
 #        self._entity.schedule_update_ha_state()
-    pass
+#    pass
+
+def init_clusters(entity, clusters):
+    for (_, cluster) in clusters:
+        if LevelControl.cluster_id == cluster.cluster_id:
+            entity.sub_listener[cluster.cluster_id] = Server_LevelControl(
+                            entity, cluster, 'Level')
+        elif OnOff.cluster_id == cluster.cluster_id:
+            entity.sub_listener[cluster.cluster_id] = Server_OnOff(
+                            entity, cluster, 'OnOff')
+        elif Scenes.cluster_id == cluster.cluster_id:
+            entity.sub_listener[cluster.cluster_id] = Server_Scenes(
+                            entity, cluster, "Scenes")
+        elif IasZone.cluster_id == cluster.cluster_id:
+            entity.sub_listener[cluster.cluster_id] = Server_IasZone(
+                            entity, cluster, "IasZone")
+        elif Basic.cluster_id == cluster.cluster_id:
+            entity.sub_listener[cluster.cluster_id] = Server_Basic(
+                            entity, cluster, "Basic")
+        elif OccupancySensing.cluster_id == cluster.cluster_id:
+            entity.sub_listener[cluster.cluster_id] = Server_OccupancySensing(
+                            entity, cluster, "OccupancySensing")
+        elif TemperatureMeasurement.cluster_id == cluster.cluster_id:
+            entity.sub_listener[cluster.cluster_id] = Server_TemperatureMeasurement(
+                            entity, cluster, "TemperatureMeasurement")
+        elif PowerConfiguration.cluster_id == cluster.cluster_id:
+            entity.sub_listener[cluster.cluster_id] = Server_PowerConfiguration(
+                            entity, cluster, "PowerConfiguration")
+        elif LightLink.cluster_id == cluster.cluster_id:
+            entity.sub_listener[cluster.cluster_id] = Server_LightLink(
+                            entity, cluster, "LightLink")
+        elif ElectricalMeasurement.cluster_id == cluster.cluster_id:
+            entity.sub_listener[cluster.cluster_id] = Server_ElectricalMeasurement(
+                            entity, cluster, "ElectricalMeasurement")
+        elif Alarms.cluster_id == cluster.cluster_id:
+            entity.sub_listener[cluster.cluster_id] = Server_Alarms(
+                            entity, cluster, "Alarms")
+        else:
+            entity.sub_listener[cluster.cluster_id] = Cluster_Server(
+                            entity, cluster, cluster.cluster_id)

@@ -12,6 +12,7 @@ from homeassistant.const import (
         STATE_UNKNOWN, 
         TEMP_CELSIUS, 
         )
+from custom_components.zha_new.cluster_handler import init_clusters
 import custom_components.zha_new as zha_new
 from asyncio import ensure_future
 from .const import DOMAIN as PLATFORM
@@ -82,6 +83,7 @@ async def make_sensor(discovery_info):
     from zigpy.zcl.clusters.measurement import PressureMeasurement
     from zigpy.zcl.clusters.measurement import IlluminanceMeasurement
     from zigpy.zcl.clusters.smartenergy import Metering
+    from zigpy.zcl.clusters.homeautomation import ElectricalMeasurement
 
     in_clusters = discovery_info['in_clusters']
     endpoint = discovery_info['endpoint']
@@ -101,6 +103,9 @@ async def make_sensor(discovery_info):
     elif IlluminanceMeasurement.cluster_id in in_clusters:
         sensor = IlluminanceSensor(**discovery_info,
                                    cluster_key=IlluminanceMeasurement.ep_attribute)
+    elif ElectricalMeasurement.cluster_id in in_clusters:
+        sensor = ElectricalMeasurementSensor(**discovery_info,
+                                   cluster_key=ElectricalMeasurement.ep_attribute)
     else:
         sensor = Sensor(**discovery_info)
 
@@ -129,9 +134,8 @@ class Sensor(zha_new.Entity):
                       endpoint._device.nwk,
                       endpoint.endpoint_id,
                       list(in_clusters.keys()), list(out_clusters.keys()))
-        for (_, cluster) in clusters:
-            cluster.add_listener(self)
-
+ 
+        init_clusters(self, clusters)
         endpoint._device.zdo.add_listener(self)
 
     def attribute_updated(self, attribute, value):
@@ -156,6 +160,15 @@ class Sensor(zha_new.Entity):
                 "0x%04x device announce for sensor received",
                 self._endpoint._device.nwk,
             )
+            
+    @property
+    def should_poll(self) -> bool:
+        """Return True if entity has to be polled for state.
+        False if entity pushes its state to HA.
+        """
+        return False
+    
+    
 
 
 class TemperatureSensor(Sensor):
@@ -253,6 +266,26 @@ class IlluminanceSensor(Sensor):
 #            return None
 #        return self._state
 
+class ElectricalMeasurementSensor(Sensor):
+  
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self._device_class = 'ElectricalMeasurement'
+        
+    @property
+    def should_poll(self) -> bool:
+        """Return True if entity has to be polled for state.
+        False if entity pushes its state to HA.
+        """
+        return True
+    
+    async def async_update(self):
+        _LOGGER.debug('[%s] Entity async_update called',
+                      self.entity_id,
+                      )
+        for CH in self.sub_listener.values(): 
+            await CH.async_update()
+    
 
 class MeteringSensor(Sensor):
 
@@ -288,6 +321,9 @@ class MeteringSensor(Sensor):
 
     async def async_update(self):
         """Retrieve latest state."""
+        _LOGGER.debug('[0x%04x] Entity async_update called',
+                      self.nwk,
+                      )
 #        ptr=0
 #        #_LOGGER.debug("%s async_update", self.entity_id)
 #      #  while len_v==1:
