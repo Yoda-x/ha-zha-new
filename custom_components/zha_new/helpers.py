@@ -194,3 +194,19 @@ async def safe_read(cluster, attributes):
         _LOGGER.debug("[0x%04x:%s] safe_read failed: %s",
                 cluster._endpoint._device.nwk, cluster.cluster_id,
                 e)
+                
+async def safe_write(cluster, attribute, value, **kwargs):
+    try:
+        result = await cluster.write_attributes(cluster, {attribute: value}, **kwargs)
+        _LOGGER.debug("safe_write ok: %s", result)
+    except Exception as e:  # pylint: disable=broad-except       
+        exc_type, exc_value, exc_traceback = sys.exc_info()
+        exep_data = traceback.format_exception(exc_type, exc_value,
+                                                       exc_traceback)
+        for e in exep_data:
+            _LOGGER.debug("> %s", e)
+        _LOGGER.debug("[0x%04x:%s] safe_write failed: %s",
+                cluster._endpoint._device.nwk, cluster.cluster_id,
+                e)
+    
+    
